@@ -1,1 +1,1 @@
-Exploring gametocytogenesis in Plasmodium berghei
+Exploring gametocytogenesis in *Plasmodium berghei*
