@@ -1,0 +1,1712 @@
+---
+title: 'SS2 Quality Control'
+subtitle: 'Gametocyte Development in <i>Plasmodium berghei</i>'
+author: "[Andrew Russell](https://ajcrussell.wixsite.com/mysite/about)"
+institute: Wellcome Sanger Institute
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output:
+  html_notebook:
+    theme: cosmo
+    toc: yes
+    toc_depth: 3
+    #toc_float: yes
+    df_print: paged
+---
+
+***
+# 1. Read in data  {.tabset}
+
+### Load required packages
+
+```{r, echo = FALSE}
+
+## Seurat is needed for most of this script
+if(require("Seurat", quietly = TRUE)){
+    print("Seurat is loaded correctly")
+} else {
+    print("trying to install Seurat")
+    install.packages("Seurat")
+    if(require(Seurat)){
+        print("Seurat installed and loaded")
+    } else {
+        stop("could not install Seurat")
+    }
+}
+
+## viridis is needed to colour data in plots
+if(require("viridis", quietly = TRUE)){
+    print("viridis is loaded correctly")
+} else {
+    print("trying to install viridis")
+    install.packages("viridis")
+    if(require(viridis)){
+        print("viridis installed and loaded")
+    } else {
+        stop("could not install viridis")
+    }
+}
+
+## ggpubr is needed for plotting
+if(require("ggpubr", quietly = TRUE)){
+    print("ggpubr is loaded correctly")
+} else {
+    print("trying to install ggpubr")
+    install.packages("ggpubr")
+    if(require(ggpubr)){
+        print("ggpubr installed and loaded")
+    } else {
+        stop("could not install ggpubr")
+    }
+}
+
+## cowplot is needed for plotting
+if(require("cowplot", quietly = TRUE)){
+    print("cowplot is loaded correctly")
+} else {
+    print("trying to install cowplot")
+    install.packages("cowplot")
+    if(require(cowplot)){
+        print("cowplot installed and loaded")
+    } else {
+        stop("could not install cowplot")
+    }
+}
+
+## ggplot2bdc is needed for plotting plate maps
+if(require("ggplot2bdc", quietly = TRUE)){
+    print("ggplot2bdc is loaded correctly")
+} else {
+    print("trying to install ggplot2bdc")
+    if(!require("devtools")) install.packages("devtools")
+    devtools::install_github("briandconnelly/ggplot2bdc")
+    if(require(ggplot2bdc)){
+        print("ggplot2bdc installed and loaded")
+    } else {
+        stop("could not install ggplot2bdc")
+    }
+}
+
+## patchwork is needed for plotting
+## WARNING! cowplot over-rides this by masking it so be careful.
+if(require("patchwork", quietly = TRUE)){
+    print("patchwork is loaded correctly")
+} else {
+    print("trying to install patchwork")
+    install.packages("patchwork")
+    if(require(patchwork)){
+        print("patchwork installed and loaded")
+    } else {
+        stop("could not install patchwork")
+    }
+}
+```
+
+### GTF 
+
+This will be helpful later on. This contains annotations for each gene:
+```{r}
+##Import gtf file:
+gtf <- read.table("/Users/Andy/Desktop/GCSKO/GCSKO_analysis_git/data/Pberghei.gtf", sep="\t", header = FALSE)
+head(gtf)
+```
+*N.B.This was the .gtf file used for feature coutning the data
+
+### Counts and Pheno
+```{r}
+## read in counts
+counts <- read.delim("/Users/Andy/Desktop/GCSKO/GCSKO_analysis_git/data/counts_2020.csv", sep = ",", stringsAsFactors = FALSE, row.names = 1)
+
+## read in pheno
+pheno <- read.delim("/Users/Andy/Desktop/GCSKO/GCSKO_analysis_git/data/pheno_2020.csv", sep = ",", stringsAsFactors = FALSE)
+
+## check dimensions of both
+expected_number_of_cells <- ( 384 * 12)
+paste("The expected number of cells is", expected_number_of_cells)
+paste("number of genes in counts", dim(counts)[1], "number of cells in counts", dim(counts)[2])
+paste("number of columns in counts", dim(pheno)[2], "number of cells in pheno", dim(pheno)[1])
+
+## make rownames the sample_id in pheno
+rownames(pheno) <- pheno$sample_id
+
+## check that the names are the same
+paste("Are the names the same?")
+table((colnames(counts) %in% rownames(pheno)))
+```
+
+### Remove Anopheles cells
+```{r}
+## get rid of the cells by finding all the cells that have As in their species col
+names_of_mosquito_cells <- rownames(pheno[(pheno$species == "As"), ])
+
+## which gives
+table(colnames(counts) %in% names_of_mosquito_cells)
+
+## subset 
+counts <- counts[,-which(colnames(counts) %in% names_of_mosquito_cells)]
+pheno <- pheno[-(which(rownames(pheno) %in% names_of_mosquito_cells)), ]
+
+## check dimensions
+paste("number of genes in counts", dim(counts)[1], "number of cells in counts", dim(counts)[2])
+paste("number of columns in counts", dim(pheno)[2], "number of cells in pheno", dim(pheno)[1])
+```
+
+### Remove control cells:
+```{r}
+## find all cells that are labelled as such
+names_of_control_cells <- rownames(pheno[(pheno$is_control == "TRUE"), ])
+
+## which gives
+table(colnames(counts) %in% names_of_control_cells)
+
+## subset 
+counts <- counts[,-which(colnames(counts) %in% names_of_control_cells)]
+pheno <- pheno[-(which(rownames(pheno) %in% names_of_control_cells)), ]
+
+## check dimensions
+paste("number of genes in counts", dim(counts)[1], "number of cells in counts", dim(counts)[2])
+paste("number of columns in counts", dim(pheno)[2], "number of cells in pheno", dim(pheno)[1])
+```
+
+### Remove 10 and 27
+
+10 and 27 failed genotyping and so will be removed
+```{r}
+## find all cells that are labelled as such
+names_of_genotype_fail_cells <- rownames(pheno[(pheno$sub_identity_updated %in% c("GCSKO-10", "WT-10", "GCSKO-27")), ])
+
+## which gives
+table(colnames(counts) %in% names_of_genotype_fail_cells)
+
+## subset 
+counts <- counts[,-which(colnames(counts) %in% names_of_genotype_fail_cells)]
+pheno <- pheno[-(which(rownames(pheno) %in% names_of_genotype_fail_cells)), ]
+
+## check dimensions
+paste("number of genes in counts", dim(counts)[1], "number of cells in counts", dim(counts)[2])
+paste("number of columns in counts", dim(pheno)[2], "number of cells in pheno", dim(pheno)[1])
+```
+
+### Filter non-genes out of counts
+
+Filter out the QC columns contained in counts that do not correspond to genes
+```{r}
+## since the datatable currently contains:
+paste("The current counts table contains these non-gene rows:")
+rownames(counts[-(grep("PBANKA*", rownames(counts))), ])
+
+## subset
+# make a copy of counts just in case that info is useful in future analysis
+counts_genes <- counts
+# remove non-gene rows
+counts <- counts[(grep("PBANKA*", rownames(counts))), ]
+#check
+paste("number of genes in counts", dim(counts)[1], "number of cells in counts", dim(counts)[2])
+```
+
+This 5245 includes all types of genes:
+```{r}
+## check size
+paste("The dimensions of the GTF file are:")
+dim(gtf[-which(gtf$V3 == "CDS"),])
+
+## look at possible types of genes
+paste("The types of genes in the dataframe are:")
+levels(gtf$V3)
+```
+
+***
+# 2. Filtering {.tabset}
+
+### set-up data
+
+make seurat object
+```{r}
+## make seurat object
+ss2_mutants <- CreateSeuratObject(counts = counts, project = "GCSKO", min.cells = 0, min.features = 1, meta.data = pheno)
+# n.b. cells must have at least 1 gene per cell because this causes problems downstream
+
+## add experiment column to meta data:
+ss2_mutants@meta.data$experiment <- "ss2_mutants"
+
+## inspect object
+ss2_mutants
+```
+
+```{r}
+## how many genes are not detected at all?
+paste(length(which(rowSums(ss2_mutants@assays$RNA@counts) == 0)), " genes are not detected in any cell")
+```
+
+```{r, echo = FALSE}
+paste(length(colnames(counts)) - length(colnames(ss2_mutants@assays$RNA@counts)), " cells have zero counts")
+```
+
+### Filtered Cells Plate Heatmap
+
+set up data
+```{r}
+## load in dplyr 
+library(dplyr) #for mutating table
+
+## make dataframe
+df_platemap <- data.frame(well_name = pheno$well_name_R, cell_name = rownames(pheno), row.names = rownames(pheno))
+
+## get cells that are filtered out
+cells_kept <- which(rownames(df_platemap) %in% rownames(ss2_mutants@meta.data))
+
+## make extra column in plotting df
+df_platemap$colour <- "filtered_out"
+df_platemap$colour[cells_kept] <- "passed_QC"
+
+## inspect
+head(df_platemap)
+```
+
+Make a table for each
+```{r}
+table_platemap <- as.data.frame(table(df_platemap$well_name, df_platemap$colour))
+names(table_platemap) <- c("well", "filtered", "frequency")
+
+#make separate dfs
+df_1 <- table_platemap[table_platemap$filtered == "filtered_out",]
+df_2 <- table_platemap[table_platemap$filtered == "passed_QC",]
+
+# merge them back together
+table_platemap <- merge(df_1, df_2, by = "well", all = TRUE)
+
+## remove the irrelevant rows and rename cols and rename rows
+table_platemap <- table_platemap[ ,c(1,3,5)]
+names(table_platemap) <- c("well", "filtered_out", "passed_QC")
+table_platemap$well_name <- rownames(table_platemap)
+
+## add A1?
+#table_platemap[96,] <- c("A1", "0", "0")
+
+## add cols for plotting
+table_platemap$Row <- as.numeric(match(toupper(substr(table_platemap$well, 1, 1)), LETTERS))
+table_platemap$Column <- as.numeric(substr(table_platemap$well, 2, 5))
+```
+
+plot
+```{r}
+table_platemap$filtered_pc <- ((table_platemap$filtered_out)/(table_platemap$filtered_out + table_platemap$passed_QC))*100
+
+## one way of manually colouring in points after
+#+ scale_colour_manual(values=c(table_of_colors[1:2],c="green"))
+## find wells where it's zero
+zero_wells <- table_platemap$filtered_pc == 0
+table_platemap$filtered_pc[zero_wells] <- NA
+
+## plot
+sample_map_no_reads <- ggplot(data=table_platemap, aes(x=Column, y=Row)) +
+  #set up the platemap layout
+    geom_point(data=expand.grid(seq(1, 12), seq(1, 8)), aes(x=Var1, y=Var2), color="grey90", fill="white", shape=21, size=6) +
+  #Change the shape and colour of points for a variable
+  geom_point(aes(colour = filtered_pc)) +
+  #change the colours
+  scale_colour_viridis_c(guide = "colourbar", na.value="white") +
+  #fix the ratio of coordinates
+    coord_fixed(ratio=(13/12)/(9/8), xlim=c(0.5, 12.5), ylim=c(0.5, 8.5)) +
+  #add labels for the y axis
+    scale_y_reverse(breaks=seq(1, 8), labels=LETTERS[1:8]) +
+  #add labels for the x axis
+    scale_x_continuous(breaks=seq(1, 12)) +
+  #Add a title and change label of fill
+    labs(title="The position of cells with zero counts" , size = 6, colour = "percentage of cells in this well with zero counts") +
+  #rotate legend guide because otherwise you can't see numbers:
+    guides(fill = guide_colorbar(barwidth = 0.5, barheight = 10, title="Value")) +
+  #change the colours
+    #scale_color_manual(values=c("Hoechst"="blue", "Hoescht" = "blue", "mCherry"="red", "GFP"="green")) +
+  # make mimnimum point size bigger
+    #scale_size_continuous(range = c(2,10)) +
+  # make into a plate plot
+    theme_bdc_microtiter()
+
+## print
+sample_map_no_reads
+
+## save
+ggsave("~/images_to_export/platemap_no_count.png", plot = sample_map_no_reads, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+
+## to make scatterpie
+##library("scatterpie") # needed for geom_scatterpie
+## then use this rather than geom_point and colour by
+##+geom_scatterpie(aes(x=Column, y=Row, group = well), data=table_platemap, cols=c("filtered_out", "passed_QC"), color=NA, alpha=.8)
+```
+
+
+### Filter Mitochondrial (Figure S6)
+
+Mitochondrial cell counts
+```{r}
+## extract mitochondrial genes 
+mito_genes <- gtf[which(gtf$V3 == "rRNA"),]$V9
+mito_genes <- gsub(";.*","", gsub("gene_id ", "", mito_genes))
+paste("These are the mitochondrial genes")
+head(mito_genes)
+
+## make a percentage mitocondrial for each cell (this will work as long as you filter cells out with zero counts)
+ss2_mutants <- PercentageFeatureSet(ss2_mutants, features = which(rownames(counts) %in% mito_genes), col.name = "percent.mt")
+```
+
+plot percentage mitochondrial
+```{r}
+## plot for percentage of mitochondrial reads
+v1 <- VlnPlot(object = ss2_mutants, features = "percent.mt", group.by = "identity_updated", pt.size = 0.01) + 
+  ## add a line where we will filter 
+  geom_hline(yintercept=20) +
+  ## remove legend
+  theme(legend.position = "none") +
+  ## change labels
+  labs(x = "Genotype", y = "% Mitochondrial Reads") +
+  ## remove plot title
+  theme(plot.title = element_blank())
+
+## plot for percentage of mitochondrial reads
+v2 <- VlnPlot(object = ss2_mutants, features = "percent.mt", group.by = "experiment", pt.size = 0.01) +
+  geom_hline(yintercept=20) +
+  ## remove legend
+  theme(legend.position = "none") +
+  ## fremove axis labels
+  labs(x="", y = "") +
+  ## remove axis elements
+  theme(plot.title = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  ## change label on bottom of plot
+  scale_x_discrete(labels = "All cells")
+
+## plot together
+QC_mito_violin <- v1 + v2 + plot_layout(ncol = 2, nrow = 1, widths = c(4, 1), heights = c(2, 2))
+
+## print
+QC_mito_violin
+
+## save
+ggsave("~/images_to_export/QC_mito_violin.png", plot = QC_mito_violin, device = "png", path = NULL, scale = 1, width = 15, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+make a dataframe for plotting
+```{r}
+df <- data.frame(nCount = log10(ss2_mutants@meta.data$nCount_RNA), nGenes = ss2_mutants@meta.data$nFeature_RNA, identity = ss2_mutants@meta.data$identity_updated, identity_gene = ss2_mutants@meta.data$identity_gene_updated, percent_mt = ss2_mutants@meta.data$percent.mt)
+```
+
+Where do mitchondrial poor cells lie?
+```{r}
+## make extra col for filtered values:
+filtered_out_cells <- which(df$percent_mt > 20) 
+
+## plot
+QC_mito_graph <- ggplot(df, aes(x = nCount, y = nGenes)) + 
+  geom_point(alpha = 0.4) +
+  scale_size(range = c(0.1,4)) +
+  #geom_rug() + 
+  scale_y_continuous(name = "Number of Detected Genes") + 
+  scale_x_continuous(name = "log10(Number of Total Counts)") +
+  scale_color_viridis(option = "D") +
+  theme_pubr() +
+  theme(legend.position = "bottom") +
+  geom_vline(xintercept=3) +
+  geom_hline(yintercept=220) +
+  geom_hline(yintercept=3300) +
+  #annotate selected points
+  annotate("point", df$nCount[filtered_out_cells], df$nGenes[filtered_out_cells], size = 2, colour = "orange")
+
+## add this to gemo_point if needed: aes(colour = percent_mt, size = percent_mt)
+
+## print
+QC_mito_graph
+
+## save
+ggsave("~/images_to_export/QC_mito_graph.png", plot = QC_mito_graph, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+```{r, fig.height = 4, fig.width = 10}
+## plot 1
+plot1 <- FeatureScatter(ss2_mutants, feature1 = "nCount_RNA", feature2 = "percent.mt", pt.size = 0.01, group.by = "identity_updated")
+
+## plot 2
+plot2 <- FeatureScatter(ss2_mutants, feature1 = "nCount_RNA", feature2 = "nFeature_RNA", pt.size = 0.01, group.by = "identity_updated")
+
+## plot together
+plot1 + plot2
+```
+
+## Filter poor quality cells
+
+in the MCA paper:
+"Cells with fewer than 1000 genes per cell and 2500 reads per cell were removed from the liver-stage parasites, trophozoites, male and female gametocytes, ookinetes, ookinetes/oocysts, and oocyst stages. Cells with fewer than 500 genes per cell and 2500 reads per cell were removed from schizonts and injected sporozoites. Cells with fewer than 40 genes per cell and 1000 reads per cell were removed from merozoites, rings, and gland sporozoites (fig. S2 and table S1). Additionally, we removed genes from further analysis that were detected in fewer than two cells across the entire dataset. The final dataset contained 1787 high-quality single cells from 1982 sequenced cells and 5156 genes out of 5245 genes with annotated transcripts."
+
+so use:
+1000 reads per cell & 40 genes per cell as absolute minimums
+
+```{r, fig.height = 8, fig.width = 8}
+## plot main dotplot
+plot1 <- ggplot(df, aes(x = nCount, y = nGenes, color = identity)) + 
+  geom_point(aes(color = identity), size = 0.1) +
+  geom_rug() + 
+  scale_y_continuous(name = "Number of Detected Genes") + 
+  scale_x_continuous(name = "log10(Number of Total Counts)") + 
+  theme_pubr() +
+  theme(legend.position = "bottom") +
+  geom_vline(xintercept=3) +
+  geom_hline(yintercept=220) +
+  geom_hline(yintercept=3300)
+
+## plot density plot x
+dens1 <- ggplot(df, aes(x = nCount, fill = identity)) + 
+  geom_density(alpha = 0.2) + 
+  theme_void() + 
+  theme(legend.position = "none")
+
+## plot density plot y
+dens2 <- ggplot(df, aes(x = nGenes, fill = identity)) + 
+  geom_density(alpha = 0.2) + 
+  theme_void() + 
+  theme(legend.position = "none") + 
+  coord_flip()
+
+## plot together
+QC_composite_plot <- dens1 + plot_spacer() + plot1 + dens2 + plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+
+## print
+QC_composite_plot
+
+## save
+ggsave("~/images_to_export/QC_composite_plot.png", plot = QC_composite_plot, device = "png", path = NULL, scale = 1, width = 20, height = 20, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+***
+# 3. Analysis {.tabset}
+
+### Final filter
+filter out cells
+```{r}
+## subset
+ss2_mutants_final <- subset(ss2_mutants, subset = nFeature_RNA > 220 & nFeature_RNA < 3300 & percent.mt < 20 & nCount_RNA > 1000)
+
+## inspect resultant object
+ss2_mutants_final
+```
+
+```{r, echo = FALSE}
+paste(length(colnames(ss2_mutants@assays$RNA@counts)) - length(colnames(ss2_mutants_final@assays$RNA@counts)), " cells are removed by these filters")
+```
+
+### Platemap heatmap for failed cells
+
+set up data
+```{r}
+## make dataframe
+df_platemap <- data.frame(well_name = pheno$well_name_R, cell_name = rownames(pheno), row.names = rownames(pheno))
+
+## get cells that are filtered out
+cells_kept <- which(rownames(df_platemap) %in% rownames(ss2_mutants_final@meta.data))
+
+## make extra column in plotting df
+df_platemap$colour <- "filtered_out"
+df_platemap$colour[cells_kept] <- "passed_QC"
+
+## inspect
+head(df_platemap)
+```
+
+Make a table for each
+```{r}
+table_platemap <- as.data.frame(table(df_platemap$well_name, df_platemap$colour))
+names(table_platemap) <- c("well", "filtered", "frequency")
+
+# make separate dfs
+df_1 <- table_platemap[table_platemap$filtered == "filtered_out",]
+df_2 <- table_platemap[table_platemap$filtered == "passed_QC",]
+
+# merge them back together
+table_platemap <- merge(df_1, df_2, by = "well", all = TRUE)
+
+## remove the irrelevant rows and rename cols and rename rows
+table_platemap <- table_platemap[ ,c(1,3,5)]
+names(table_platemap) <- c("well", "filtered_out", "passed_QC")
+table_platemap$well_name <- rownames(table_platemap)
+
+## add cols for plotting
+table_platemap$Row <- as.numeric(match(toupper(substr(table_platemap$well, 1, 1)), LETTERS))
+table_platemap$Column <- as.numeric(substr(table_platemap$well, 2, 5))
+
+## inspect:
+head(table_platemap)
+```
+
+```{r}
+table_platemap$filtered_pc <- ((table_platemap$filtered_out)/(table_platemap$filtered_out + table_platemap$passed_QC))*100
+
+## one way of manually colouring in points after
+#+ scale_colour_manual(values=c(table_of_colors[1:2],c="green"))
+## find wells where it's zero
+zero_wells <- table_platemap$filtered_pc == 0
+table_platemap$filtered_pc[zero_wells] <- NA
+
+## plot
+sample_map <- ggplot(data=table_platemap, aes(x=Column, y=Row)) +
+  #set up the platemap layout
+    geom_point(data=expand.grid(seq(1, 12), seq(1, 8)), aes(x=Var1, y=Var2), color="grey90", fill="white", shape=21, size=6) +
+  #Change the shape and colour of points for a variable
+  geom_point(aes(colour = filtered_pc)) +
+  #change the colours
+  scale_colour_viridis_c(guide = "colourbar", na.value="white") +
+  #fix the ratio of coordinates
+    coord_fixed(ratio=(13/12)/(9/8), xlim=c(0.5, 12.5), ylim=c(0.5, 8.5)) +
+  #add labels for the y axis
+    scale_y_reverse(breaks=seq(1, 8), labels=LETTERS[1:8]) +
+  #add labels for the x axis
+    scale_x_continuous(breaks=seq(1, 12)) +
+  #Add a title
+    labs(title="The position of cells that failed QC" , size = 6, colour = "percentage of cells in this well that failed QC") +
+  #rotate legend guide because otherwise you can't see numbers:
+    guides(fill = guide_colorbar(barwidth = 0.5, barheight = 10, title="Value")) +
+  #change the colours
+    #scale_color_manual(values=c("Hoechst"="blue", "Hoescht" = "blue", "mCherry"="red", "GFP"="green")) +
+  # make mimnimum point size bigger
+    #scale_size_continuous(range = c(2,10)) +
+  # make into a plate plot
+    theme_bdc_microtiter()
+
+## print
+sample_map
+
+## save
+ggsave("~/images_to_export/platemap_filtered.png", plot = sample_map, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+
+## to make scatterpie
+##library("scatterpie") # needed for geom_scatterpie
+## then use this rather than geom_point and colour by
+##+geom_scatterpie(aes(x=Column, y=Row, group = well), data=table_platemap, cols=c("filtered_out", "passed_QC"), color=NA, alpha=.8)
+```
+
+get a bar graph of this too
+```{r}
+total_0 <- table_platemap[which(table_platemap$Row %in% c(1,8) | table_platemap$Column %in% c(1,12)), ]
+  
+total_1 <- table_platemap[which(table_platemap$Row %in% c(2,7) | table_platemap$Column %in% c(2,11)), ]
+total_1 <- total_1[-which(total_1$well %in% total_0$well),]
+
+total_2 <- table_platemap[which(table_platemap$Row %in% c(3,6) | table_platemap$Column %in% c(3,10)), ]
+total_2 <- total_2[-which(total_2$well %in% total_0$well | total_2$well %in% total_1$well),]
+
+total_3 <- table_platemap[which(table_platemap$Row %in% c(4,5) | table_platemap$Column %in% c(4,9)), ]
+total_3 <- total_3[-which(total_3$well %in% total_0$well | total_3$well %in% total_1$well | total_3$well %in% total_2$well),]
+
+## create a dataframe which calculates the percentage failed for each distance from the edge
+frequency_of_failed_cells <- data.frame(percentage_failed = 
+                                          c(
+                                            sum(total_0$filtered_out) / (sum(total_0$passed_QC) + sum(total_0$filtered_out)),
+                                            sum(total_1$filtered_out) / (sum(total_1$passed_QC) + sum(total_1$filtered_out)),
+                                            sum(total_2$filtered_out) / (sum(total_2$passed_QC) + sum(total_2$filtered_out)),
+                                            sum(total_3$filtered_out) / (sum(total_3$passed_QC) + sum(total_3$filtered_out))
+                                          ))
+
+## neaten the dataframe
+frequency_of_failed_cells$distance_from_edge <- c(0,1,2,3)
+```
+
+plot
+
+```{r}
+position_qc_fail <- ggplot(frequency_of_failed_cells, aes(x=distance_from_edge, y=percentage_failed)) +
+  geom_bar(stat="identity", fill="black")+
+  theme_classic() +
+  theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank(), text = element_text(size=12)) +
+  ## change the axis titles
+  labs(y= "Cells that failed QC (%)", x = "Number of wells from the edge of the plate") +
+  ## prevent the title going off the edge of the plot
+  coord_cartesian(clip = 'off')
+
+## save
+ggsave("~/images_to_export/QC_failed_position.png", plot = position_qc_fail, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+
+## plot
+position_qc_fail
+```
+
+
+### Mapping Plot (Figure S6A)
+
+prepare
+```{r}
+## make dataframe
+df_mapping_rates_hisat <- data.frame(alignment_rate = pheno$overall_hisat2_alignment_rate, cell_name = rownames(pheno), row.names = rownames(pheno))
+
+## get cells that are filtered out
+cells_filtered <- which(rownames(df_mapping_rates_hisat) %in% rownames(ss2_mutants_final@meta.data))
+
+## make extra column in plotting df
+df_mapping_rates_hisat$colour <- "Failed QC"
+df_mapping_rates_hisat$colour[cells_filtered] <- "Passed QC"
+```
+
+plot
+```{r, fig.width = 22, fig.height = 5}
+## plot
+mapping_rate_plot <- ggplot(df_mapping_rates_hisat, aes(x = reorder(cell_name,alignment_rate,sum), y=alignment_rate, fill = colour)) +
+  geom_col() + 
+  theme(legend.position = "none") +
+  labs(x="Cells", y = "Overall Alignment Rate (%)", size = 15, fill = "QC Result") +
+  theme_classic() +
+  theme(plot.title = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(), text = element_text(size=20)) +
+  ## change the colours
+   scale_fill_manual(values=c("red2", "green4"))
+
+## save
+ggsave("~/images_to_export/QC_mapping_rate.eps", plot = mapping_rate_plot, device = "eps", path = NULL, scale = 1, width = 20, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+
+## plot
+mapping_rate_plot
+```
+
+#### Recovery plots
+
+How many cells are recovered per condition?
+```{r}
+## extract data
+df_cells_recovered <- as.data.frame(table(ss2_mutants_final@meta.data$sub_identity_updated))
+df_cells_profiled <- as.data.frame(table(pheno$sub_identity_updated))
+
+## make a df of the metrics
+df_cells_recovered <- merge(df_cells_recovered, df_cells_profiled, by = "Var1")
+names(df_cells_recovered) <- c("genotype", "recovered", "profiled")
+
+## calculate perecentage
+df_cells_recovered$recovered_pc <- (df_cells_recovered$recovered/df_cells_recovered$profiled)*100
+
+## round up percentage for labels
+df_cells_recovered$recovered_pc_rounded <- signif(df_cells_recovered$recovered_pc, 2)
+df_cells_recovered$recovered_pc_rounded <- paste0(df_cells_recovered$recovered_pc_rounded, " %")
+
+## make a column for number of cells annotation
+df_cells_recovered$number_cells_annotation <- paste0("n = ", df_cells_recovered$recovered)
+
+## inspect dataframe
+df_cells_recovered
+```
+
+```{r}
+##plot
+QC_by_genotype <- ggplot(df_cells_recovered, aes(x=genotype, y=recovered_pc ,fill=genotype)) + 
+  geom_bar(stat = "identity") +
+  ylim(0, 100) +
+  #scale_fill_brewer(palette = "Set1") +
+  geom_text(aes(label=recovered_pc_rounded, vjust=0.5, hjust = 1.5)) +
+  geom_text(aes(label=number_cells_annotation, vjust=0.5, hjust = -0.05)) +
+  labs(y = "Percentage of cells recovered", x = "Genotype") +
+  coord_flip(clip = "off") +
+  theme_classic() +
+  ## remove legend + add border so it doesn't clip the annotation 
+  theme(legend.position="none", plot.margin = unit(c(1,3,1,3), "lines"))
+
+## plot
+QC_by_genotype
+
+## save
+ggsave("~/images_to_export/QC_by_genotype.png", plot = QC_by_genotype, device = "png", path = NULL, scale = 1, width = 15, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+  
+```
+
+Investigate 20 and 2 further
+```{r}
+## how many plates?
+plate_investigation <- pheno[which(pheno$sub_identity_updated == "GCSKO-20" | pheno$sub_identity_updated == "GCSKO-2" | pheno$sub_identity_updated == "WT-2" | pheno$sub_identity_updated == "WT-20"), ]
+table(plate_investigation$plate_id_unique)
+```
+
+add columns if it failed QC:
+```{r}
+## get cells that are filtered out
+cells_kept <- which(rownames(plate_investigation) %in% rownames(ss2_mutants_final@meta.data))
+
+## make extra column in plotting df
+plate_investigation$colour <- "filtered_out"
+plate_investigation$colour[cells_kept] <- "passed_QC"
+
+table(plate_investigation$colour)
+```
+
+```{r}
+## add cols for plotting
+plate_investigation$Row <- as.numeric(match(toupper(substr(plate_investigation$well_name_R, 1, 1)), LETTERS))
+plate_investigation$Column <- as.numeric(substr(plate_investigation$well_name_R, 2, 5))
+```
+
+plot
+```{r}
+plate_names <- unique(plate_investigation$plate_id_unique)
+plot_list = list()
+
+for(i in seq_along(plate_names)){
+## make df
+  table_platemap <- plate_investigation[plate_investigation$plate_id_unique == plate_names[i], ]
+  ## plot
+  p <- ggplot(data=table_platemap, aes(x=Column, y=Row)) +
+  #set up the platemap layout
+      geom_point(data=expand.grid(seq(1, 12), seq(1, 8)), aes(x=Var1, y=Var2), color="grey90", fill="white", shape=21, size=6) +
+  #Change the shape and colour of points for a variable
+    geom_point(aes(colour = colour)) +
+  #change the colours
+    #scale_colour_viridis_c(guide = "colourbar", na.value="white") +
+  #fix the ratio of coordinates
+    coord_fixed(ratio=(13/12)/(9/8), xlim=c(0.5, 12.5), ylim=c(0.5, 8.5)) +
+  #add labels for the y axis
+    scale_y_reverse(breaks=seq(1, 8), labels=LETTERS[1:8]) +
+  #add labels for the x axis
+    scale_x_continuous(breaks=seq(1, 12)) +
+  #Add a title
+    labs(title=plate_names[i] , size = 6, colour = "QC Result") +
+  #rotate legend guide because otherwise you can't see numbers:
+    guides(fill = guide_colorbar(barwidth = 0.5, barheight = 10, title="Value"), colour = guide_legend(override.aes = list(size=4))) +
+  #change the colours
+   scale_colour_manual(values=c("red2", "green4")) +
+  # make mimnimum point size bigger
+    #scale_size_continuous(range = c(2,10)) +
+  # make into a plate plot
+    theme_bdc_microtiter() +
+  # make the font size in the legend bigger
+    theme(legend.text=element_text(size=10, colour = "black"), legend.title=element_text(size=10))
+
+## print
+plot_list[[i]] <- p
+}
+
+for (i in seq_along(plate_names)) {
+    print(plot_list[[i]])
+}
+```
+
+```{r}
+## load this library to use grid.arrange function
+library(gridExtra)
+
+## use this function to extract legend:
+## source: https://stackoverflow.com/questions/13649473/add-a-common-legend-for-combined-ggplots
+## source: https://github.com/hadley/ggplot2/wiki/Share-a-legend-between-two-ggplot2-graphs
+g_legend<-function(a.gplot){
+   tmp <- ggplot_gtable(ggplot_build(a.gplot))
+   leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+   legend <- tmp$grobs[[leg]]
+   return(legend)}
+
+## get legend
+mylegend<-g_legend(plot_list[[1]])
+
+## make a final plot
+QC_failed_plates <- grid.arrange(arrangeGrob(plot_list[[1]] + theme(legend.position="none") + labs(title = paste("Mutant 20", "\n", "plate 1")) + theme(plot.title = element_text(hjust = 0.5)),
+                               plot_list[[2]] + theme(legend.position="none") + labs(title = paste("Mutant 20", "\n", "plate 2")) + theme(plot.title = element_text(hjust = 0.5)),
+                               plot_list[[3]] + theme(legend.position="none") + labs(title = paste("Mutant 20", "\n", "plate 3")) + theme(plot.title = element_text(hjust = 0.5)),
+                               plot_list[[4]] + theme(legend.position="none") + labs(title = paste("Mutant 20", "\n", "plate 4")) + theme(plot.title = element_text(hjust = 0.5)),
+                               plot_list[[5]] + theme(legend.position="none") + labs(title = paste("Mutant 2", "\n", "plate 1")) + theme(plot.title = element_text(hjust = 0.5)),
+                               plot_list[[6]] + theme(legend.position="none") + labs(title = paste("Mutant 2", "\n", "plate 2")) + theme(plot.title = element_text(hjust = 0.5)), nrow=2), 
+                              mylegend, nrow=2,heights=c(10,2))
+
+
+
+## make aggregate plot
+# QC_failed_plates <- (plot_list[[1]] + theme(legend.position="none") +
+#                       plot_list[[2]] + theme(legend.position="none") +
+#                       plot_list[[3]] + theme(legend.position="none") +
+#                       plot_list[[4]] + theme(legend.position="none") +
+#                       plot_list[[5]] +
+#                       plot_list[[6]] + theme(legend.position="none")
+# )
+
+## plot
+QC_failed_plates
+
+## save
+ggsave("~/images_to_export/QC_failed_plates.png", plot = QC_failed_plates, device = "png", path = NULL, scale = 1, width = 22, height = 17, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+### Add bulk metadata
+
+Add in bulk data predictions
+
+#### hoo et al.
+```{r hoo}
+#Pb Prediction correlations with bulk data (asexual hoo): 
+
+#Load in required package:
+library(Hmisc)
+#Cooerce expression data into a matrix and load in the reference timecourse data:
+x10 <- as.matrix(ss2_mutants_final@assays$RNA@data)
+rownames(x10) <- gsub("-", "_", rownames(x10))
+#read in bulk data:
+hoo<-as.matrix(read.table("Reference_bulk_data/hoo_berg2.txt",header=T, row.names=1))
+#Make a blank dataframe in which to add prediction:
+df <- data.frame(matrix(ncol = 4, nrow = 0))
+colnames(df) <- c("Prediction(Spearman)","r(Spearman)","Prediction(Pearsons)","r(Pearsons)")
+#Do correlations with bulk data using both Spearman and Pearson (and the top 1000 genes):
+for (i in 1:ncol(x10))
+{
+  shared<-intersect(row.names(as.matrix(head(sort(x10[,i], decreasing=TRUE),1000))),row.names(hoo))
+  step0<-rcorr(x10[shared,i],hoo[shared,1:12],type = "spearman")
+  step1<-as.matrix(t(step0$r[2:13,1]))
+  step2<-rcorr(x10[shared,i],hoo[shared,1:12],type = "pearson")
+  step3<-as.matrix(t(step2$r[2:13,1]))
+  step4<-cbind(colnames(step1)[which.max(step1)],step1[which.max(step1)],colnames(step3)[which.max(step3)],step3[which.max(step3)])
+  colnames(step4) <- c("Prediction(Spearman)","r(Spearman)","Prediction(Pearsons)","r(Pearsons)")
+  rownames(step4)<-colnames(x10)[i]
+  df<-rbind(df,step4)
+}
+#Write out data into a csv file:
+#write.csv(dfringr,file="/Users/ar19/Desktop/PhD/AR04_GCSKO_project/All_mutants_Feb_2018/predictionpbcombined.csv")
+#Change the format of the output to make it more readable:
+#gsub("Pb_","", dfringr[,1]) - Make predictions into 18hr.dat format:
+
+#spearman:
+df[,1] <- gsub("Pb_","", df[,1])
+#Remove hr.dat from list:
+df[,1] <- gsub("hr.dat","", df[,1])
+#Check - dfringr[,1]
+#Make into a number:
+df[,1] <- as.numeric(df[,1])
+df[,2] <- as.numeric(as.character(df[,2]))
+
+#pearson:
+df[,3] <- gsub("Pb_","", df[,3])
+#Remove hr.dat from list:
+df[,3] <- gsub("hr.dat","", df[,3])
+#Check - dfringr[,1]
+#Make into a number:
+df[,3] <- as.numeric(df[,3])
+df[,4] <- as.numeric(as.character(df[,4]))
+#add to 10X object:
+ss2_mutants_final <- AddMetaData(ss2_mutants_final, metadata = df)
+```
+
+#### Kasia's data
+Can also do with Kasia's timecourse data:
+```{r kasia}
+kas<-as.matrix(read.table("Reference_bulk_data/AP2OETC.txt",header=T, row.names=1))
+#Make a blank dataframe in which to add prediction:
+dfs <- data.frame(matrix(ncol = 4, nrow = 0))
+colnames(dfs) <- c("ID","Prediction","r (Pearson)")
+#Do correlations with bulk data using both Spearman and Pearson (and the top 1000 genes):
+for (i in 1:ncol(x10))
+{
+  shared<-intersect(row.names(as.matrix(head(sort(x10[,i], decreasing=TRUE),1000))),rownames(kas))
+  step0<-rcorr(x10[shared,i],kas[shared,1:10],type = "spearman")
+  step1<-as.matrix(t(step0$r[2:11,1]))
+  step2<-rcorr(x10[shared,i],kas[shared,1:10],type = "pearson")
+  step3<-as.matrix(t(step2$r[2:11,1]))
+  step4<-cbind(colnames(step1)[which.max(step1)],step1[which.max(step1)],colnames(step3)[which.max(step3)],step3[which.max(step3)])
+  colnames(step4) <- c("Prediction(Spearman)","r(Spearman)","Prediction(Pearsons)","r(Pearsons)")
+  rownames(step4)<-colnames(x10)[i]
+  dfs<-rbind(dfs,step4)
+}
+#Write out data into a csv file:
+#write.csv(df,file="/Users/ar19/Desktop/PhD/AR04_GCSKO_project/All_mutants_Feb_2018/predictionkasiacombined.csv")
+
+#Change the format of the output to make it more readable:
+#gsub("Pb_","", dfs[,1]) - Make predictions into 18hr.dat format:
+dfs[,1] <- gsub("X","", dfs[,1])
+#Make into a number:
+dfs[,1] <- as.numeric(dfs[,1])
+#Make into a number:
+dfs[,2] <- as.numeric(as.character(dfs[,2]))
+
+#gsub("Pb_","", dfs[,1]) - Make predictions into 18hr.dat format:
+dfs[,3] <- gsub("X","", dfs[,3])
+#Make into a number:
+dfs[,3] <- as.numeric(dfs[,3])
+#dfs[,1]
+#Make into a number:
+dfs[,4] <- as.numeric(as.character(dfs[,4]))
+
+colnames(dfs) <- c('Prediction(Spearman)_Kasia', 'r(Spearman)_Kasia', 'Prediction(Pearson)_Kasia', 'r(Pearson)_Kasia')
+#add to Seurat:
+#add to 10X object:
+ss2_mutants_final <- AddMetaData(ss2_mutants_final, dfs)
+```
+
+### Normalisation
+normalise and find variable genes
+```{r}
+## normalise
+ss2_mutants_final <- NormalizeData(ss2_mutants_final, normalization.method = "LogNormalize", scale.factor = 10000)
+
+## find variable genes
+ss2_mutants_final <- FindVariableFeatures(ss2_mutants_final, selection.method = "vst", nfeatures = 2000)
+
+## make a list of all genes in the dataset
+all.genes <- rownames(ss2_mutants_final)
+
+## scale data on all genes
+ss2_mutants_final <- ScaleData(ss2_mutants_final, features = all.genes)
+```
+
+### Dimensionality reduction
+
+#### PCA
+```{r}
+ss2_mutants_final <- RunPCA(ss2_mutants_final, features = VariableFeatures(object = ss2_mutants_final), verbose = FALSE)
+```
+
+PCA plot
+```{r}
+DimPlot(ss2_mutants_final, reduction = "pca")
+```
+
+```{r}
+ElbowPlot(ss2_mutants_final, ndims = 30, reduction = "pca")
+```
+
+#### Find clusters
+```{r}
+ss2_mutants_final <- FindNeighbors(ss2_mutants_final, dims = 1:21)
+ss2_mutants_final <- FindClusters(ss2_mutants_final, resolution = 1)
+```
+
+#### UMAP
+```{r}
+ss2_mutants_final <-RunUMAP(ss2_mutants_final, reduction = "pca", dims = 1:10, n.neighbors = 150, seed.use = 1234, min.dist = 0.4, repulsion.strength = 0.03, local.connectivity = 150)
+DimPlot(ss2_mutants_final, reduction = "umap", group.by = "ident", label = TRUE, coord.fixed = TRUE)
+```
+
+
+
+```{r}
+#ss2_mutants_final <- RunUMAP(ss2_mutants_final, dims = 1:21)
+```
+
+UMAP Plots
+```{r}
+#DimPlot(ss2_mutants_final, reduction = "umap", group.by = "ident", label = TRUE, coord.fixed = TRUE)
+```
+
+```{r}
+DimPlot(ss2_mutants_final, reduction = "umap", group.by = "identity_updated")
+```
+
+### Cluster assignment
+
+#### Interactive
+```{r}
+plot <- FeaturePlot(ss2_mutants_final, features = "nFeature_RNA", reduction = "umap")   
+
+HoverLocator(plot = plot, information = FetchData(ss2_mutants_final, vars = c("nFeature_RNA", "ident", "identity_updated")))
+```
+
+#### ngenes, nmito, ncounts visualisation
+
+```{r}
+## add column to log counts so they are easier to visualise
+ss2_mutants_final <- AddMetaData(ss2_mutants_final, log10(ss2_mutants_final@meta.data$nCount_RNA), col.name = "nCount_log10")
+
+FeaturePlot(ss2_mutants_final, features = c("nCount_RNA", "nCount_log10", "nFeature_RNA", "percent.mt"), reduction = "umap")   
+```
+
+Violin plots cluster-by-cluster:
+```{r}
+VlnPlot(object = ss2_mutants_final, features = "nFeature_RNA", pt.size = 0.01) +
+  labs(x="Cluster",
+       y="Genes per Cell",
+       title = "Number of Genes per Cell") +
+  theme(legend.position = "none")
+
+VlnPlot(object = ss2_mutants_final, features = "nCount_log10", pt.size = 0.01) +
+  labs(x="Cluster",
+       y="Log10(Counts per Cell)",
+       title = "Number of Counts per Cell") +
+  theme(legend.position = "none")
+
+VlnPlot(object = ss2_mutants_final, features = "percent.mt", pt.size = 0.01) +
+  labs(x="Cluster",
+       y="% Mitochondrial Reads",
+       title = "Percentage of Mitochondrial Reads per Cell") +
+  theme(legend.position = "none")
+```
+
+#### Expression of marker genes
+
+```{r, fig.height = 6, fig.width = 8}
+# PBANKA-0515000 - p25 - female
+# PBANKA-1319500 - CCP2 - female - used in 820 line
+# PBANKA-1212600 - HAP2 - male
+# PBANKA-0600600 - NEK3 - male
+# PBANKA-1315700 - RON2 - (asexuals and some male?)
+# "PBANKA-0416100" - dynenin heavy chain - male - used in 820 line
+# PBANKA-1437500 - AP2-G - seuxal commitment gene
+# PBANKA-0831000 - MSP1 - late asexual
+# PBANKA-1102200 - MSP8 - early asexual (from Bozdech paper)
+FeaturePlot(ss2_mutants_final, features = c("PBANKA-0515000", "PBANKA-1319500", "PBANKA-1212600","PBANKA-0600600", "PBANKA-1315700", "PBANKA-0416100", "PBANKA-1437500", "PBANKA-0831000", "PBANKA-1102200"), coord.fixed = TRUE)
+```
+
+#### Dotplot
+```{r, prep for dotplot}
+df_meta_data <- as.data.frame(ss2_mutants_final@meta.data)
+
+dot_plot_df <- as.data.frame.matrix(table(df_meta_data$RNA_snn_res.1, df_meta_data$identity_updated))
+
+dot_plot_df_pc <- (as.data.frame.matrix(prop.table(table(df_meta_data$RNA_snn_res.1, df_meta_data$identity_updated), margin = 2)) * 100)
+
+dot_plot_df_pc$cluster <- rownames(dot_plot_df_pc)
+library(dplyr)
+dot_plot_df_pc_mutated <- mutate(dot_plot_df_pc)
+library(reshape2)
+dot_plot_df_pc_melted <- melt(dot_plot_df_pc, variable.name = "cluster")
+colnames(dot_plot_df_pc_melted)[2] <- "identity"
+```
+
+```{r, fig.width = 6, fig.height= 7}
+library(ggplot2)
+  p = ggplot(dot_plot_df_pc_melted,
+             aes(y = factor(cluster),
+                 x = factor(identity))) +
+      geom_point(aes(colour=value, size=value)) + 
+      scale_color_gradient(low="blue", high="red", limits=c( 1, max(dot_plot_df_pc_melted$value)), na.value="white") +
+      theme_bw() +
+      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank())
+  p = p +
+      ylab("Cluster") +
+      xlab("Identity") +
+      theme(axis.text.x=element_text(size=12, face="italic", angle=45, hjust=1)) + 
+      theme(axis.text.y=element_text(size=12, face="italic"))
+  print(p)
+```
+
+#### expression of 820 markers
+
+```{r, fig.height = 4, fig.width = 10}
+plots <- FeaturePlot(ss2_mutants_final, features = c("PBANKA-1319500", "PBANKA-0416100"), blend = TRUE, combine = FALSE, coord.fixed = TRUE)
+
+plots[[3]] + NoLegend()  # Get just the co-expression plot, built-in legend is meaningless for this plot
+plots[[4]] # Get just the key
+CombinePlots(plots[3:4], legend = 'none') # Stitch the co-expression and key plots together
+```
+
+identify which cluster is which 
+```{r}
+# PBANKA-1319500 - CCP2 - female - used in 820 line
+# PBANKA-0416100 - dynenin heavy chain - male - used in 820 line
+# PBANKA-0831000 - MSP1 - late asexual
+# PBANKA-1102200 - MSP8 - early asexual (from Bozdech paper)
+DotPlot(ss2_mutants_final, features = c("PBANKA-1319500", "PBANKA-0416100", "PBANKA-0831000", "PBANKA-1102200"))
+
+# 18 - asex early - 1
+# 17 - female
+# 16 - female
+# 15 - male
+# 14 - female (with some late asex?)
+# 13 - male
+# 12 - asex early - 3
+# 11 - male
+# 10 - asex early - 0
+# 9 - DEV branch
+# 8 - asex late - 0
+# 7 - female
+# 6 - asex late - 1
+# 5 - asex late - 2
+# 4 - DEV branch
+# 3 - asex early - 2
+# 2 - asex late - 3
+# 1 - male
+# 0 - female
+```
+
+```{r, fig.width = 6, fig.height= 7}
+## change the levels in the meta data
+ss2_mutants_final@meta.data$seurat_clusters_plotting <- ss2_mutants_final@meta.data$seurat_clusters
+
+## reorder the levels so you can plot the cluters as you wish
+
+# Define order of appearance of timepoints
+my_levels <- c("0", "6", "12", "14", "16", "1", "10", "13", "15","3", "8","7", "5", "2", "9", "17", "4", "11")
+
+# Relevel object@timepoint
+ss2_mutants_final@meta.data$seurat_clusters_plotting <- factor(x = ss2_mutants_final@meta.data$seurat_clusters_plotting, levels = my_levels)
+
+DotPlot(ss2_mutants_final, features = c("PBANKA-1319500", "PBANKA-0416100", "PBANKA-0831000", "PBANKA-1102200"), group.by = "seurat_clusters_plotting") + theme(axis.text.x = element_text(angle = 90))
+```
+
+Confirm life cycle designations:
+
+```{r}
+FeaturePlot(ss2_mutants_final, features = c("Prediction(Spearman)_Kasia", "Prediction(Spearman)"))
+```
+
+
+
+
+
+
+###
+# During check, just ran to here
+###
+
+
+
+
+
+
+
+
+
+
+Improve UMAP
+```{r}
+ss2_mutants_final <- RunUMAP(ss2_mutants_final, dims = 1:12, reduction.name = "umap_improved")
+```
+
+```{r}
+DimPlot(ss2_mutants_final, reduction = "umap_improved", group.by = "ident", label = TRUE, coord.fixed = TRUE)
+```
+
+
+
+***
+# 4. Cluster together with MCA data {.tabset}
+
+## Prepare
+
+### set up MCA data
+```{r}
+## read in data
+counts_mca <- read.table("MCA/allcounts4.csv", header = TRUE, sep = ",", row.names=1, stringsAsFactors = TRUE)
+dim(counts_mca)
+
+anno_mca <- read.delim("MCA/allpheno8.2.csv", header = TRUE, sep = ",", row.names=1)
+dim(anno_mca)
+
+## subset all blood stage cells
+## find blood stages
+blood_stages <- c("Merozoite", "Shz", "Male", "Schizont", "Female", "Trophozoite", "Ring")
+
+blood_stage_cell_names <- rownames(anno_mca[anno_mca$ShortenedLifeStage2 %in% blood_stages, ])
+
+## subset dataframes
+counts_mca_blood_stage <- counts_mca[ ,colnames(counts_mca) %in% blood_stage_cell_names]
+dim(counts_mca_blood_stage)
+
+anno_mca_blood_stage <- anno_mca[rownames(anno_mca) %in% blood_stage_cell_names, ]
+dim(anno_mca_blood_stage)
+
+## remove control cells:
+non_control_cell_names <- rownames(anno_mca_blood_stage[anno_mca_blood_stage$Number_of_cells == 1, ])
+counts_mca_blood_stage <- counts_mca_blood_stage[ ,colnames(counts_mca_blood_stage) %in% non_control_cell_names]
+dim(counts_mca_blood_stage)
+
+anno_mca_blood_stage <- anno_mca_blood_stage[rownames(anno_mca_blood_stage) %in% non_control_cell_names, ]
+dim(anno_mca_blood_stage)
+
+## check
+identical(rownames(counts_mca_blood_stage), rownames(counts))
+```
+
+### set up MCA object
+
+mca object
+```{r}
+## make Seurat object with same filtering as main object because they are sequenced to same depth:
+GCSKO_mca <- CreateSeuratObject(counts = counts_mca_blood_stage, meta.data = anno_mca_blood_stage, min.cells = 0, min.features = 120, project = "GCSKO")
+
+GCSKO_mca
+
+GCSKO_mca@meta.data$experiment <- "mca"
+ss2_mutants_final@meta.data$experiment <- "ss2_mutants"
+```
+n.b. a filter of 40 allows the merozoites to complete the ring in the asexuals
+
+```{r}
+VlnPlot(object = GCSKO_mca, features = "nFeature_RNA", pt.size = 0.01) +
+  labs(x="Cluster",
+       y="Genes per Cell",
+       title = "Number of Genes per Cell") +
+  theme(legend.position = "none") + geom_hline(yintercept=220)
+
+VlnPlot(object = GCSKO_mca, features = "nCount_RNA", pt.size = 0.01) +
+  labs(x="Cluster",
+       y="Log10(Counts per Cell)",
+       title = "Number of Counts per Cell") +
+  theme(legend.position = "none")
+```
+
+### normalise object
+```{r}
+## normalise
+GCSKO_mca <- NormalizeData(GCSKO_mca, normalization.method = "LogNormalize", scale.factor = 10000)
+## find variable genes
+GCSKO_mca <- FindVariableFeatures(GCSKO_mca, selection.method = "vst", nfeatures = 2000)
+## make a list of all genes in the dataset
+all.genes <- rownames(GCSKO_mca)
+## scale data on all genes
+GCSKO_mca <- ScaleData(GCSKO_mca, features = all.genes)
+```
+
+## Integrate
+
+```{r}
+## make list
+ss2.mca.list <- list(GCSKO_mca, ss2_mutants_final)
+ss2.mca.anchors <- FindIntegrationAnchors(object.list = ss2.mca.list, dims = 1:21, verbose = FALSE)
+ss2.mca.integrated <- IntegrateData(anchorset = ss2.mca.anchors, dims = 1:21, verbose = FALSE, features.to.integrate = all.genes)
+```
+
+## Analyse
+
+Scale and PCA
+```{r}
+# set during IntegrateData
+DefaultAssay(ss2.mca.integrated) <- "integrated"
+# Run the standard workflow for visualization and clustering
+ss2.mca.integrated <- ScaleData(ss2.mca.integrated, verbose = FALSE)
+ss2.mca.integrated <- RunPCA(ss2.mca.integrated, npcs = 30, verbose = FALSE)
+```
+
+Inspect PCS:
+```{r}
+ElbowPlot(ss2.mca.integrated, ndims = 30, reduction = "pca")
+```
+
+UMAP
+```{r}
+ss2.mca.integrated <- RunUMAP(ss2.mca.integrated, reduction = "pca", dims = 1:21)
+```
+
+UMAP plot:
+```{r}
+#names(tenx.mca.integrated@meta.data)[9] <- "Prediction_Spearman"
+p1 <- DimPlot(ss2.mca.integrated, reduction = "umap", group.by = "experiment", pt.size = 0.01) + coord_fixed()
+p2 <- DimPlot(ss2.mca.integrated, reduction = "umap", group.by = "ShortenedLifeStage2", label = TRUE, repel = TRUE, pt.size = 0.01) + coord_fixed()
+p3 <- DimPlot(ss2.mca.integrated, reduction = "umap", group.by = "RNA_snn_res.1", label = TRUE, repel = TRUE, pt.size = 0.01) + coord_fixed()
+p1 + p2
+```
+
+```{r}
+p3
+```
+
+### UMAP optimisation
+
+try to make a better UMAP:
+```{r}
+for(i in c(20,200,400,800,1200)){
+ss2.mca.integrated <- RunUMAP(ss2.mca.integrated, reduction = "pca", dims = 1:21, seed.use = i)
+
+assign(paste0("UMAP_", i) ,DimPlot(ss2.mca.integrated, reduction = "umap", group.by = "RNA_snn_res.1", label = TRUE, repel = TRUE, pt.size = 0.01) + coord_fixed())
+}
+```
+
+```{r}
+UMAP_20
+UMAP_200
+UMAP_400
+UMAP_800
+UMAP_1200
+```
+
+```{r}
+#ss2.mca.integrated <- RunUMAP(ss2.mca.integrated, reduction = "pca", dims = 1:21, seed.use = 800)
+```
+
+```{r}
+ss2.mca.integrated <- RunUMAP(ss2.mca.integrated, reduction = "pca", dims = 1:15)
+```
+
+```{r}
+DimPlot(ss2.mca.integrated, reduction = "umap", group.by = "RNA_snn_res.1", label = TRUE, repel = TRUE, pt.size = 0.01) + coord_fixed()
+```
+
+```{r}
+VlnPlot(object = ss2.mca.integrated, features = "nFeature_RNA", pt.size = 0.01) + geom_hline(yintercept=100)
+```
+
+plot:
+```{r, fig.height = 5, fig.width = 10}
+p1 <- DimPlot(ss2.mca.integrated, pt.size = 0.01, label = TRUE)
+p2 <- DimPlot(ss2.mca.integrated, pt.size = 0.01, group.by = "ShortenedLifeStage2", label = TRUE)
+p1 + p2
+```
+
+```{r}
+## add new column 
+ss2.mca.integrated@meta.data$clusters_integrated <- ss2.mca.integrated@meta.data$seurat_clusters
+
+ss2.mca.integrated@meta.data$clusters_integrated <- ifelse(is.na(ss2.mca.integrated@meta.data$clusters_integrated), ss2.mca.integrated@meta.data$ShortenedLifeStage2, ss2.mca.integrated@meta.data$clusters_integrated)
+
+DimPlot(ss2.mca.integrated, pt.size = 0.01, label = TRUE, split.by = "experiment", group.by = "clusters_integrated") + coord_fixed() + theme_void()
+```
+
+```{r, fig.height = 4, fig.width = 10}
+plots <- FeaturePlot(ss2.mca.integrated, features = c("PBANKA-1319500", "PBANKA-0416100"), blend = TRUE, combine = FALSE, coord.fixed = TRUE, split.by = "experiment")
+
+plots[[7]] + NoLegend()  # Get just the co-expression plot, built-in legend is meaningless for this plot
+plots[[8]] # Get just the key
+CombinePlots(plots[3:4], legend = 'none', ncol =2, nrow = 1, rel_widths = c(2, 1), rel_heights = c(4,1)) # Stitch the co-expression and key plots together
+```
+
+## cluster
+
+generate clusters:
+```{r}
+## copy old clusters
+ss2.mca.integrated <- AddMetaData(ss2.mca.integrated, ss2.mca.integrated@meta.data$RNA_snn_res.1, col.name = "pre_integration_clusters")
+
+## generate new clusters
+#ss2.mca.integrated <- FindNeighbors(ss2.mca.integrated, dims = 1:21)
+#ss2.mca.integrated <- FindClusters(ss2.mca.integrated, resolution = 1, random.seed = 42, algorithm = 2)
+```
+
+### Sex ratio plots
+
+Calculate sex ratios
+```{r}
+## this will only subset SS2 cells as these are the only ones with identities
+
+## subset males
+ss2_mutants_final_male <- SubsetData(ss2_mutants_final, ident.use = c(1,10,13,16))
+
+## subset females
+ss2_mutants_final_female <- SubsetData(ss2_mutants_final, ident.use = c(0,9,11,14,15,5))
+
+## inspect
+ss2_mutants_final_male
+ss2_mutants_final_female
+```
+
+```{r}
+## calculate sex ratios
+##subset out H+ sorted cells:
+df_male <- ss2_mutants_final_male@meta.data[ss2_mutants_final_male@meta.data$exclude_for_sex_ratio == FALSE,]
+
+dim(df_male)
+
+df_female <- ss2_mutants_final_female@meta.data[ss2_mutants_final_female@meta.data$exclude_for_sex_ratio == FALSE,]
+
+dim(df_female)
+
+## make dataframe
+df_sex_ratio <- merge(
+  as.data.frame(table(df_male$sub_identity_updated)), 
+  as.data.frame(table(df_female$sub_identity_updated)), 
+  by = "Var1", all=TRUE)
+
+# or use identity_updated
+
+## add names
+names(df_sex_ratio) <- c("genotype", "male", "female")
+
+## change the NAs to 0
+df_sex_ratio[is.na(df_sex_ratio)] <- 0
+
+## calculate sex ratio
+df_sex_ratio$sex_ratio <- (df_sex_ratio$male + 1)/(df_sex_ratio$female)
+
+## log sex ratio
+df_sex_ratio$sex_ratio_log <- log10(df_sex_ratio$sex_ratio)
+
+##view
+df_sex_ratio
+```
+
+plot
+```{r}
+## reorder genotype so it is in the correct order for plotting
+#df_sex_ratio$genotype <- factor(df_sex_ratio$genotype, levels = c("GCSKO-2", "GCSKO-3", "WT-3", "GCSKO-10_820", "GCSKO-13", "WT-13", "GCSKO-17", "WT-17", "GCSKO-19", "WT-19", "GCSKO-20", "WT-20", "GCSKO-glasgow", "GCSKO-28", "GCSKO-29", "GCSKO-oom", "WT-820"))
+
+## make extra column for plotting aesthetics:
+df_sex_ratio$above <- df_sex_ratio$sex_ratio_log > 1
+
+## plot
+ggplot(df_sex_ratio, aes(sex_ratio_log, reorder(genotype, sex_ratio_log, sum), color = above)) +
+      geom_segment(aes(x = 1, y = genotype, xend = sex_ratio_log, yend = genotype), color = "grey50") +
+      geom_point() +
+      annotate("rect", xmin= -0.30103000, xmax = 1.02118930, ymin=-Inf , ymax=Inf, alpha=0.1, color=NA,linetype = 2, fill="blue") +
+        theme_classic()
+  
+## https://uc-r.github.io/lollipop
+```
+
+# Save {.tabset}
+
+save counts and pheno without anopheles and control cells
+```{r}
+write.csv(counts, file = "~/data_to_export/counts_2020_filtered.csv")
+write.csv(pheno, file = "~/data_to_export/pheno_2020_filtered.csv")
+```
+
+
+```{r}
+pheno_filtered_cells <- ss2_mutants_final@meta.data
+counts_filtered_cells <- ss2_mutants_final@assays$RNA@counts
+
+write.csv(counts_filtered_cells, file = "~/data_to_export/counts_filtered_cells.csv")
+write.csv(pheno_filtered_cells, file = "~/data_to_export/pheno_filtered_cells.csv")
+```
+
+save the session objects
+```{r}
+save.image(file = "~/GCSKO_SS2_QC.RData")
+#load(file = "~/GCSKO_SS2_QC.RData")
+
+save.image(file = "~/GCSKO_SS2_QC.RData")
+#load(file = "~/GCSKO_SS2_QC.RData")
+
+saveRDS(ss2_mutants_final, file = "ss2_mutants_final.RDS") 
+#ss2_mutants_final <- readRDS("ss2_mutants_final.RDS")
+
+```
+
+
+# Appendix {.tabset}
+
+## Session Info 
+```{r, echo = FALSE}
+sessionInfo()
+```
+
+## Extras
+
+### testing Vikash's cells
+
+```{r}
+vikash_filtered_cells <- read.table("~/data/vikash_filtered_cells_20_03_27.txt", sep="\t", header = TRUE)
+head(vikash_filtered_cells)
+```
+
+```{r}
+vikash_keep_cells <- vikash_filtered_cells[vikash_filtered_cells$final_call == 1,]$X
+
+table(vikash_filtered_cells$final_call)
+
+ss2_mutants_final
+
+table(rownames(ss2_mutants_final@meta.data) %in% vikash_keep_cells)
+```
+
+QC plot with these metrics:
+```{r}
+## make dataframe of just metrics
+counts_metrics <- counts_genes[-(grep("PBANKA*", rownames(counts_genes))), ]
+
+## inspect
+counts_metrics[1:5,1:5]
+
+## transpose dataframe
+counts_metrics_plot <- as.data.frame(t(counts_metrics))
+
+## inspect
+counts_metrics_plot[1:5,1:5]
+```
+
+prepare the dataframe for plotting:
+```{r}
+## make a column for name of cell
+counts_metrics_plot$cell_name <- rownames(counts_metrics_plot)
+## order by column
+#counts_metrics_plot <- counts_metrics_plot[order(counts_metrics_plot$`__not_aligned`, decreasing=T),]
+## melt
+counts_metrics_plot <- melt(counts_metrics_plot, id.vars = "cell_name")
+## count number of zero values:
+length(which(counts_metrics_plot$value == 0))
+## log the value
+counts_metrics_plot$value <- log(counts_metrics_plot$value + 1, 10)
+```
+
+```{r}
+#meltR$experiment <- factor(meltR$experiment, levels = meltR$experiment[order(-meltR$value[meltR$variable == lev])])
+## reorder based on one metric (namely not mapped here)
+counts_metrics_plot$cell_name <- factor(counts_metrics_plot$cell_name, levels = counts_metrics_plot$cell_name[order(-counts_metrics_plot$value[counts_metrics_plot$variable == levels(counts_metrics_plot$variable)[4]])])
+    
+## to reorder just based on sum:
+#ggplot(counts_metrics_plot, aes(fill=variable, y=value, x=reorder(cell_name, value, sum))) + 
+#    geom_bar(position="stack", stat="identity")
+
+## ref: https://stackoverflow.com/questions/40020386/reorder-according-variable-of-melted-dataframe 
+```
+
+```{r, fig.width = 10, fig.height = 5}
+## plot
+ggplot(counts_metrics_plot, aes(fill=variable, y=value, x=cell_name)) + 
+  geom_bar(position="stack", stat="identity") +
+  # label plot
+  labs(x = "Cells", y = "log10(number of reads)") +
+  # remove the x axis
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.line.x = element_blank())
+```
+
+plot with mapped statistics:
+```{r}
+## make a dataframe of all mapped reads
+mapped_reads <- as.data.frame(colSums(counts))
+## transpose the metrics for merging
+counts_metrics_full <- as.data.frame(t(counts_metrics))
+## check that the rownames are identical
+#identical(rownames(counts_metrics_full), rownames(mapped_reads))
+## bind the dataframes together
+counts_metrics_full <- cbind(counts_metrics_full, mapped_reads)
+## make a column for cell name
+counts_metrics_full$cell_name <- rownames(counts_metrics_full)
+## melt
+counts_metrics_full <- melt(counts_metrics_full, id.vars = "cell_name")
+## count number of zero values:
+length(which(counts_metrics_full$value == 0))
+## log the value
+counts_metrics_full$value <- log(counts_metrics_full$value + 1, 10)
+```
+plot:
+```{r, fig.width = 10, fig.height = 5}
+## plot
+ggplot(counts_metrics_full, aes(fill=variable, y=value, x=reorder(cell_name, value, sum))) + 
+  geom_bar(position="stack", stat="identity") +
+  # label plot
+  labs(x = "Cells", y = "log10(number of reads)") +
+  # remove the x axis
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.line.x = element_blank())
+```
+
+***
+## 3. Analysis
+
+### Light filter
+```{r}
+ss2_mutants_filtered <- subset(ss2_mutants, subset = nFeature_RNA > 40 & nFeature_RNA < 5246 & percent.mt < 101 & nCount_RNA > 1000)
+ss2_mutants_filtered
+```
+
+4358 - 3640 = 718 cells were removed by this very light filter
+
+filter genes
+```{r}
+## how many genes are not detected at all now that it is filtered of bad cells?
+length(which(rowSums(ss2_mutants_filtered@assays$RNA@counts) == 0))
+```
+
+## Filtered Object
+
+normalise and find variable genes
+```{r}
+## normalise
+ss2_mutants_filtered <- NormalizeData(ss2_mutants_filtered, normalization.method = "LogNormalize", scale.factor = 10000)
+## find variable genes
+ss2_mutants_filtered <- FindVariableFeatures(ss2_mutants_filtered, selection.method = "vst", nfeatures = 2000)
+## make a list of all genes in the dataset
+all.genes <- rownames(ss2_mutants_filtered)
+## scale data on all genes
+ss2_mutants_filtered <- ScaleData(ss2_mutants_filtered, features = all.genes)
+```
+
+## plot
+
+```{r}
+ss2_mutants_filtered <- RunPCA(ss2_mutants_filtered, features = VariableFeatures(object = ss2_mutants_filtered))
+```
+
+```{r}
+DimPlot(ss2_mutants_filtered, reduction = "pca")
+```
+
+```{r}
+ElbowPlot(ss2_mutants_filtered, ndims = 30, reduction = "pca")
+```
+
+```{r}
+ss2_mutants_filtered <- FindNeighbors(ss2_mutants_filtered, dims = 1:21)
+ss2_mutants_filtered <- FindClusters(ss2_mutants_filtered, resolution = 1)
+```
+
+```{r}
+ss2_mutants_filtered <- RunUMAP(ss2_mutants_filtered, dims = 1:21)
+```
+
+```{r}
+DimPlot(ss2_mutants_filtered, reduction = "umap", group.by = "ident", label = TRUE)
+```
+
+```{r}
+DimPlot(ss2_mutants_filtered, reduction = "umap", group.by = "identity_updated")
+```
+```{r}
+ss2_mutants_filtered <- AddMetaData(ss2_mutants_filtered, log10(ss2_mutants_filtered@meta.data$nCount_RNA), col.name = "nCount_log10")
+
+FeaturePlot(ss2_mutants_filtered, features = c("nCount_RNA", "nCount_log10", "nFeature_RNA", "percent.mt"), reduction = "umap")   
+```
+
+interactive
+```{r}
+plot <- FeaturePlot(ss2_mutants_filtered, features = "nFeature_RNA", reduction = "umap")   
+
+HoverLocator(plot = plot, information = FetchData(ss2_mutants_filtered, vars = c("nFeature_RNA", "ident", "identity_updated")))
+```
+
+look at this on a cluster-by-cluster basis:
+```{r}
+VlnPlot(object = ss2_mutants_filtered, features = "nFeature_RNA", pt.size = 0.01) + geom_hline(yintercept=250)
+```
+
+```{r}
+VlnPlot(object = ss2_mutants_filtered, features = "nCount_log10", pt.size = 0.01)
+```
+
+```{r}
+VlnPlot(object = ss2_mutants_filtered, features = "percent.mt", pt.size = 0.01) + geom_hline(yintercept=20)
+```
+
+```{r}
+cluster_four_cells_df <- ss2_mutants_filtered@meta.data[(ss2_mutants_filtered@meta.data$seurat_clusters == 4),]
+
+ggplot(cluster_four_cells_df, aes(x = percent.mt, y = nFeature_RNA)) + geom_point(size = 1)
+
+#FeatureScatter(ss2_mutants_filtered, feature1 = "percent.mt", feature2 = "nFeature_RNA", cells = , pt.size = 0.01, group.by = "experiment")
+```
+
+
+idenitfy which clusters are which
+
+```{r, fig.height = 6, fig.width = 8}
+# PBANKA-0515000 - p25 - female
+# PBANKA-1319500 - CCP2 - female - used in 820 line
+# PBANKA-1212600 - HAP2 - male
+# PBANKA-0600600 - NEK3 - male
+# PBANKA-1315700 - RON2 - (asexuals and some male?)
+# PBANKA-0416100 - dynenin heavy chain - male - used in 820 line
+# PBANKA-1437500 - AP2-G - seuxal commitment gene
+# PBANKA-0831000 - MSP1 - late asexual
+# PBANKA-1102200 - MSP8 - early asexual (from Bozdech paper)
+FeaturePlot(ss2_mutants_filtered, features = c("PBANKA-0515000", "PBANKA-1319500", "PBANKA-1212600","PBANKA-0600600", "PBANKA-1315700", "PBANKA-0416100", "PBANKA-1437500", "PBANKA-0831000", "PBANKA-1102200"), coord.fixed = TRUE)
+```
+
+prep for dotplot
+```{r}
+df_meta_data <- as.data.frame(ss2_mutants_filtered@meta.data)
+
+dot_plot_df <- as.data.frame.matrix(table(df_meta_data$RNA_snn_res.1, df_meta_data$identity_updated))
+
+dot_plot_df_pc <- (as.data.frame.matrix(prop.table(table(df_meta_data$RNA_snn_res.1, df_meta_data$identity_updated), margin = 2)) * 100)
+
+dot_plot_df_pc$cluster <- rownames(dot_plot_df_pc)
+library(dplyr)
+dot_plot_df_pc_mutated <- mutate(dot_plot_df_pc)
+library(reshape2)
+dot_plot_df_pc_melted <- melt(dot_plot_df_pc, variable.name = "cluster")
+colnames(dot_plot_df_pc_melted)[2] <- "identity"
+```
+
+```{r, fig.width = 6, fig.height= 7}
+library(ggplot2)
+  p = ggplot(dot_plot_df_pc_melted,
+             aes(y = factor(cluster),
+                 x = factor(identity))) +
+      geom_point(aes(colour=value, size=value)) + 
+      scale_color_gradient(low="blue", high="red", limits=c( 1, max(dot_plot_df_pc_melted$value))) +
+      theme_bw() +
+      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank())
+  p = p +
+      ylab("Cluster") +
+      xlab("Identity") +
+      theme(axis.text.x=element_text(size=12, face="italic", angle=45, hjust=1)) + 
+      theme(axis.text.y=element_text(size=12, face="italic"))
+  print(p)
+```
+
+
+
