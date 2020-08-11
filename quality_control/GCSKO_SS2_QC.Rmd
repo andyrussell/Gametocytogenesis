@@ -1,6 +1,8 @@
 ---
-title: 'SS2 Quality Control'
 subtitle: 'Gametocyte Development in <i>Plasmodium berghei</i>'
+title: |
+  ![](/Users/Andy/GCSKO/GCSKO_analysis_git/GCSKO_logo.jpg){width=300px}  
+  Smart-seq2 Quality Control
 author: "[Andrew Russell](https://ajcrussell.wixsite.com/mysite/about)"
 institute: Wellcome Sanger Institute
 date: '`r format(Sys.Date(), "%B %d, %Y")`'
@@ -14,9 +16,9 @@ output:
 ---
 
 ***
-# 1. Read in data  {.tabset}
+# 1. Read in the data  {.tabset}
 
-### Load required packages
+### Load the required packages
 
 ```{r, echo = FALSE}
 
@@ -101,23 +103,23 @@ if(require("patchwork", quietly = TRUE)){
 }
 ```
 
-### GTF 
+### Import GTF file
 
 This will be helpful later on. This contains annotations for each gene:
 ```{r}
 ##Import gtf file:
-gtf <- read.table("/Users/Andy/Desktop/GCSKO/GCSKO_analysis_git/data/Pberghei.gtf", sep="\t", header = FALSE)
+gtf <- read.table("/Users/Andy/GCSKO/GCSKO_analysis_git/data/Pberghei.gtf", sep="\t", header = FALSE)
 head(gtf)
 ```
-*N.B.This was the .gtf file used for feature coutning the data
+*N.B.This was the .gtf file used for feature counting the data
 
-### Counts and Pheno
+### Import Counts and Pheno files
 ```{r}
 ## read in counts
-counts <- read.delim("/Users/Andy/Desktop/GCSKO/GCSKO_analysis_git/data/counts_2020.csv", sep = ",", stringsAsFactors = FALSE, row.names = 1)
+counts <- read.delim("/Users/Andy/GCSKO/GCSKO_analysis_git/data/counts_2020.csv", sep = ",", stringsAsFactors = FALSE, row.names = 1)
 
 ## read in pheno
-pheno <- read.delim("/Users/Andy/Desktop/GCSKO/GCSKO_analysis_git/data/pheno_2020.csv", sep = ",", stringsAsFactors = FALSE)
+pheno <- read.delim("/Users/Andy/GCSKO/GCSKO_analysis_git/data/pheno_2020.csv", sep = ",", stringsAsFactors = FALSE)
 
 ## check dimensions of both
 expected_number_of_cells <- ( 384 * 12)
@@ -134,6 +136,8 @@ table((colnames(counts) %in% rownames(pheno)))
 ```
 
 ### Remove Anopheles cells
+
+These cells were included in one of the sequencing runs and are irrelevant.
 ```{r}
 ## get rid of the cells by finding all the cells that have As in their species col
 names_of_mosquito_cells <- rownames(pheno[(pheno$species == "As"), ])
@@ -211,7 +215,7 @@ dim(gtf[-which(gtf$V3 == "CDS"),])
 
 ## look at possible types of genes
 paste("The types of genes in the dataframe are:")
-levels(gtf$V3)
+names(table(gtf$V3))
 ```
 
 ***
@@ -234,11 +238,11 @@ ss2_mutants
 
 ```{r}
 ## how many genes are not detected at all?
-paste(length(which(rowSums(ss2_mutants@assays$RNA@counts) == 0)), " genes are not detected in any cell")
+paste(length(which(rowSums(as.matrix(ss2_mutants@assays$RNA@counts)) == 0)), " genes are not detected in any cell")
 ```
 
 ```{r, echo = FALSE}
-paste(length(colnames(counts)) - length(colnames(ss2_mutants@assays$RNA@counts)), " cells have zero counts")
+paste(length(colnames(counts)) - length(colnames(as.matrix(ss2_mutants@assays$RNA@counts))), " cells have zero counts")
 ```
 
 ### Filtered Cells Plate Heatmap
@@ -287,9 +291,15 @@ table_platemap$Row <- as.numeric(match(toupper(substr(table_platemap$well, 1, 1)
 table_platemap$Column <- as.numeric(substr(table_platemap$well, 2, 5))
 ```
 
-plot
+Plot
 ```{r}
+## calculate a percentage
 table_platemap$filtered_pc <- ((table_platemap$filtered_out)/(table_platemap$filtered_out + table_platemap$passed_QC))*100
+
+## due to an error in the scale_y_reverse, you need to make a column of 'reversed' row values to plot
+for(i in seq(1,8)){
+  table_platemap$Row_rev[table_platemap$Row == i] <- seq(8,1)[i]
+}
 
 ## one way of manually colouring in points after
 #+ scale_colour_manual(values=c(table_of_colors[1:2],c="green"))
@@ -298,35 +308,33 @@ zero_wells <- table_platemap$filtered_pc == 0
 table_platemap$filtered_pc[zero_wells] <- NA
 
 ## plot
-sample_map_no_reads <- ggplot(data=table_platemap, aes(x=Column, y=Row)) +
+sample_map_no_reads <- ggplot(data=table_platemap, aes(x=Column, y=Row_rev)) +
   #set up the platemap layout
     geom_point(data=expand.grid(seq(1, 12), seq(1, 8)), aes(x=Var1, y=Var2), color="grey90", fill="white", shape=21, size=6) +
   #Change the shape and colour of points for a variable
-  geom_point(aes(colour = filtered_pc)) +
+    geom_point(aes(colour = filtered_pc)) +
   #change the colours
-  scale_colour_viridis_c(guide = "colourbar", na.value="white") +
+    scale_colour_viridis_c(guide = "colourbar", na.value="white") +
+  ## diplay legend on bottom
+    theme(legend.position="bottom") +
   #fix the ratio of coordinates
-    coord_fixed(ratio=(13/12)/(9/8), xlim=c(0.5, 12.5), ylim=c(0.5, 8.5)) +
+    coord_fixed(ratio=(13/12)/(9/8), xlim=c(0.5, 12.5), ylim=c(0.6, 8.4)) +
+  # make into a plate plot
+    theme_bdc_microtiter() +
   #add labels for the y axis
-    scale_y_reverse(breaks=seq(1, 8), labels=LETTERS[1:8]) +
+    scale_y_continuous(breaks = seq(1, 8), labels = LETTERS[8:1]) +
   #add labels for the x axis
-    scale_x_continuous(breaks=seq(1, 12)) +
+    scale_x_continuous(position = "top", breaks=seq(1, 12)) +
   #Add a title and change label of fill
     labs(title="The position of cells with zero counts" , size = 6, colour = "percentage of cells in this well with zero counts") +
   #rotate legend guide because otherwise you can't see numbers:
-    guides(fill = guide_colorbar(barwidth = 0.5, barheight = 10, title="Value")) +
-  #change the colours
-    #scale_color_manual(values=c("Hoechst"="blue", "Hoescht" = "blue", "mCherry"="red", "GFP"="green")) +
-  # make mimnimum point size bigger
-    #scale_size_continuous(range = c(2,10)) +
-  # make into a plate plot
-    theme_bdc_microtiter()
+    guides(fill = guide_colorbar(barwidth = 0.5, barheight = 10, title="Value"))
 
 ## print
 sample_map_no_reads
 
 ## save
-ggsave("~/images_to_export/platemap_no_count.png", plot = sample_map_no_reads, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/platemap_no_count.png", plot = sample_map_no_reads, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 
 ## to make scatterpie
 ##library("scatterpie") # needed for geom_scatterpie
@@ -382,7 +390,7 @@ QC_mito_violin <- v1 + v2 + plot_layout(ncol = 2, nrow = 1, widths = c(4, 1), he
 QC_mito_violin
 
 ## save
-ggsave("~/images_to_export/QC_mito_violin.png", plot = QC_mito_violin, device = "png", path = NULL, scale = 1, width = 15, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_mito_violin.png", plot = QC_mito_violin, device = "png", path = NULL, scale = 1, width = 15, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 make a dataframe for plotting
@@ -417,7 +425,7 @@ QC_mito_graph <- ggplot(df, aes(x = nCount, y = nGenes)) +
 QC_mito_graph
 
 ## save
-ggsave("~/images_to_export/QC_mito_graph.png", plot = QC_mito_graph, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_mito_graph.png", plot = QC_mito_graph, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 ```{r, fig.height = 4, fig.width = 10}
@@ -472,7 +480,7 @@ QC_composite_plot <- dens1 + plot_spacer() + plot1 + dens2 + plot_layout(ncol = 
 QC_composite_plot
 
 ## save
-ggsave("~/images_to_export/QC_composite_plot.png", plot = QC_composite_plot, device = "png", path = NULL, scale = 1, width = 20, height = 20, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_composite_plot.png", plot = QC_composite_plot, device = "png", path = NULL, scale = 1, width = 20, height = 20, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 ***
@@ -536,7 +544,13 @@ head(table_platemap)
 ```
 
 ```{r}
+## calculate percentage
 table_platemap$filtered_pc <- ((table_platemap$filtered_out)/(table_platemap$filtered_out + table_platemap$passed_QC))*100
+
+## due to an error in the scale_y_reverse, you need to make a column of 'reversed' row values to plot
+for(i in seq(1,8)){
+  table_platemap$Row_rev[table_platemap$Row == i] <- seq(8,1)[i]
+}
 
 ## one way of manually colouring in points after
 #+ scale_colour_manual(values=c(table_of_colors[1:2],c="green"))
@@ -573,13 +587,28 @@ sample_map <- ggplot(data=table_platemap, aes(x=Column, y=Row)) +
 sample_map
 
 ## save
-ggsave("~/images_to_export/platemap_filtered.png", plot = sample_map, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/platemap_filtered.png", plot = sample_map, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 
 ## to make scatterpie
 ##library("scatterpie") # needed for geom_scatterpie
 ## then use this rather than geom_point and colour by
 ##+geom_scatterpie(aes(x=Column, y=Row, group = well), data=table_platemap, cols=c("filtered_out", "passed_QC"), color=NA, alpha=.8)
 ```
+
+```{r}
+pPlate <- ggplot(data = table_platemap, aes(x = Column, y = Row)) +
+geom_point(data = expand.grid(Column = seq(1,12), Row = seq(1,8)), color = "grey90", fill = "white", shape = 21, size = 8) +
+geom_point(aes(color = filtered_pc), size = 9) +
+labs(title = "Plate Layout for My Experiment", subtitle = "25 March 2016") +
+coord_fixed(ratio = (13/12)/(9/8), xlim = c(0.5, 12.5), ylim = c(0.6, 8.4)) + theme_bdc_microtiter() + scale_x_continuous(position = "top", breaks = seq(1, 12))  +
+theme(legend.position = "bottom") + guides(shape = guide_legend(override.aes = list(size = 3)),
+color = guide_legend(override.aes = list(size = 3))) + scale_y_continuous(breaks = seq(1, 8), labels = LETTERS[1:8])
+
+pPlate
+```
+
+
+
 
 get a bar graph of this too
 ```{r}
@@ -656,7 +685,7 @@ mapping_rate_plot <- ggplot(df_mapping_rates_hisat, aes(x = reorder(cell_name,al
    scale_fill_manual(values=c("red2", "green4"))
 
 ## save
-ggsave("~/images_to_export/QC_mapping_rate.eps", plot = mapping_rate_plot, device = "eps", path = NULL, scale = 1, width = 20, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_mapping_rate.eps", plot = mapping_rate_plot, device = "eps", path = NULL, scale = 1, width = 20, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 
 ## plot
 mapping_rate_plot
@@ -706,7 +735,7 @@ QC_by_genotype <- ggplot(df_cells_recovered, aes(x=genotype, y=recovered_pc ,fil
 QC_by_genotype
 
 ## save
-ggsave("~/images_to_export/QC_by_genotype.png", plot = QC_by_genotype, device = "png", path = NULL, scale = 1, width = 15, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_by_genotype.png", plot = QC_by_genotype, device = "png", path = NULL, scale = 1, width = 15, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
   
 ```
 
@@ -819,7 +848,7 @@ QC_failed_plates <- grid.arrange(arrangeGrob(plot_list[[1]] + theme(legend.posit
 QC_failed_plates
 
 ## save
-ggsave("~/images_to_export/QC_failed_plates.png", plot = QC_failed_plates, device = "png", path = NULL, scale = 1, width = 22, height = 17, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_failed_plates.png", plot = QC_failed_plates, device = "png", path = NULL, scale = 1, width = 22, height = 17, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 ### Add bulk metadata
@@ -1708,5 +1737,42 @@ library(ggplot2)
   print(p)
 ```
 
+#### Old way of plotting microtitre plates
+
+The previous way of plotting plates broke. 
+
+The packages involved are:
+ggplot2 3.2.1 (web instance) vs 3.3.2 (here)
+ggplot2bdc 0.3.2 (web instance) vs. 0.3.2 (here) 
+
+Something happened in the ggplot2 update that meant the title and guides were superimposed on the plot. The specific issue was with the scale_y_reverse() function.
+
+```{r}
+sample_map <- ggplot(data=table_platemap, aes(x=Column, y=Row)) +
+  #set up the platemap layout
+    geom_point(data=expand.grid(seq(1, 12), seq(1, 8)), aes(x=Var1, y=Var2), color="grey90", fill="white", shape=21, size=6) +
+  #Change the shape and colour of points for a variable
+  geom_point(aes(colour = filtered_pc)) +
+  #change the colours
+  scale_colour_viridis_c(guide = "colourbar", na.value="white") +
+  #fix the ratio of coordinates
+    coord_fixed(ratio=(13/12)/(9/8), xlim=c(0.5, 12.5), ylim=c(0.5, 8.5)) +
+  #add labels for the y axis
+    scale_y_reverse(breaks=seq(1, 8), labels=LETTERS[1:8]) +
+  #add labels for the x axis
+    scale_x_continuous(breaks=seq(1, 12)) +
+  #Add a title
+    labs(title="The position of cells that failed QC" , size = 6, colour = "percentage of cells in this well that failed QC") +
+  #rotate legend guide because otherwise you can't see numbers:
+    guides(fill = guide_colorbar(barwidth = 0.5, barheight = 10, title="Value")) +
+  #change the colours
+    #scale_color_manual(values=c("Hoechst"="blue", "Hoescht" = "blue", "mCherry"="red", "GFP"="green")) +
+  # make mimnimum point size bigger
+    #scale_size_continuous(range = c(2,10)) +
+  # make into a plate plot
+    theme_bdc_microtiter()
+
+sample_map
+```
 
 
