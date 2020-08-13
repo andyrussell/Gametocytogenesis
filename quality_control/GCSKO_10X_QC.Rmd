@@ -136,6 +136,46 @@ if(require("dplyr")){
     }
 }
 
+## scales is needed for break formatting functions in the barcode plot
+if(require("scales")){
+    print("scales is loaded correctly")
+} else {
+    print("trying to install scales")
+    install.packages("scales")
+    if(require(scales)){
+        print("scales installed and loaded")
+    } else {
+        stop("could not install scales")
+    }
+}
+
+## ggpubr is needed for plotting
+if(require("ggpubr", quietly = TRUE)){
+    print("ggpubr is loaded correctly")
+} else {
+    print("trying to install ggpubr")
+    install.packages("ggpubr")
+    if(require(ggpubr)){
+        print("ggpubr installed and loaded")
+    } else {
+        stop("could not install ggpubr")
+    }
+}
+
+## patchwork is needed for plotting
+## WARNING! cowplot over-rides this by masking it so be careful.
+if(require("patchwork", quietly = TRUE)){
+    print("patchwork is loaded correctly")
+} else {
+    print("trying to install patchwork")
+    install.packages("patchwork")
+    if(require(patchwork)){
+        print("patchwork installed and loaded")
+    } else {
+        stop("could not install patchwork")
+    }
+}
+
 ## set the seed for both the mixture models and also for the sample function later on:
 set.seed(-92497)
 ```
@@ -153,7 +193,7 @@ head(gtf)
 
 ```{r import data}
 ## read in 10x output 
-tenx5k_raw_data <- Read10X("tenx_24284")
+tenx5k_raw_data <- Read10X("/Users/Andy/GCSKO/GCSKO_analysis_git/data/10X/tenx_24284")
 
 ## Create Seurat object
 tenx5k <- CreateSeuratObject(counts = tenx5k_raw_data, min.cells = 0, min.features = 0, project = "GCSKO")
@@ -189,11 +229,10 @@ log_lib_size <- log10(umi_per_barcode[,1])
 ## order the barcode ranks
 o <- order(barcode_rank)
 
-## reorder the library size by their rank
+## reorder the library size, barcode rank by their rank
 log_lib_size <- log_lib_size[o]
-
-## reorder the barcode rank values by barcode rank
 barcode_rank <- barcode_rank[o]
+lib_size <- lib_size[o]
 ```
 
 make a mixture model to determine the knee of the plot
@@ -209,7 +248,9 @@ mix <- normalmixEM(log_lib_size)
 plot(mix, which=2, xlab2="log(mol per cell)")
 ```
 
-```{r}
+Find where the distributions intersect (i.e. where cells vs. background is)
+```{r calculate split}
+## identify where the split between the distributions is
 p1 <- dnorm(log_lib_size, mean=mix$mu[1], sd=mix$sigma[1])
 p2 <- dnorm(log_lib_size, mean=mix$mu[2], sd=mix$sigma[2])
 if (mix$mu[1] < mix$mu[2]) {
@@ -217,49 +258,74 @@ if (mix$mu[1] < mix$mu[2]) {
 } else {
     split <- min(log_lib_size[p1 > p2])
 }
+
+## print split
 split
 ```
 
+View the initial result
 ```{r}
+## log the barcode rank
 log_barcode_rank <- log10(barcode_rank)
+
+## plot
 plot(log_barcode_rank, log_lib_size, xlim=c(1,6))
+## add the split as a line on the plot
 abline(h=split, col="red")
 ```
 
 Final Figures:
-```{r}
-require(scales) # to access break formatting functions
-df_barcodes <- as.data.frame(cbind(barcode_rank, log_lib_size), row.names = NULL)
-#add a column for if it is a cell
+```{r barcode plot}
+## make the results of the above functions into a dataframe
+df_barcodes <- as.data.frame(cbind(barcode_rank, log_lib_size, lib_size), row.names = NULL)
+
+## add a column for if it is a cell or not
 df_barcodes$cell = rownames(df_barcodes) %in% which(df_barcodes$log_lib_size > split)
-#change value to a numeric
+
+## change value to a numeric
 df_barcodes$cell <- as.numeric(df_barcodes$cell)
+
+## change the 0 to a 2 for ease of handling
 df_barcodes$cell[df_barcodes$cell<1] <- 2
+
+## rename the numerics into cells or background
 df_barcodes$cell[df_barcodes$cell == 1] <- "Cells"
 df_barcodes$cell[df_barcodes$cell == 2] <- "Background"
-```
 
-```{r}
-library(scales) # to access break formatting functions
-barcode_plot <- ggplot(df_barcodes, aes(x=barcode_rank, y=log_lib_size, colour = cell, theme_size = 40)) +
+## extract the cutoff for cells do you can plot the lines
+boundary <- as.numeric(sum(df_barcodes$cell == "Cells"))
+split <- 10^split
+
+## make the plot
+barcode_plot <- ggplot(df_barcodes, aes(x=barcode_rank, y=lib_size, colour = cell, theme_size = 40)) +
+  ## make into a dot plot
   geom_point(size = 1, shape = 16) +
-  geom_segment(aes(x = 0, y = split, xend = 7762, yend = split), colour = "black", alpha = 0.01) +
-  geom_segment(aes(x = 7762, y = 0, xend = 7762, yend = split), colour = "black", alpha = 0.01) +
+  ## make the axis into log and specify breaks
   scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x), labels = trans_format("log10", math_format(10^.x))) +
-  scale_y_continuous(labels = c('0',bquote(10^1), bquote(10^2), bquote(10^3), bquote(10^4))) + annotation_logticks() +
+  ## make the axis into log and specify breaks
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x), labels = trans_format("log10", math_format(10^.x))) +
+  annotation_logticks() +
+  ## change colours of plot
   scale_color_manual(values=c("#bdbdbd", "#5ba43a"), labels = c("Background", "Cells")) +
-  theme(legend.position="right", text = element_text(size=25), legend.text=element_text(size=25), axis.text=element_text(size=25)) +
+  ## change aes of legend
+  theme(legend.position="bottom", text = element_text(size=25), legend.text=element_text(size=25), axis.text=element_text(size=25)) +
+  ## add the lines on the plot
+  geom_segment(aes(x = 0, y = split, xend = boundary, yend = split), colour = "black", alpha = 0.01) +
+  geom_segment(aes(x = boundary, y = 0, xend = boundary, yend = split), colour = "black", alpha = 0.01) +
+  ## change the axis labels
   labs(x = "Barcodes", y = "UMI Counts", colour="Cell Designation") +
+  ## change the size of the legend
   guides(colour = guide_legend(override.aes = list(size=10))) +
+  ## fix axis
   coord_fixed() +
+  ## make it look pretty
   theme_light()
 
+## print the plot
 barcode_plot
-```
 
-save:
-```{r}
-ggsave("barcode_plot_5k.png", plot = barcode_plot, device = "png", height = 15, width = 15, units = "cm", path = "~/images_to_export")
+## save the plot
+ggsave("barcode_plot_5k.png", plot = barcode_plot, device = "png", height = 15, width = 15, units = "cm", path = "/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/")
 ```
 
 so the number of cells that is retained is:
@@ -267,58 +333,51 @@ so the number of cells that is retained is:
 table(df_barcodes$cell)
 ```
 
-Filter the object:
-```{r}
+### Filter the object
+
+```{r filter cells vs background}
+## extract the nCount and row names from the Seurat object
 upb <- data.frame(nCount_RNA = tenx5k@meta.data$nCount_RNA, row.names = rownames(tenx5k@meta.data))
+
+## make blank column for rank
 upb$rank <- NA
+
+## order by nCounts
 order.scores <- order(upb$nCount_RNA, decreasing = TRUE)
+
+## add a rank to this column based on the ordered nCount
 upb$rank[order.scores] <- 1:nrow(upb)
-head(upb)
+
+## inspect
+#head(upb)
+
+## make a list of cells to retain in the Seurat object
 keep_cells <- rownames(upb[which(upb$rank < 7763),])
-pb_sex <- SubsetData(tenx5k, cells = keep_cells, do.clean = TRUE, subset.raw = TRUE)
+
+## subset Seurat object to include cells and discard background
+pb_sex <- subset(tenx5k, cells = keep_cells)
 ```
 
 # 4. Filter Out Poor-Quality Cells {.tabset}
 
-plot the cells:
-```{r}
-#inspect the ngenes and nUMI
-gene_plot_5k <- VlnPlot(object = pb_sex, features = "nFeature_RNA", pt.size = 0.01, do.return = TRUE)
-
-gene_plot_5k <- gene_plot_5k + 
-  geom_abline(intercept = 200, col="blue") +
-  labs(x = "",y = "nGene", title = "Genes per cell") +
-  theme_classic() +
-  scale_fill_manual(values="grey") +
-  scale_y_continuous(limits = c(0, 3000)) +
-  theme(legend.position="none", axis.text.x = element_blank(), axis.ticks.x=element_blank(), text = element_text(size=20), legend.text=element_text(size=20), axis.text=element_text(size=20), axis.text.y=element_text(colour="black"))
-
-#nUMI plot
-numi_plot_5k <- VlnPlot(object = pb_sex, features = "nCount_RNA", pt.size = 0.01, do.return = TRUE)
-
-numi_plot_5k <- numi_plot_5k +
-  labs(x = "",y = "nUMI", title = "UMIs per cell") +
-  theme_classic() +
-  scale_fill_manual(values="grey") +
-  scale_y_continuous(limits = c(0, 3000)) +
-  theme(legend.position="none", axis.text.x = element_blank(), axis.ticks.x=element_blank(), text = element_text(size=20), legend.text=element_text(size=20), axis.text=element_text(size=20), axis.text.y=element_text(colour="black"))
-
-#plot together
-grid.arrange(gene_plot_5k, numi_plot_5k, ncol = 2, top=textGrob("5K cells 10X", gp=gpar(fontsize=15,font=8)))
-```
-
-### Filter Mitochondrial
+### Filter Mitochondrial %
 
 Mitochondrial cell counts
-```{r}
+```{r, fig.height = 15, fig.width = 7}
 ## extract mitochondrial genes 
-mito_genes <- gtf[which(gtf$V3 == "rRNA"),]$V9
-mito_genes <- gsub(";.*","", gsub("gene_id ", "", mito_genes))
-paste("These are the mitochondrial genes")
-head(mito_genes)
+#mito_genes <- gtf[which(gtf$V3 == "rRNA"),]$V9
+#mito_genes <- gsub(";.*","", gsub("gene_id ", "", mito_genes))
+#paste("These are the mitochondrial genes")
+#head(mito_genes)
+
+## extract mito genes
+mito_genes <- pb_sex@assays$RNA@counts@Dimnames[[1]][grep("^PBANKA-MIT",pb_sex@assays$RNA@counts@Dimnames[[1]])]
+
+## plot the genes individually
+VlnPlot(object = pb_sex, features = mito_genes, pt.size = 0.01)
 
 ## make a percentage mitocondrial for each cell (this will work as long as you filter cells out with zero counts)
-pb_sex <- PercentageFeatureSet(pb_sex, features = which(rownames(counts) %in% mito_genes), col.name = "percent.mt")
+pb_sex <- PercentageFeatureSet(pb_sex, pattern = "^PBANKA-MIT", col.name = "percent.mt")
 ```
 
 plot percentage mitochondrial
@@ -344,15 +403,51 @@ v1
 #ggsave("~/images_to_export/QC_10X_mito_violin.png", plot = QC_mito_violin, device = "png", path = NULL, scale = 1, width = 15, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
+In the Smart-seq2 data, we use a threshold of 20%. No cell in our 10X data is higher than 13% and only
+```{r, echo = FALSE}
+sum(pb_sex@meta.data$percent.mt > 5)
+```
+cells have a % mitochondrial reads above 5%. 
 
+### nGenes filter
+
+plot individual violin plots
 ```{r}
-df <- data.frame(nCount = log10(pb_sex@meta.data$nCount_RNA), nGenes = pb_sex@meta.data$nFeature_RNA)
+## nGenes plot
+gene_plot_5k <- VlnPlot(object = pb_sex, features = "nFeature_RNA", pt.size = 0.01)
 
-## add this if you can get mitochondrial
-# percent_mt = pb_sex@meta.data$percent.mt
+## improve the aesthetics
+gene_plot_5k <- gene_plot_5k + 
+  geom_abline(intercept = 200, col="blue") +
+  labs(x = "",y = "nGene", title = "Genes per cell") +
+  theme_classic() +
+  scale_fill_manual(values="grey") +
+  scale_y_continuous(limits = c(0, 3000)) +
+  theme(legend.position="none", axis.text.x = element_blank(), axis.ticks.x=element_blank(), text = element_text(size=20), legend.text=element_text(size=20), axis.text=element_text(size=20), axis.text.y=element_text(colour="black"))
+
+## nUMI plot
+numi_plot_5k <- VlnPlot(object = pb_sex, features = "nCount_RNA", pt.size = 0.01)
+
+## improve aesthetics
+numi_plot_5k <- numi_plot_5k +
+  labs(x = "",y = "nUMI", title = "UMIs per cell") +
+  theme_classic() +
+  scale_fill_manual(values="grey") +
+  scale_y_continuous(limits = c(0, 3000)) +
+  theme(legend.position="none", axis.text.x = element_blank(), axis.ticks.x=element_blank(), text = element_text(size=20), legend.text=element_text(size=20), axis.text=element_text(size=20), axis.text.y=element_text(colour="black"))
+
+## plot together
+grid.arrange(gene_plot_5k, numi_plot_5k, ncol = 2, top=textGrob("5K cells 10X", gp=gpar(fontsize=15,font=8)))
+
+## save nGene plot on its own
+#ggsave("ngene_plot.pdf", plot = gene1, device = "pdf", height = 5, width = 5, units = "in", path = "/Users/ar19/Desktop/PhD/GCSKO_Analysis")
 ```
 
+plot two metrics together
 ```{r, fig.height = 8, fig.width = 8}
+## make a dataframe for important filtering metrics
+df <- data.frame(nCount = log10(pb_sex@meta.data$nCount_RNA), nGenes = pb_sex@meta.data$nFeature_RNA, percent_mt = pb_sex@meta.data$percent.mt, experiment = pb_sex@meta.data$experiment)
+
 ## plot main dotplot
 plot1 <- ggplot(df, aes(x = nCount, y = nGenes)) + 
   geom_point(aes(), size = 0.1) +
@@ -370,10 +465,19 @@ dens1 <- ggplot(df, aes(x = nCount)) +
   theme(legend.position = "none")
 
 ## plot density plot y
-dens2 <- ggplot(df, aes(x = nGenes)) + 
-  geom_density(alpha = 0.2) + 
-  theme_void() + 
-  theme(legend.position = "none") + 
+## old method
+# dens2 <- ggplot(df, aes(x = nGenes, y = experiment)) +
+#   geom_density(alpha = 0.2) +
+#   theme_void() +
+#   theme(legend.position = "none") +
+#   coord_flip()
+## new method
+dens <- density(df$nGenes)
+dt <- data.frame(x=dens$x, y=dens$y)
+probs <- c(0, 0.25, 0.5, 0.75, 1)
+quantiles <- quantile(df$nGenes, prob=probs)
+dt$quant <- factor(findInterval(dt$x,quantiles))
+dens2 <- ggplot(dt, aes(x,y)) + geom_line() + geom_ribbon(aes(ymin=0, ymax=y, fill=quant)) + scale_x_continuous(breaks=quantiles) + scale_fill_brewer(guide="none") + theme_void() + theme(legend.position = "none") +
   coord_flip()
 
 ## plot together
@@ -381,20 +485,20 @@ QC_composite_plot <- dens1 + plot_spacer() + plot1 + dens2 + plot_layout(ncol = 
 
 ## print
 QC_composite_plot
-```
 
-```{r}
 ## save
-ggsave("~/images_to_export/QC_10X_composite_plot.png", plot = QC_composite_plot, device = "png", path = NULL, scale = 1, width = 20, height = 20, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_10X_composite_plot.png", plot = QC_composite_plot, device = "png", path = NULL, scale = 1, width = 20, height = 20, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
+### Filtering
 
 The threshold used in the malaria cell atlas was 230 for Pb but this is dependent on sequencing depth etc.
 We can plot the number of cells recovered for a range of thresholds:
 ```{r}
-nrow(pb_sex@meta.data[pb_sex@meta.data$nFeature_RNA > 150, ])
-nrow(pb_sex@meta.data[pb_sex@meta.data$nFeature_RNA > 200, ])
-nrow(pb_sex@meta.data[pb_sex@meta.data$nFeature_RNA > 230, ])
+paste("original number of cells =", nrow(pb_sex@meta.data))
+paste("with >150 filter =", nrow(pb_sex@meta.data[pb_sex@meta.data$nFeature_RNA > 150, ]))
+paste("with >200 filter =", nrow(pb_sex@meta.data[pb_sex@meta.data$nFeature_RNA > 200, ]))
+paste("with >230 filter =", nrow(pb_sex@meta.data[pb_sex@meta.data$nFeature_RNA > 230, ]))
 ```
 
 Since we have already filtered on nUMI, we will filter with 200.
@@ -407,66 +511,52 @@ pb_sex <- subset(pb_sex, subset = nFeature_RNA > 200)
 ## number of cells after filtering
 pb_sex_post_filter_nCells <- nrow(pb_sex@meta.data)
 ## print results of filtering
-pb_sex_pre_filter_nCells
-pb_sex_post_filter_nCells
+paste("number of cells pre-filter", pb_sex_pre_filter_nCells)
+paste("number of cells post-filter", pb_sex_post_filter_nCells)
+paste((pb_sex_pre_filter_nCells - pb_sex_post_filter_nCells), "cells were removed by filtering on number of genes.")
 ```
-
-save ngene plot
-```{r}
-#ggsave("ngene_plot.pdf", plot = gene1, device = "pdf", height = 5, width = 5, units = "in", path = "/Users/ar19/Desktop/PhD/GCSKO_Analysis")
-```
-
-```{r, echo = FALSE}
-pb_sex_pre_filter_nCells - pb_sex_post_filter_nCells
-```
-cells were removed by filtering on number of genes.
 
 # 5. Dimensionality Reduction and Clustering {.tabset}
 
-normalise
+### Prepare data
 ```{r}
 ## normalise object
 pb_sex <- NormalizeData(pb_sex, normalization.method = "LogNormalize", scale.factor = 10000)
-```
 
-find variable genes
-```{r}
+## find variable genes
 pb_sex <- FindVariableFeatures(pb_sex, selection.method = "vst", nfeatures = 2000)
-```
 
-scale the data
-```{r}
+## scale the data
 all.genes <- rownames(pb_sex)
 pb_sex <- ScaleData(pb_sex, features = all.genes)
 ```
 
+### PCA
 ```{r}
+## run PCA
 pb_sex <- RunPCA(pb_sex, features = VariableFeatures(object = pb_sex))
-```
 
-```{r}
+## plot 
 DimPlot(pb_sex, reduction = "pca")
-```
 
-```{r}
+## elbow plot
 ElbowPlot(pb_sex, ndims = 30, reduction = "pca")
 ```
 
+### UMAP
 ```{r}
-pb_sex <- FindNeighbors(pb_sex, dims = 1:21)
-pb_sex <- FindClusters(pb_sex, resolution = 1)
-```
+## run UMAP
+pb_sex <- RunUMAP(pb_sex, dims = 1:10, seed.use = 1234, n.neighbors = 150)
 
-```{r}
-pb_sex <- RunUMAP(pb_sex, dims = 1:12, seed.use = 2000, n.neighbors = 10)
+## plot
 DimPlot(pb_sex, reduction = "umap", group.by = "ident", label = TRUE)
 
 ## These are the parameters used in the merge UMAP
 #pb_sex <- RunUMAP(pb_sex, reduction = "pca", dims = 1:10, n.neighbors = 150, seed.use = 1234, min.dist = 0.4, repulsion.strength = 0.03, local.connectivity = 150)
+#DimPlot(pb_sex, reduction = "umap", group.by = "ident", label = TRUE)
 ```
 
 colour with a few marker genes:
-
 ```{r, fig.height = 6, fig.width = 8}
 # PBANKA-0515000 - p25 - female
 # PBANKA-1212600 - HAP2 - male
@@ -481,9 +571,24 @@ colour with a few marker genes:
 FeaturePlot(pb_sex, features = c("PBANKA-0515000", "PBANKA-1212600","PBANKA-0600600", "PBANKA-0831000", "PBANKA-1315700", "PBANKA-0416100", "PBANKA-1319500", "PBANKA-1437500", "PBANKA-1102200"))
 ```
 
+### Clustering
+```{r}
+pb_sex <- FindNeighbors(pb_sex, dims = 1:21)
+pb_sex <- FindClusters(pb_sex, resolution = 1)
+```
+
 # 6. Remove Doublets {.tabset}
 
+### DoubletFinder
+
+DoubletFinder function
 ```{r}
+## DoubletFinder should be able to be installed and run as so:
+#devtools::install_github('chris-mcginnis-ucsf/DoubletFinder')
+#library(doubletFinder) #allows removal of doublets
+## but there seems to be some problems with this so we will run it from the github code
+
+## the doublet finder function
 doubletFinder_v3 <- function(seu, PCs, pN = 0.25, pK, nExp, reuse.pANN = FALSE, sct = FALSE) {
   require(Seurat); require(fields); require(KernSmooth)
 
@@ -604,11 +709,8 @@ doubletFinder_v3 <- function(seu, PCs, pN = 0.25, pK, nExp, reuse.pANN = FALSE, 
 ## source: https://github.com/chris-mcginnis-ucsf/DoubletFinder/blob/master/R/doubletFinder_v3.R
 ```
 
-
-
+Run DoubletFinder
 ```{r}
-#devtools::install_github('chris-mcginnis-ucsf/DoubletFinder')
-#library(doubletFinder) #allows removal of doublets
 # the tutorial recommends using this as an approximation:
 #nExp_poi <- round(0.15*nrow(pb_sex@meta.data))
 #but a more appropriate approximation is that the expected number of doublets is ~1% per 1000 cells so:
@@ -622,65 +724,67 @@ results in:
 table(pb_sex@meta.data$DF.classifications_0.25_0.01_440)
 ```
 
+### Validation and visualisation of doublets
+
 visualise where doublets are:
 ```{r}
 doublet.cells <- c(rownames(pb_sex@meta.data[pb_sex@meta.data$DF.classifications_0.25_0.01_440 == "Doublet",]))
 d1 <- DimPlot(pb_sex, reduction = "umap", cells.highlight = doublet.cells, sizes.highlight = 2)
 #TSNEPlot(object = pb_sex, cells.highlight = doublet.cells, do.return = TRUE, )
 doublet1 <- d1 + coord_fixed() + theme(axis.text.x=element_blank())
-doublet1
+
+## plot clusters
+cluster_plot <- DimPlot(pb_sex, reduction = "umap", group.by = "ident", label = TRUE)
+
+doublet1 + cluster_plot
 ```
 
 ```{r}
-VlnPlot(object = pb_sex, features = "pANN_0.25_0.01_440", point.size.use = 0.1, do.return = TRUE)
+VlnPlot(object = pb_sex, features = "pANN_0.25_0.01_440", pt.size = 0.1)
 ```
 
-
 ```{r}
-df <- pb_sex@meta.data
-df <- df[,c(6,8)]
+## extract meta data cols of interest
+df <- pb_sex@meta.data[,c("RNA_snn_res.1","DF.classifications_0.25_0.01_440")]
+
+## make a table from doublets
 df <- data.frame(rbind(table(df)))
-df$pc_doublet <- ((df[,1])/((df[,1]) + df[,2]))*100
-df$cluster <- rownames(df)
-#plot
-kable(df[order(df$pc_doublet),])
-```
 
-```{r}
+## ammend rownames
+df$cluster <- rownames(df)
+
+## calculate percentages of cells that are doublets
+df$pc_doublet <- ((df[,1])/((df[,1]) + df[,2]))*100
+
+## inspect
+#kable(df[order(df$pc_doublet),])
+
+## plot 
 ggplot(data=df, aes(x=cluster, y=pc_doublet)) +
   geom_col(fill="steelblue") +
   theme_minimal()
 ```
 
-### these got renamed in the 
+### Filter doublets
 
-The clusters with the least doublets:
-11 - female (mature)
+It definitely seems like there are some biases in doublet detection. Fewer doublets in very early rings and in mature sexes may be due to a smaller number of the population being these cells. 
 
-
-13 - asex 10
-4 - asex 1
-6 - asex 2
-10 - male (mature)
-9 - asex 9
-2 - asex 3
-12 - female (early)
-5 - asex 5
-7 - asex 8
-8 - sex (early male and female)
-0 - asex 6
-1 - asex 7
-3 - asex 4
+It may also be biological, that these cells are less likely to associate to one another (although less likely, as doublets are a result of the probability of two cells being captured inside the same droplet together at a certain loading concentration, rather than two cells already being together upon droplet capture).
 
 remove doublets:
 ```{r}
+## make a list of singlet cells
 keep_singlets <- rownames(pb_sex@meta.data[pb_sex@meta.data$DF.classifications_0.25_0.01_440 == "Singlet",])
+
+## subset into new seurat object
 pb_sex_filtered <- subset(pb_sex, cells = keep_singlets, subset.raw = TRUE)
+
+## compare old and new objects
 pb_sex
 pb_sex_filtered
 ```
 
-## 7. Life Cycle Stage (Using Bulk RNA-Seq Correlation) {.tabset}
+# 7. Life Cycle Stage (Using Bulk RNA-Seq Correlation) {.tabset}
 
 Add in bulk data predictions
 
@@ -694,7 +798,7 @@ library(Hmisc)
 x10 <- as.matrix(pb_sex_filtered@assays$RNA@data)
 rownames(x10) <- gsub("-", "_", rownames(x10))
 #read in bulk data:
-hoo<-as.matrix(read.table("Reference_bulk_data/hoo_berg2.txt",header=T, row.names=1))
+hoo<-as.matrix(read.table("/Users/Andy/GCSKO/GCSKO_analysis_git/data/Reference/hoo_berg2.txt",header=T, row.names=1))
 #Make a blank dataframe in which to add prediction:
 df <- data.frame(matrix(ncol = 4, nrow = 0))
 colnames(df) <- c("Prediction(Spearman)","r(Spearman)","Prediction(Pearsons)","r(Pearsons)")
@@ -740,7 +844,7 @@ pb_sex_filtered <- AddMetaData(pb_sex_filtered, metadata = df)
 ### Kasia's data
 Can also do with Kasia's timecourse data:
 ```{r}
-kas<-as.matrix(read.table("Reference_bulk_data/AP2OETC.txt",header=T, row.names=1))
+kas<-as.matrix(read.table("/Users/Andy/GCSKO/GCSKO_analysis_git/data/Reference/AP2OETC.txt",header=T, row.names=1))
 #Make a blank dataframe in which to add prediction:
 dfs <- data.frame(matrix(ncol = 4, nrow = 0))
 colnames(dfs) <- c("ID","Prediction","r (Pearson)")
@@ -782,65 +886,51 @@ colnames(dfs) <- c('Prediction(Spearman)_Kasia', 'r(Spearman)_Kasia', 'Predictio
 pb_sex_filtered <- AddMetaData(pb_sex_filtered, dfs)
 ```
 
-```{r}
-pb_sex_filtered <- RunUMAP(pb_sex_filtered, dims = 1:21, seed.use = 200, n.neighbors = 15)
-DimPlot(pb_sex_filtered, reduction = "umap", group.by = "ident", label = TRUE)
-```
+### Visualise
 
 Confirm life cycle designations:
-
 ```{r}
-pb_sex_filtered@meta.data
-FeaturePlot(pb_sex_filtered, features = c("Prediction(Spearman)_Kasia", "Prediction(Spearman)"))
+## plot
+FeaturePlot(pb_sex_filtered, features = c("Prediction.Spearman._Kasia", "Prediction.Spearman."))
 ```
 
 optimse UMAP
-
 ```{r}
+## PCA calc
 pb_sex_filtered <- RunPCA(pb_sex_filtered, features = VariableFeatures(object = pb_sex_filtered))
-```
 
-```{r}
+## elbow plot
 ElbowPlot(pb_sex_filtered, ndims = 30, reduction = "pca")
-```
 
-```{r}
+## UMAP calc
 pb_sex_filtered <- RunUMAP(pb_sex_filtered, dims = 1:8, seed.use = 300, n.neighbors = 60, min.dist = 0.5, repulsion.strength = 0.05, local.connectivity = 20)
+
+## UMAP plot
 DimPlot(pb_sex_filtered, reduction = "umap", group.by = "ident", label = TRUE)
 ```
-
-recluster:
-```{r}
-pb_sex_filtered <- FindNeighbors(pb_sex_filtered, dims = 1:18)
-pb_sex_filtered <- FindClusters(pb_sex_filtered, resolution = 3)
-DimPlot(pb_sex_filtered, reduction = "umap", group.by = "ident", label = TRUE)
-```
-
-
 
 
 # 8. Save and Export {.tabset}
 
-This saves everything in the global environment for easy recall later
+Save environment
 ```{r}
-save.image(file = "GCSKO_10X_QC.RData")
+## This saves everything in the global environment for easy recall later
+#save.image(file = "GCSKO_10X_QC.RData")
 #load(file = "GCSKO_10X_QC.RData")
 ```
 
-Specifically, pb_30_sex_filtered & are needed for Part 2
+Save object(s)
 ```{r}
-save(pb_30k_sex_filtered, pb_sex_filtered, file = "Part_2_input.Rdata")
+## save Rdata
+#save(pb_30k_sex_filtered, pb_sex_filtered, file = "Part_2_input.Rdata")
 #load(file = "Part_2_input.Rdata")
 
-saveRDS(pb_30k_sex_filtered, file = "pb_30k_sex_filtered.RDS", compress = FALSE) 
-#pb_30k_sex_filtered <- readRDS("pb_30k_sex_filtered.RDS")
-
-save(pb_30k_sex_filtered,file="pb_30k_sex_filtered.Robj")
-
-
-saveRDS(pb_sex_filtered, file = "pb_sex_filtered.RDS") 
+## save RDS
+saveRDS(pb_sex_filtered, file = "/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/pb_sex_filtered.RDS", compress = FALSE) 
 #pb_sex_filtered <- readRDS("pb_sex_filtered.RDS")
 
+## Save Robj
+#save(pb_sex_filtered,file="pb_sex_filtered.Robj")
 ```
 
 # Appendix {.tabset}

@@ -20,7 +20,7 @@ output:
 
 ### Load the required packages
 
-```{r, echo = FALSE}
+```{r load packages, echo = FALSE}
 
 ## Seurat is needed for most of this script
 if(require("Seurat", quietly = TRUE)){
@@ -106,7 +106,7 @@ if(require("patchwork", quietly = TRUE)){
 ### Import GTF file
 
 This will be helpful later on. This contains annotations for each gene:
-```{r}
+```{r import GTF}
 ##Import gtf file:
 gtf <- read.table("/Users/Andy/GCSKO/GCSKO_analysis_git/data/Pberghei.gtf", sep="\t", header = FALSE)
 head(gtf)
@@ -114,7 +114,8 @@ head(gtf)
 *N.B.This was the .gtf file used for feature counting the data
 
 ### Import Counts and Pheno files
-```{r}
+
+```{r import data}
 ## read in counts
 counts <- read.delim("/Users/Andy/GCSKO/GCSKO_analysis_git/data/counts_2020.csv", sep = ",", stringsAsFactors = FALSE, row.names = 1)
 
@@ -138,7 +139,7 @@ table((colnames(counts) %in% rownames(pheno)))
 ### Remove Anopheles cells
 
 These cells were included in one of the sequencing runs and are irrelevant.
-```{r}
+```{r remove anopheles}
 ## get rid of the cells by finding all the cells that have As in their species col
 names_of_mosquito_cells <- rownames(pheno[(pheno$species == "As"), ])
 
@@ -155,7 +156,7 @@ paste("number of columns in counts", dim(pheno)[2], "number of cells in pheno", 
 ```
 
 ### Remove control cells:
-```{r}
+```{r remove controls}
 ## find all cells that are labelled as such
 names_of_control_cells <- rownames(pheno[(pheno$is_control == "TRUE"), ])
 
@@ -174,7 +175,7 @@ paste("number of columns in counts", dim(pheno)[2], "number of cells in pheno", 
 ### Remove 10 and 27
 
 10 and 27 failed genotyping and so will be removed
-```{r}
+```{r remove 10 and 27}
 ## find all cells that are labelled as such
 names_of_genotype_fail_cells <- rownames(pheno[(pheno$sub_identity_updated %in% c("GCSKO-10", "WT-10", "GCSKO-27")), ])
 
@@ -193,7 +194,7 @@ paste("number of columns in counts", dim(pheno)[2], "number of cells in pheno", 
 ### Filter non-genes out of counts
 
 Filter out the QC columns contained in counts that do not correspond to genes
-```{r}
+```{r clean counts}
 ## since the datatable currently contains:
 paste("The current counts table contains these non-gene rows:")
 rownames(counts[-(grep("PBANKA*", rownames(counts))), ])
@@ -208,7 +209,7 @@ paste("number of genes in counts", dim(counts)[1], "number of cells in counts", 
 ```
 
 This 5245 includes all types of genes:
-```{r}
+```{r gene count}
 ## check size
 paste("The dimensions of the GTF file are:")
 dim(gtf[-which(gtf$V3 == "CDS"),])
@@ -224,7 +225,7 @@ names(table(gtf$V3))
 ### set-up data
 
 make seurat object
-```{r}
+```{r make seurat}
 ## make seurat object
 ss2_mutants <- CreateSeuratObject(counts = counts, project = "GCSKO", min.cells = 0, min.features = 1, meta.data = pheno)
 # n.b. cells must have at least 1 gene per cell because this causes problems downstream
@@ -236,12 +237,12 @@ ss2_mutants@meta.data$experiment <- "ss2_mutants"
 ss2_mutants
 ```
 
-```{r}
+```{r non detected genes}
 ## how many genes are not detected at all?
 paste(length(which(rowSums(as.matrix(ss2_mutants@assays$RNA@counts)) == 0)), " genes are not detected in any cell")
 ```
 
-```{r, echo = FALSE}
+```{r zero count cells, echo = FALSE}
 paste(length(colnames(counts)) - length(colnames(as.matrix(ss2_mutants@assays$RNA@counts))), " cells have zero counts")
 ```
 
@@ -1490,252 +1491,6 @@ sessionInfo()
 ```
 
 ## Extras
-
-### testing Vikash's cells
-
-```{r}
-vikash_filtered_cells <- read.table("~/data/vikash_filtered_cells_20_03_27.txt", sep="\t", header = TRUE)
-head(vikash_filtered_cells)
-```
-
-```{r}
-vikash_keep_cells <- vikash_filtered_cells[vikash_filtered_cells$final_call == 1,]$X
-
-table(vikash_filtered_cells$final_call)
-
-ss2_mutants_final
-
-table(rownames(ss2_mutants_final@meta.data) %in% vikash_keep_cells)
-```
-
-QC plot with these metrics:
-```{r}
-## make dataframe of just metrics
-counts_metrics <- counts_genes[-(grep("PBANKA*", rownames(counts_genes))), ]
-
-## inspect
-counts_metrics[1:5,1:5]
-
-## transpose dataframe
-counts_metrics_plot <- as.data.frame(t(counts_metrics))
-
-## inspect
-counts_metrics_plot[1:5,1:5]
-```
-
-prepare the dataframe for plotting:
-```{r}
-## make a column for name of cell
-counts_metrics_plot$cell_name <- rownames(counts_metrics_plot)
-## order by column
-#counts_metrics_plot <- counts_metrics_plot[order(counts_metrics_plot$`__not_aligned`, decreasing=T),]
-## melt
-counts_metrics_plot <- melt(counts_metrics_plot, id.vars = "cell_name")
-## count number of zero values:
-length(which(counts_metrics_plot$value == 0))
-## log the value
-counts_metrics_plot$value <- log(counts_metrics_plot$value + 1, 10)
-```
-
-```{r}
-#meltR$experiment <- factor(meltR$experiment, levels = meltR$experiment[order(-meltR$value[meltR$variable == lev])])
-## reorder based on one metric (namely not mapped here)
-counts_metrics_plot$cell_name <- factor(counts_metrics_plot$cell_name, levels = counts_metrics_plot$cell_name[order(-counts_metrics_plot$value[counts_metrics_plot$variable == levels(counts_metrics_plot$variable)[4]])])
-    
-## to reorder just based on sum:
-#ggplot(counts_metrics_plot, aes(fill=variable, y=value, x=reorder(cell_name, value, sum))) + 
-#    geom_bar(position="stack", stat="identity")
-
-## ref: https://stackoverflow.com/questions/40020386/reorder-according-variable-of-melted-dataframe 
-```
-
-```{r, fig.width = 10, fig.height = 5}
-## plot
-ggplot(counts_metrics_plot, aes(fill=variable, y=value, x=cell_name)) + 
-  geom_bar(position="stack", stat="identity") +
-  # label plot
-  labs(x = "Cells", y = "log10(number of reads)") +
-  # remove the x axis
-  theme(axis.text.x=element_blank(),
-        axis.ticks.x=element_blank(),
-        axis.line.x = element_blank())
-```
-
-plot with mapped statistics:
-```{r}
-## make a dataframe of all mapped reads
-mapped_reads <- as.data.frame(colSums(counts))
-## transpose the metrics for merging
-counts_metrics_full <- as.data.frame(t(counts_metrics))
-## check that the rownames are identical
-#identical(rownames(counts_metrics_full), rownames(mapped_reads))
-## bind the dataframes together
-counts_metrics_full <- cbind(counts_metrics_full, mapped_reads)
-## make a column for cell name
-counts_metrics_full$cell_name <- rownames(counts_metrics_full)
-## melt
-counts_metrics_full <- melt(counts_metrics_full, id.vars = "cell_name")
-## count number of zero values:
-length(which(counts_metrics_full$value == 0))
-## log the value
-counts_metrics_full$value <- log(counts_metrics_full$value + 1, 10)
-```
-plot:
-```{r, fig.width = 10, fig.height = 5}
-## plot
-ggplot(counts_metrics_full, aes(fill=variable, y=value, x=reorder(cell_name, value, sum))) + 
-  geom_bar(position="stack", stat="identity") +
-  # label plot
-  labs(x = "Cells", y = "log10(number of reads)") +
-  # remove the x axis
-  theme(axis.text.x=element_blank(),
-        axis.ticks.x=element_blank(),
-        axis.line.x = element_blank())
-```
-
-***
-## 3. Analysis
-
-### Light filter
-```{r}
-ss2_mutants_filtered <- subset(ss2_mutants, subset = nFeature_RNA > 40 & nFeature_RNA < 5246 & percent.mt < 101 & nCount_RNA > 1000)
-ss2_mutants_filtered
-```
-
-4358 - 3640 = 718 cells were removed by this very light filter
-
-filter genes
-```{r}
-## how many genes are not detected at all now that it is filtered of bad cells?
-length(which(rowSums(ss2_mutants_filtered@assays$RNA@counts) == 0))
-```
-
-## Filtered Object
-
-normalise and find variable genes
-```{r}
-## normalise
-ss2_mutants_filtered <- NormalizeData(ss2_mutants_filtered, normalization.method = "LogNormalize", scale.factor = 10000)
-## find variable genes
-ss2_mutants_filtered <- FindVariableFeatures(ss2_mutants_filtered, selection.method = "vst", nfeatures = 2000)
-## make a list of all genes in the dataset
-all.genes <- rownames(ss2_mutants_filtered)
-## scale data on all genes
-ss2_mutants_filtered <- ScaleData(ss2_mutants_filtered, features = all.genes)
-```
-
-## plot
-
-```{r}
-ss2_mutants_filtered <- RunPCA(ss2_mutants_filtered, features = VariableFeatures(object = ss2_mutants_filtered))
-```
-
-```{r}
-DimPlot(ss2_mutants_filtered, reduction = "pca")
-```
-
-```{r}
-ElbowPlot(ss2_mutants_filtered, ndims = 30, reduction = "pca")
-```
-
-```{r}
-ss2_mutants_filtered <- FindNeighbors(ss2_mutants_filtered, dims = 1:21)
-ss2_mutants_filtered <- FindClusters(ss2_mutants_filtered, resolution = 1)
-```
-
-```{r}
-ss2_mutants_filtered <- RunUMAP(ss2_mutants_filtered, dims = 1:21)
-```
-
-```{r}
-DimPlot(ss2_mutants_filtered, reduction = "umap", group.by = "ident", label = TRUE)
-```
-
-```{r}
-DimPlot(ss2_mutants_filtered, reduction = "umap", group.by = "identity_updated")
-```
-```{r}
-ss2_mutants_filtered <- AddMetaData(ss2_mutants_filtered, log10(ss2_mutants_filtered@meta.data$nCount_RNA), col.name = "nCount_log10")
-
-FeaturePlot(ss2_mutants_filtered, features = c("nCount_RNA", "nCount_log10", "nFeature_RNA", "percent.mt"), reduction = "umap")   
-```
-
-interactive
-```{r}
-plot <- FeaturePlot(ss2_mutants_filtered, features = "nFeature_RNA", reduction = "umap")   
-
-HoverLocator(plot = plot, information = FetchData(ss2_mutants_filtered, vars = c("nFeature_RNA", "ident", "identity_updated")))
-```
-
-look at this on a cluster-by-cluster basis:
-```{r}
-VlnPlot(object = ss2_mutants_filtered, features = "nFeature_RNA", pt.size = 0.01) + geom_hline(yintercept=250)
-```
-
-```{r}
-VlnPlot(object = ss2_mutants_filtered, features = "nCount_log10", pt.size = 0.01)
-```
-
-```{r}
-VlnPlot(object = ss2_mutants_filtered, features = "percent.mt", pt.size = 0.01) + geom_hline(yintercept=20)
-```
-
-```{r}
-cluster_four_cells_df <- ss2_mutants_filtered@meta.data[(ss2_mutants_filtered@meta.data$seurat_clusters == 4),]
-
-ggplot(cluster_four_cells_df, aes(x = percent.mt, y = nFeature_RNA)) + geom_point(size = 1)
-
-#FeatureScatter(ss2_mutants_filtered, feature1 = "percent.mt", feature2 = "nFeature_RNA", cells = , pt.size = 0.01, group.by = "experiment")
-```
-
-
-idenitfy which clusters are which
-
-```{r, fig.height = 6, fig.width = 8}
-# PBANKA-0515000 - p25 - female
-# PBANKA-1319500 - CCP2 - female - used in 820 line
-# PBANKA-1212600 - HAP2 - male
-# PBANKA-0600600 - NEK3 - male
-# PBANKA-1315700 - RON2 - (asexuals and some male?)
-# PBANKA-0416100 - dynenin heavy chain - male - used in 820 line
-# PBANKA-1437500 - AP2-G - seuxal commitment gene
-# PBANKA-0831000 - MSP1 - late asexual
-# PBANKA-1102200 - MSP8 - early asexual (from Bozdech paper)
-FeaturePlot(ss2_mutants_filtered, features = c("PBANKA-0515000", "PBANKA-1319500", "PBANKA-1212600","PBANKA-0600600", "PBANKA-1315700", "PBANKA-0416100", "PBANKA-1437500", "PBANKA-0831000", "PBANKA-1102200"), coord.fixed = TRUE)
-```
-
-prep for dotplot
-```{r}
-df_meta_data <- as.data.frame(ss2_mutants_filtered@meta.data)
-
-dot_plot_df <- as.data.frame.matrix(table(df_meta_data$RNA_snn_res.1, df_meta_data$identity_updated))
-
-dot_plot_df_pc <- (as.data.frame.matrix(prop.table(table(df_meta_data$RNA_snn_res.1, df_meta_data$identity_updated), margin = 2)) * 100)
-
-dot_plot_df_pc$cluster <- rownames(dot_plot_df_pc)
-library(dplyr)
-dot_plot_df_pc_mutated <- mutate(dot_plot_df_pc)
-library(reshape2)
-dot_plot_df_pc_melted <- melt(dot_plot_df_pc, variable.name = "cluster")
-colnames(dot_plot_df_pc_melted)[2] <- "identity"
-```
-
-```{r, fig.width = 6, fig.height= 7}
-library(ggplot2)
-  p = ggplot(dot_plot_df_pc_melted,
-             aes(y = factor(cluster),
-                 x = factor(identity))) +
-      geom_point(aes(colour=value, size=value)) + 
-      scale_color_gradient(low="blue", high="red", limits=c( 1, max(dot_plot_df_pc_melted$value))) +
-      theme_bw() +
-      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank())
-  p = p +
-      ylab("Cluster") +
-      xlab("Identity") +
-      theme(axis.text.x=element_text(size=12, face="italic", angle=45, hjust=1)) + 
-      theme(axis.text.y=element_text(size=12, face="italic"))
-  print(p)
-```
 
 #### Old way of plotting microtitre plates
 
