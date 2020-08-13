@@ -34,6 +34,8 @@ employ.data <- data.frame(species, experiment_name, run_number, lane_number, seq
 kable(employ.data)
 ```
 
+This script details the quality control of the 1:1 mix experiment
+
 This data has been processed using CellRanger into counts tables. This initial analysis gave the following metrics:
 
 <b>Pb 1:1 mix experiment (run #: 24284 lanes 1 and 2 (Hiseq 2500)):</b>
@@ -200,6 +202,9 @@ tenx5k <- CreateSeuratObject(counts = tenx5k_raw_data, min.cells = 0, min.featur
 
 ## add experiment to meta data for merging later
 tenx5k@meta.data$experiment <- "tenx5k"
+
+## inspect
+tenx5k
 ```
 
 # 3. Defining Cells vs. Background {.tabset}
