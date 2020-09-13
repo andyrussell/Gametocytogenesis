@@ -330,7 +330,7 @@ barcode_plot <- ggplot(df_barcodes, aes(x=barcode_rank, y=lib_size, colour = cel
 barcode_plot
 
 ## save the plot
-ggsave("barcode_plot_5k.png", plot = barcode_plot, device = "png", height = 15, width = 15, units = "cm", path = "/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/")
+ggsave("QC_10X_barcode_plot_5k.png", plot = barcode_plot, device = "png", height = 15, width = 15, units = "cm", path = "/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/")
 ```
 
 so the number of cells that is retained is:
@@ -445,7 +445,7 @@ numi_plot_5k <- numi_plot_5k +
 grid.arrange(gene_plot_5k, numi_plot_5k, ncol = 2, top=textGrob("5K cells 10X", gp=gpar(fontsize=15,font=8)))
 
 ## save nGene plot on its own
-#ggsave("ngene_plot.pdf", plot = gene1, device = "pdf", height = 5, width = 5, units = "in", path = "/Users/ar19/Desktop/PhD/GCSKO_Analysis")
+#ggsave("QC_ngene_plot.pdf", plot = gene1, device = "pdf", height = 5, width = 5, units = "in", path = "/Users/ar19/Desktop/PhD/GCSKO_Analysis")
 ```
 
 plot two metrics together
@@ -454,9 +454,10 @@ plot two metrics together
 df <- data.frame(nCount = log10(pb_sex@meta.data$nCount_RNA), nGenes = pb_sex@meta.data$nFeature_RNA, percent_mt = pb_sex@meta.data$percent.mt, experiment = pb_sex@meta.data$experiment)
 
 ## plot main dotplot
-plot1 <- ggplot(df, aes(x = nCount, y = nGenes)) + 
-  geom_point(aes(), size = 0.1) +
-  geom_rug() + 
+plot1 <- ggplot(df, aes(x = nCount, y = nGenes)) +
+  #geom_point(aes(), size = 0.1) +
+  geom_hex(bins = 200) +
+  #geom_rug() + 
   scale_y_continuous(name = "Number of Detected Genes") + 
   scale_x_continuous(name = "log10(Number of Total UMI)") + 
   theme_pubr() +
@@ -464,11 +465,12 @@ plot1 <- ggplot(df, aes(x = nCount, y = nGenes)) +
   geom_hline(yintercept=200)
 
 ## plot density plot x
-dens1 <- ggplot(df, aes(x = nCount)) + 
-  geom_density(alpha = 0.2) + 
-  theme_void() + 
-  theme(legend.position = "none")
-
+dens <- density(df$nCount)
+dt <- data.frame(x=dens$x, y=dens$y)
+probs <- c(0, 0.25, 0.5, 0.75, 1)
+quantiles <- quantile(df$nCount, prob=probs)
+dt$quant <- factor(findInterval(dt$x,quantiles))
+dens1 <- ggplot(dt, aes(x,y)) + geom_line() + geom_ribbon(aes(ymin=0, ymax=y, fill=quant)) + scale_x_continuous(breaks=quantiles) + scale_fill_brewer(guide="none") + theme_void() + theme(legend.position = "none")
 ## plot density plot y
 ## old method
 # dens2 <- ggplot(df, aes(x = nGenes, y = experiment)) +
@@ -492,7 +494,7 @@ QC_composite_plot <- dens1 + plot_spacer() + plot1 + dens2 + plot_layout(ncol = 
 QC_composite_plot
 
 ## save
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_10X_composite_plot.png", plot = QC_composite_plot, device = "png", path = NULL, scale = 1, width = 20, height = 20, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_10X_composite_plot.png", plot = QC_composite_plot, device = "png", path = NULL, scale = 1, width = 15, height = 15, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 ### Filtering
