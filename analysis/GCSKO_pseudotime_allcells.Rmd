@@ -17,14 +17,124 @@ output:
 ***
 # 1. Introduction and Aims {.tabset}
 
-
+We have merged the two datasets together. Here, we will perform pseudotime analysis on the dataset
 
 # 2. Read in the data  {.tabset}
 
 ### Load/Install the Required Packages
 
+```{r load packages, echo = FALSE}
+# Pathwork required to stich plots together using '+'
+library(patchwork)
 
-# 4. Pseudotime Analysis Using Monocle {.tabset}
+# Viridis allows different colours to be added to plots
+library(viridis)
+
+#Seurat is needed for most of this script
+if(require("Seurat", quietly = TRUE)){
+    print("Seurat is loaded correctly")
+} else {
+    print("trying to install Seurat")
+    install.packages("Seurat")
+    if(require(Seurat)){
+        print("Seurat installed and loaded")
+    } else {
+        stop("could not install Seurat")
+    }
+}
+#cowplot is needed for plots in this script
+if(require("cowplot")){
+    print("cowplot is loaded correctly")
+} else {
+    print("trying to install cowplot")
+    install.packages("cowplot")
+    if(require(cowplot)){
+        print("cowplot installed and loaded")
+    } else {
+        stop("could not install cowplot")
+    }
+}
+#gridExtra is needed for grid graphics to plot multiple plots in the same view
+if(require("gridExtra")){
+    print("gridExtra is loaded correctly")
+} else {
+    print("trying to install gridExtra")
+    install.packages("gridExtra")
+    if(require(gridExtra)){
+        print("gridExtra installed and loaded")
+    } else {
+        stop("could not install gridExtra")
+    }
+}
+#for grid.arrange function to change size of title
+if(require("grid")){
+    print("grid is loaded correctly")
+} else {
+    print("trying to install grid")
+    install.packages("grid")
+    if(require(grid)){
+        print("grid installed and loaded")
+    } else {
+        stop("could not install grid")
+    }
+}
+#for doing bulk correlation calculations
+if(require("Hmisc")){
+    print("Hmisc is loaded correctly")
+} else {
+    print("trying to install Hmisc")
+    install.packages("Hmisc")
+    if(require(Hmisc)){
+        print("Hmisc installed and loaded")
+    } else {
+        stop("could not install Hmisc")
+    }
+}
+# to work with data frames:
+if(require("dplyr")){
+    print("dplyr is loaded correctly")
+} else {
+    print("trying to install dplyr")
+    install.packages("dplyr")
+    if(require(dplyr)){
+        print("dplyr installed and loaded")
+    } else {
+        stop("could not install dplyr")
+    }
+}
+# to calculate pseudotime:
+if(require("monocle3")){
+    print("monocle3 is loaded correctly")
+} else {
+    print("trying to install monocle3")
+    install.packages("monocle3")
+    if(require(monocle3)){
+        print("monocle3 installed and loaded")
+    } else {
+        stop("could not install monocle3")
+    }
+}
+# to melt dataframes for plotting:
+if(require("reshape2")){
+    print("reshape2 is loaded correctly")
+} else {
+    print("trying to install reshape2")
+    install.packages("reshape2")
+    if(require(reshape2)){
+        print("reshape2 installed and loaded")
+    } else {
+        stop("could not install reshape2")
+    }
+}
+#set the seed for both the mixture models and also for the sample function later on:
+set.seed(-92497)
+```
+
+### load data
+
+tenx.mutant.integrated is needed from the merge script
+
+# 2. Pseudotime Analysis Using Monocle {.tabset}
 
 For monocle input, we can use all WT cells, provided we correct for batch effects. 
 
@@ -44,9 +154,9 @@ We have 5 potential sources of WT information:
 
 When you try and use 1 and 2 together, there are issues with calling modules. I think this is to do with the integration that Seurat does, so since the 10X data is complete (i.e. covers the lifecycle), we will sacrifice some extra power (a few more cells) so that we can call more modules. 
 
-## ALL Cells
+## A. ALL Cells
 
-#### Pseudotime
+### Pseudotime
 ```{r}
 ## load package
 library(monocle3)
@@ -74,14 +184,14 @@ plot_pc_variance_explained(monocle.object.all)
 #plot_cells(monocle.object.all)
 
 ## add UMAP from Seurat
-monocle.object.all@int_colData@listData$reducedDims@listData[["UMAP"]] <-seurat.object.all@reductions[["umap"]]@cell.embeddings 
+monocle.object.all@int_colData@listData$reducedDims@listData[["UMAP"]] <-seurat.object.all@reductions[["DIM_UMAP"]]@cell.embeddings 
 plot_cells(monocle.object.all)
 
 ## cluster
 monocle.object.all = cluster_cells(monocle.object.all)
 
 ## plot clusters
-plot_cells(monocle.object.all, color_cells_by="partition", group_cells_by="partition")
+plot_cells(monocle.object.all, color_cells_by="partition", group_cells_by="partition",  x = 2, y = 1)
 
 ## reduce partitions to 1
 monocle.object.all@clusters$UMAP$partitions[monocle.object.all@clusters$UMAP$partitions == "2"] <- "1"
@@ -89,13 +199,13 @@ monocle.object.all@clusters$UMAP$partitions[monocle.object.all@clusters$UMAP$par
 #map pseudotime
 monocle.object.all = learn_graph(monocle.object.all, learn_graph_control=list(ncenter=500), use_partition = FALSE)
 
-plot_cells(monocle.object.all, color_cells_by="partition", group_cells_by="partition")
+plot_cells(monocle.object.all, color_cells_by="partition", group_cells_by="partition",  x = 2, y = 1)
 
 
 ## a helper function to identify the root principal points:
 ## make cluster 2 the root
-get_earliest_principal_node <- function(cds, time_bin="4"){
-  cell_ids <- which(colData(cds)[, "seurat_clusters_plotting"] == time_bin)
+get_earliest_principal_node <- function(cds, time_bin="7"){
+  cell_ids <- which(colData(cds)[, "seurat_clusters"] == time_bin)
   closest_vertex <-
   cds@principal_graph_aux[["UMAP"]]$pr_graph_cell_proj_closest_vertex
   closest_vertex <- as.matrix(closest_vertex[colnames(cds), ])
@@ -107,10 +217,12 @@ get_earliest_principal_node <- function(cds, time_bin="4"){
 }
 
 ## calculate pseudotime
-monocle.object.all = order_cells(monocle.object.all, root_pr_nodes=get_earliest_principal_node(monocle.object.all))
+#monocle.object.all = order_cells(monocle.object.all, root_pr_nodes=get_earliest_principal_node(monocle.object.all))
+monocle.object.all = order_cells(monocle.object.all)
+
 
 ## plot
-plot_cells(monocle.object.all, color_cells_by = "pseudotime", label_cell_groups=FALSE, cell_size = 1) +
+plot_cells(monocle.object.all, color_cells_by = "pseudotime", label_cell_groups=FALSE, cell_size = 1, x = 2, y = 1) +
   coord_fixed() +
   theme_void() +
   labs(title = "Pseudotime") +
@@ -120,7 +232,7 @@ plot_cells(monocle.object.all, color_cells_by = "pseudotime", label_cell_groups=
 ## https://github.com/satijalab/seurat/issues/1658
 ```
 
-#### Module Analysis
+### Module Analysis
 ```{r}
 ## find genes that change as a function of pt
 monocle.object.all_pr_test_res <- graph_test(monocle.object.all, neighbor_graph="principal_graph", cores=8)
@@ -135,17 +247,22 @@ gene_module_df_all <- find_gene_modules(monocle.object.all[pr_deg_ids,], resolut
 dim(gene_module_df_all)
 ```
 
-#### Plot Modules
+### Plot Modules
 ```{r}
-cell_group_df_all <- tibble::tibble(cell=row.names(colData(monocle.object.all)), cell_group=colData(monocle.object.all)$seurat_clusters_plotting)
+## create a dataframe with clusters and modules
+cell_group_df_all <- tibble::tibble(cell=row.names(colData(monocle.object.all)), cell_group=colData(monocle.object.all)$seurat_clusters)
 
+## aggregate gene expression
 agg_mat_all <- aggregate_gene_expression(monocle.object.all, gene_module_df_all, cell_group_df_all)
 
+## modify row names
 row.names(agg_mat_all) <- stringr::str_c("Module ", row.names(agg_mat_all))
+
+## plot heatmap
 pheatmap::pheatmap(agg_mat_all, scale="column", clustering_method="ward.D2")
 ```
 
-#### Per branch analysis 
+### Per branch analysis 
 ```{r}
 ## access the closest principal graph node vertex for each cell and assign it as a column in your colData table using:
 colData(monocle.object.all)$closest_vertex <- monocle.object.all@principal_graph_aux[["UMAP"]]$pr_graph_cell_proj_closest_vertex[,1]
@@ -156,8 +273,9 @@ plot_cells(monocle.object.all, color_cells_by = "closest_vertex", label_cell_gro
 #monocle.object_male <- monocle.object[,colData(monocle.object)$closest_vertex %in% c(1, 2, 3)]
 ```
 
-#### Density Plots
+### Density Plots
 ```{r}
+## load package to plot ridge plots
 library(ggridges)
 
 ## extract pseudotime values:
@@ -190,11 +308,11 @@ ggplot(female_cells_df, aes(x = pt, y = reorder(identity_combined, pt, median), 
   theme_classic()
 ```
 
-## 10X cells
+## B. 10X cells
 
 The above analysis results in hardly any genes in the modules, most likely due to the normalisation effect of Seurat. Here, we will take just the 10X object, which has coverage of the lifecyle and also does not require batch correction.
 
-#### Preprocess
+### Preprocess
 ```{r}
 ## load package
 #library(monocle3)
@@ -210,7 +328,7 @@ The above analysis results in hardly any genes in the modules, most likely due t
 wt_cells <- rownames(tenx.mutant.integrated@meta.data[which(tenx.mutant.integrated@meta.data$identity_combined == "WT_10X"),])
 
 ## make a new Seurat of this
-seurat.object <-SubsetData(tenx.mutant.integrated, cells = wt_cells)
+seurat.object <-subset(tenx.mutant.integrated, cells = wt_cells)
 
 ## check that this is the same as the pb_sex_filtered object
 #data_test <- as(as.matrix(GetAssayData(pb_sex_filtered, assay = "RNA", slot = "data")), 'sparseMatrix')
@@ -234,32 +352,34 @@ monocle.object = preprocess_cds(monocle.object, num_dim = 50, norm_method = "non
 ### if using integrated data:
 # norm_method = "none", alignment_group = "~ experiment"
 
-plot_pc_variance_explained(monocle.object)
+## plot jack straw plot
+#plot_pc_variance_explained(monocle.object)
 
-monocle.object = reduce_dimension(monocle.object, reduction_method = "UMAP", preprocess_method = "PCA", umap.metric = "euclidean", umap.n_neighbors = 50, umap.min_dist = 0.5, verbose = FALSE)
+#monocle.object = reduce_dimension(monocle.object, reduction_method = "UMAP", preprocess_method = "PCA", umap.metric = "euclidean", umap.n_neighbors = 50, umap.min_dist = 0.5, verbose = FALSE)
 
-plot_cells(monocle.object, color_cells_by="experiment")
+#plot_cells(monocle.object, color_cells_by="experiment")
 ```
 
-#### Graph Learning
+### Graph Learning
 ```{r}
 ## add UMAP from Seurat
-monocle.object@int_colData@listData$reducedDims@listData[["UMAP"]] <- seurat.object@reductions[["umap"]]@cell.embeddings
+monocle.object@int_colData@listData$reducedDims@listData[["UMAP"]] <- seurat.object@reductions[["DIM_UMAP"]]@cell.embeddings
 
 ## cluster
 monocle.object = cluster_cells(monocle.object)
 
-plot_cells(monocle.object, color_cells_by="cluster", group_cells_by="partition")
+## plot initial clustering by monocle
+#plot_cells(monocle.object, color_cells_by="cluster", group_cells_by="partition", x = 2, y = 1)
 
 ## map pseudotime
-monocle.object = learn_graph(monocle.object, learn_graph_control=list(ncenter=600), use_partition = FALSE)
+monocle.object = learn_graph(monocle.object, learn_graph_control=list(ncenter=300), use_partition = FALSE)
 # learn_graph_control=list(ncenter=500) - play with this parameter
 
 ## Plot cells
-plot_cells(monocle.object, color_cells_by="partition", group_cells_by="partition") 
+plot_cells(monocle.object, color_cells_by="partition", group_cells_by="partition", x = 2, y = 1) 
 ```
 
-#### Pseudotime Calculation
+### Pseudotime Calculation
 ```{r}
 ## a helper function to identify the root principal points:
 get_earliest_principal_node <- function(cds, time_bin="4"){
@@ -275,23 +395,24 @@ get_earliest_principal_node <- function(cds, time_bin="4"){
 }
 
 ## Order the cells and caclulate pseudotime
-monocle.object = order_cells(monocle.object, root_pr_nodes=get_earliest_principal_node(monocle.object))
+#monocle.object = order_cells(monocle.object, root_pr_nodes=get_earliest_principal_node(monocle.object))
+monocle.object = order_cells(monocle.object)
 
 ## Plot
-plot_cells(monocle.object, color_cells_by = "pseudotime", label_cell_groups=FALSE, cell_size = 2) +
+plot_cells(monocle.object, color_cells_by = "pseudotime", label_cell_groups=FALSE, cell_size = 2, x = 2, y = 1) +
   coord_fixed() +
   theme_void() +
   labs(title = "Pseudotime") +
   theme(plot.title = element_text(hjust = 0.5))
 ```
 
-#### Module Construction
+### Module Construction
 ```{r}
 ## find genes that change as a function of pt:
 monocle.object_pr_test_res <- graph_test(monocle.object, neighbor_graph="principal_graph", cores=8)
 
 ## find significant genes
-pr_deg_ids <- row.names(subset(monocle.object_pr_test_res, q_value < 0.01))
+pr_deg_ids <- row.names(subset(monocle.object_pr_test_res, q_value < 0.05))
 
 ## collect into modules
 gene_module_df <- find_gene_modules(monocle.object[pr_deg_ids,], resolution=c(10^seq(-6,2)))
@@ -304,7 +425,7 @@ dim(gene_module_df)
 paste("there are ", length(levels(gene_module_df$module)), "modules")
 ```
 
-#### Plot Modules
+### Plot Modules
 Make a dataframe to plot
 ```{r}
 ## make cell group df
@@ -323,7 +444,7 @@ genes_per_module
 
 Make annotations to add to the heatmap
 ```{r}
-## change names for row names to include "module " at the begining of them
+## change names for row names to include "module " at the beginning of them
 row.names(agg_mat) <- stringr::str_c("Module ", row.names(agg_mat))
 
 ## add number of cells to the rownames for the module
@@ -331,46 +452,48 @@ for(i in seq_along(genes_per_module$Freq)){
   row.names(agg_mat)[i] <- stringr::str_c(row.names(agg_mat)[i]," (n = " ,genes_per_module$Freq[i], ")")
 }
 
-## create annotation of clusters for pheatmap:
+## create annotation of clusters for heatmap
 cluster_anno <- data.frame(cluster = unique(colData(monocle.object)$seurat_clusters))
 row.names(cluster_anno) <- cluster_anno$cluster
 
-## cluster 44 is asexual but it is not in our agg_mat as it is not represented in the 10x data
-## clusters were defined earlier as:
-male_clusters <- c("45", "30", "42", "18", "25", "37", "32", "29")
-female_clusters <- c("39", "40", "38", "10", "26", "19", "17", "36")
-asex_clusters <- c("0", "22", "8", "1", "20", "2", "15", "6", "14", "12", "13", "23", "31", "21", "33", "35", "28", "27", "34", "43", "41", "4", "16", "5", "11", "7", "11", "3", "9")
-commited_cluster <-  c("24")
+## clusters were defined in the merge script earlier as:
+male_clusters <- c("26", "22", "11", "17")
+female_clusters <- c("30", "32", "27", "12", "13", "18")
+asex_clusters <- c("7", "10", "9", "14", "1", "3", "4", "8", "5", "6", "2", "0", "16", "19", "28", "15", "21", "23", "24", "25", "31", "29", "33")
+bipotential_clusters <- c("20")
 
 ## add identities to the column
 cluster_anno$group <- NA
 cluster_anno$group[which(cluster_anno$cluster %in% asex_clusters)] <- "Asexual"
 cluster_anno$group[which(cluster_anno$cluster %in% male_clusters)] <- "Male"
 cluster_anno$group[which(cluster_anno$cluster %in% female_clusters)] <- "Female"
-cluster_anno$group[which(cluster_anno$cluster %in% commited_cluster)] <- "Committed"
+cluster_anno$group[which(cluster_anno$cluster %in% bipotential_clusters)] <- "Committed"
 cluster_anno <- cluster_anno[ , 2, drop = FALSE]
 cluster_anno
 
 ## Make a df of meta data
 ## this is used later in the ridgeplots too
-## extract pseudotime values:
+## extract pseudotime values
 pt_values <- as.data.frame(pseudotime(monocle.object, reduction_method = "UMAP"))
 pt_values$cell_name <- rownames(pt_values)
 meta_data_df <- as.data.frame(monocle.object@colData)
 meta_data_df$cell_name <- rownames(meta_data_df)
 meta_data_df <- merge(meta_data_df, pt_values, by = "cell_name")
-names(meta_data_df)[127] <- "pt"
+## the pt will be added to the last column so add the name pt to the merged df
+names(meta_data_df)[length(names(meta_data_df))] <- "pt"
+
 ## add median pseudotime per cluster
-## help here:
-## https://stackoverflow.com/questions/54360855/calculate-mean-for-column-grouped-by-values-of-two-other-columns
-## make subsetted dataframe
+## help was obtained here:https://stackoverflow.com/questions/54360855/calculate-mean-for-column-grouped-by-values-of-two-other-columns
+## make subsetted dataframe with just cluster and pt
 df_median_pt <- meta_data_df[ ,c("pt", "seurat_clusters")]
 ## apply across dataframe to get median
 mean.df1 <- tapply(df_median_pt$pt, list(df_median_pt$seurat_clusters), median)
 mean.df2 <- as.data.frame(as.table(mean.df1))
+## rename cols
 names(mean.df2) <- c("seurat_clusters", "pt_Median")
+## rename rows
 rownames(mean.df2) <- mean.df2$seurat_clusters
-## to make each value have the mean in the OG dataframe
+## to make each value have the mean in the original dataframe
 #merge(df_median_pt, mean.df2)
 ## add to annotation dataframe
 cluster_anno <- merge(cluster_anno, mean.df2, by=0)
@@ -380,11 +503,10 @@ rownames(cluster_anno) <- cluster_anno$Row.names
 ## subset to have only info of interest
 cluster_anno <- cluster_anno[,c(2,4)]
 names(cluster_anno) <- c("Identity", "Median_Pseudotime_of_Cluster")
-
 ```
 
 Plot
-```{r, fig.height = 10, fig.width = 12}
+```{r, fig.height = 8, fig.width = 8}
 ## make annotation colours
 annotation_colours <- list(Identity = c(Male="#016c00", Female="#a52b1e", Asexual= "#0052c5", Committed = "#f2eb23"),
                            Median_Pseudotime_of_Cluster = magma(12, direction = 1))
@@ -393,6 +515,9 @@ annotation_colours <- list(Identity = c(Male="#016c00", Female="#a52b1e", Asexua
 ## make df of data
 agg_mat_df <- as.data.frame(agg_mat)
 ## remove levels in my_levels that are not present here - i.e. clusters that are missing because they are not represented in the 10X data
+## my_levels was defined in the merge script as the order we want to plot clusters in:
+my_levels <- c(asex_clusters, bipotential_clusters, male_clusters, female_clusters)
+## reorder the levels so you can plot the cluters as you wish
 my_levels_10x_data <- my_levels[which(my_levels %in% colnames(agg_mat_df))]
 ## order the annotation
 cluster_anno <- cluster_anno[(match(my_levels_10x_data, rownames(cluster_anno))), ]
@@ -405,9 +530,10 @@ pheatmap::pheatmap(agg_mat_df,
                    cluster_cols = FALSE,
                    clustering_method="ward.D2", 
                    annotation_col = cluster_anno, 
-                   annotation_colors = annotation_colours, 
-                   cutree_rows = 12,
-                   gaps_col = c(28,29,37)) + theme(legend.position = "bottom")
+                   annotation_colors = annotation_colours,
+                   #gaps_col = c(28,29,37),
+                   cutree_rows = 12) + 
+  theme(legend.position = "bottom")
 ```
 
 ComplexHeatmap version
@@ -584,8 +710,6 @@ pheatmap::pheatmap(agg_mat_mutants, scale="column", clustering_method="ward.D2")
 
 
 
-
-
 #### Add original pt values
 ```{r}
 ## extract pt values
@@ -597,4 +721,29 @@ tenx.mutant.integrated <- AddMetaData(tenx.mutant.integrated, pt_values, "old_pt
 Save old modules
 ```{r}
 write.csv(modules_df_original_10x_data_set, file = "~/data_to_export/modules_df_original_10x_data_set.csv")
+```
+
+
+# 9. Save and Export {.tabset}
+
+Save environment
+```{r}
+## This saves everything in the global environment for easy recall later
+#save.image(file = "GCSKO_pseudotime_allcells.RData")
+#load(file = "GCSKO_pseudotime_allcells.RData")
+```
+
+Save object(s)
+```{r}
+## save integrated object to file
+#saveRDS(tenx.mutant.integrated, file = "/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/tenx.mutant.integrated.RDS") 
+## restore the object
+#tenx.mutant.integrated <- readRDS("/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/tenx.mutant.integrated.RDS")
+```
+
+# Appendix {.tabset}
+
+## Session Info 
+```{r, echo = FALSE}
+sessionInfo()
 ```

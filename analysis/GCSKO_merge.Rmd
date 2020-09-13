@@ -1445,17 +1445,19 @@ save
 ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/merge_dot_plot_paper_figure.png", plot = dot_plot_paper_figure, device = "png", path = NULL, scale = 1, width = 30, height = 35, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
-
-# Differential Expression {.tabset}
+# Differential Expression TBC! {.tabset}
 
 19 vs 8 on resolution 2 already looks pretty cool:
 
 ```{r}
 ## reset the default identity
-tenx.mutant.integrated <- FindNeighbors(tenx.mutant.integrated, dims = 1:15)
-tenx.mutant.integrated <- FindClusters(tenx.mutant.integrated, resolution = 1.5, random.seed = 42, algorithm = 2)
+#tenx.mutant.integrated <- FindNeighbors(tenx.mutant.integrated, dims = 1:15)
+#tenx.mutant.integrated <- FindClusters(tenx.mutant.integrated, resolution = 1.5, random.seed = 42, algorithm = 2)
+## Select from the appropriate dim slot
+cluster_19_cells <- 
+cluster_8_cells <- 
 
-# Find differentially expressed features between CD14+ and FCGR3A+ Monocytes
+# Find deferentially expressed features between CD14+ and FCGR3A+ Monocytes
 early.sex.de.markers <- FindMarkers(tenx.mutant.integrated, ident.1 = "19", ident.2 = "8")
 # view results
 head(early.sex.de.markers)

@@ -330,7 +330,7 @@ sample_map_no_reads <- ggplot(data=table_platemap, aes(x=Column, y=Row_rev)) +
   #Add a title and change label of fill
     labs(title="The position of cells with zero counts" , size = 6, colour = "percentage of cells in this well with zero counts") +
   #Improve aes of guides
-    guides(colour = guide_colorbar(barwidth = 10, barheight = 1, title="percentage of cells in this well with zero counts")) +
+    guides(colour = guide_colorbar(barwidth = 4, barheight = 1, title="percentage of cells in this well with zero counts")) +
 # display legend on bottom and make text bigger
     theme(legend.position="bottom", legend.text=element_text(size=10), legend.title = element_text(size = 10))
 
@@ -338,7 +338,7 @@ sample_map_no_reads <- ggplot(data=table_platemap, aes(x=Column, y=Row_rev)) +
 sample_map_no_reads
 
 ## save
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/platemap_no_count.png", plot = sample_map_no_reads, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_SS2_platemap_no_count.png", plot = sample_map_no_reads, device = "png", path = NULL, scale = 1, width = 12, height = 12, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 ### Filter Mitochondrial
@@ -346,15 +346,16 @@ ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/platemap_no_count.
 Mitochondrial cell counts
 ```{r mito setup}
 ## old method
+## This old method just picked out rRNA genes as a rough estimate, the method below picks out all genes expressed from the mitchondrial genome
 
 ## extract mitochondrial genes 
-mito_genes <- gtf[which(gtf$V3 == "rRNA"),]$V9
-mito_genes <- gsub(";.*","", gsub("gene_id ", "", mito_genes))
-paste("These are the mitochondrial genes")
-head(mito_genes)
+#mito_genes <- gtf[which(gtf$V3 == "rRNA"),]$V9
+#mito_genes <- gsub(";.*","", gsub("gene_id ", "", mito_genes))
+#paste("These are the mitochondrial genes")
+#head(mito_genes)
 
 ## make a percentage mitocondrial for each cell (this will work as long as you filter cells out with zero counts)
-ss2_mutants <- PercentageFeatureSet(ss2_mutants, features = which(rownames(counts) %in% mito_genes), col.name = "percent.mt")
+#ss2_mutants <- PercentageFeatureSet(ss2_mutants, features = which(rownames(counts) %in% mito_genes), col.name = "percent.mt")
 ```
 
 ```{r mito setup new, fig.height = 15, fig.width = 6}
@@ -371,7 +372,7 @@ ss2_mutants <- PercentageFeatureSet(ss2_mutants, pattern = "^PBANKA-MIT", col.na
 plot percentage mitochondrial
 ```{r}
 ## plot for percentage of mitochondrial reads
-v1 <- VlnPlot(object = ss2_mutants, features = "percent.mt", group.by = "identity_updated", pt.size = 0.01) + 
+v1 <- VlnPlot(object = ss2_mutants, features = "percent.mt", group.by = "sub_identity_updated", pt.size = 0.01) + 
   ## add a line where we will filter 
   geom_hline(yintercept=20) +
   ## remove legend
@@ -401,7 +402,7 @@ QC_mito_violin <- v1 + v2 + plot_layout(ncol = 2, nrow = 1, widths = c(4, 1), he
 QC_mito_violin
 
 ## save
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_mito_violin.png", plot = QC_mito_violin, device = "png", path = NULL, scale = 1, width = 15, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_SS2_mito_violin.png", plot = QC_mito_violin, device = "png", path = NULL, scale = 1, width = 15, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 make a dataframe for plotting
@@ -436,7 +437,7 @@ QC_mito_graph <- ggplot(df, aes(x = nCount, y = nGenes)) +
 QC_mito_graph
 
 ## save
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_mito_graph.png", plot = QC_mito_graph, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_SS2_mito_graph.png", plot = QC_mito_graph, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 ```{r, echo = FALSE}
@@ -477,7 +478,9 @@ plot1 <- ggplot(df, aes(x = nCount, y = nGenes, color = identity)) +
   theme(legend.position = "bottom") +
   geom_vline(xintercept=3) +
   geom_hline(yintercept=220) +
-  geom_hline(yintercept=3300)
+  geom_hline(yintercept=3300) +
+  ## improve aesthetics of guide
+  guides(colour = guide_legend(override.aes = list(size=4)), title="Genotype")
 
 ## plot density plot x
 dens1 <- ggplot(df, aes(x = nCount, fill = identity)) + 
@@ -499,7 +502,7 @@ QC_composite_plot <- dens1 + plot_spacer() + plot1 + dens2 + plot_layout(ncol = 
 QC_composite_plot
 
 ## save
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_composite_plot.png", plot = QC_composite_plot, device = "png", path = NULL, scale = 1, width = 20, height = 20, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_SS2_composite_plot.png", plot = QC_composite_plot, device = "png", path = NULL, scale = 1, width = 20, height = 20, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 ***
@@ -592,15 +595,15 @@ platemap_failed_qc <- ggplot(data=table_platemap, aes(x=Column, y=Row_rev)) +
   #add labels for the x axis
     scale_x_continuous(position = "top", breaks=seq(1, 12)) +
   #Improve aes of guides
-    guides(colour = guide_colorbar(barwidth = 10, barheight = 1, title="percentage of cells in this well that failed QC")) +
+    guides(colour = guide_colorbar(barwidth = 4, barheight = 1, title="percentage of cells in well that failed QC")) +
   # display legend on bottom and make text bigger
-    theme(legend.position="bottom", legend.text=element_text(size=10), legend.title = element_text(size = 10))
+    theme(legend.position="bottom", legend.text=element_text(size=10), legend.title = element_text(size = 9))
 
 ## print
 platemap_failed_qc
 
 ## save
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/platemap_failed_qc.png", plot = platemap_failed_qc, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_SS2_platemap_failed.png", plot = platemap_failed_qc, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 ### bar chart of distance from edge of plate
@@ -643,7 +646,7 @@ position_qc_fail <- ggplot(frequency_of_failed_cells, aes(x=distance_from_edge, 
   coord_cartesian(clip = 'off')
 
 ## save
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_failed_position.png", plot = position_qc_fail, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_SS2_failed_position.png", plot = position_qc_fail, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 
 ## plot
 position_qc_fail
@@ -675,7 +678,7 @@ mapping_rate_plot <- ggplot(df_mapping_rates_hisat, aes(x = reorder(cell_name,al
    scale_fill_manual(values=c("red2", "green4"))
 
 ## save
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_mapping_rate.eps", plot = mapping_rate_plot, device = "eps", path = NULL, scale = 1, width = 20, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_SS2_mapping_rate.eps", plot = mapping_rate_plot, device = "eps", path = NULL, scale = 1, width = 20, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 
 ## plot
 mapping_rate_plot
@@ -725,7 +728,7 @@ QC_by_genotype <- ggplot(df_cells_recovered, aes(x=genotype, y=recovered_pc ,fil
 QC_by_genotype
 
 ## save
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_by_genotype.png", plot = QC_by_genotype, device = "png", path = NULL, scale = 1, width = 15, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_SS2_by_genotype.png", plot = QC_by_genotype, device = "png", path = NULL, scale = 1, width = 15, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 Investigate 20 and 2 further
@@ -835,7 +838,7 @@ QC_failed_plates <- grid.arrange(arrangeGrob(plot_list[[1]] + theme(legend.posit
 QC_failed_plates
 
 ## save
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_failed_plates.png", plot = QC_failed_plates, device = "png", path = NULL, scale = 1, width = 27, height = 25, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_SS2_failed_plates.png", plot = QC_failed_plates, device = "png", path = NULL, scale = 1, width = 27, height = 25, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 ### Add bulk metadata
@@ -965,7 +968,7 @@ ss2_mutants_final <- RunPCA(ss2_mutants_final, features = VariableFeatures(objec
 
 PCA plot
 ```{r}
-DimPlot(ss2_mutants_final, reduction = "pca")
+DimPlot(ss2_mutants_final, reduction = "pca", group.by = "sub_identity_updated")
 ```
 
 ```{r}
@@ -979,9 +982,6 @@ ss2_mutants_final <- FindClusters(ss2_mutants_final, resolution = 1)
 ```
 
 #### UMAP
-```{r, fig.height = 6, fig.width = 9}
-
-```
 
 Improve UMAP
 ```{r}
