@@ -1,7 +1,7 @@
 ---
 subtitle: 'Gametocyte Development in <i>Plasmodium berghei</i>'
 title: |
-  ![](/Users/Andy/GCSKO/GCSKO_analysis_git/GCSKO_logo.jpg){width=300px}  
+  ![](../GCSKO_logo.jpg){width=300px}  
   Pseudotime All Cells
 author: "[Andrew Russell](https://ajcrussell.wixsite.com/mysite/about)"
 institute: Wellcome Sanger Institute
@@ -736,9 +736,9 @@ Save environment
 Save object(s)
 ```{r}
 ## save integrated object to file
-#saveRDS(tenx.mutant.integrated, file = "/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/tenx.mutant.integrated.RDS") 
+#saveRDS(tenx.mutant.integrated, file = "../data_to_export/tenx.mutant.integrated.RDS") 
 ## restore the object
-#tenx.mutant.integrated <- readRDS("/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/tenx.mutant.integrated.RDS")
+#tenx.mutant.integrated <- readRDS("../data_to_export/tenx.mutant.integrated.RDS")
 ```
 
 # Appendix {.tabset}
