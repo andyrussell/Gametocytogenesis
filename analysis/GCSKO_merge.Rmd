@@ -32,7 +32,7 @@ SS2 mutant data - ss2_mutants_final
 ```{r load packages, echo = FALSE}
 ## CRAN packages
 
-## Pathwork required to stich plots together using '+'
+## Pathwork is needed to stich plots together using '+'
 if(require("patchwork", quietly = TRUE)){
     print("patchwork is loaded correctly")
 } else {
@@ -70,6 +70,7 @@ if(require("Seurat", quietly = TRUE)){
         stop("could not install Seurat")
     }
 }
+
 ## cowplot is needed for plots in this script
 if(require("cowplot")){
     print("cowplot is loaded correctly")
@@ -82,7 +83,8 @@ if(require("cowplot")){
         stop("could not install cowplot")
     }
 }
-#gridExtra is needed for grid graphics to plot multiple plots in the same view
+
+## gridExtra is needed for grid graphics to plot multiple plots in the same view
 if(require("gridExtra")){
     print("gridExtra is loaded correctly")
 } else {
@@ -94,7 +96,8 @@ if(require("gridExtra")){
         stop("could not install gridExtra")
     }
 }
-#for grid.arrange function to change size of title
+
+## grid is needed for grid.arrange function to change size of title
 if(require("grid")){
     print("grid is loaded correctly")
 } else {
@@ -106,7 +109,8 @@ if(require("grid")){
         stop("could not install grid")
     }
 }
-#for doing bulk correlation calculations
+
+##for doing bulk correlation calculations
 if(require("Hmisc")){
     print("Hmisc is loaded correctly")
 } else {
@@ -118,25 +122,8 @@ if(require("Hmisc")){
         stop("could not install Hmisc")
     }
 }
-# to work with data frames:
-if(require("dplyr")){
-    print("dplyr is loaded correctly")
-} else {
-    print("trying to install dplyr")
-    install.packages("dplyr")
-    if(require(dplyr)){
-        print("dplyr installed and loaded")
-    } else {
-        stop("could not install dplyr")
-    }
-}
-# to calculate pseudotime:
-if(require("monocle3")){
-    print("monocle3 is loaded correctly")
-} else {
-    print("Please install monocle3 (https://cole-trapnell-lab.github.io/monocle3/docs/installation/)")
-}
-# to melt dataframes for plotting:
+
+## reshape2 to melt dataframes for plotting:
 if(require("reshape2")){
     print("reshape2 is loaded correctly")
 } else {
@@ -148,7 +135,21 @@ if(require("reshape2")){
         stop("could not install reshape2")
     }
 }
-#set the seed for both the mixture models and also for the sample function later on:
+
+## to work with data frames:
+if(require("dplyr")){
+    print("dplyr is loaded correctly")
+} else {
+    print("trying to install dplyr")
+    install.packages("dplyr")
+    if(require(dplyr)){
+        print("dplyr installed and loaded")
+    } else {
+        stop("could not install dplyr")
+    }
+}
+
+## set the seed for both the mixture models and also for the sample function later on:
 set.seed(-92497)
 ```
 
@@ -156,6 +157,7 @@ set.seed(-92497)
 
 screen hits
 ```{r}
+## EDIT - change this to the excel table once we have it finalised for the screen
 screen_hits <- c("PBANKA-0516300",
 "PBANKA-1217700",
 "PBANKA-0409100",

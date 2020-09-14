@@ -17,20 +17,44 @@ output:
 ***
 # 1. Introduction and Aims {.tabset}
 
-We have merged the two datasets together. Here, we will perform pseudotime analysis on the dataset
+We have merged the two datasets together in GCSKO_merge.Rmd. Here, we will perform pseudotime analysis on the dataset and build modules of genes that show similar expression across this pseudotime.
 
 # 2. Read in the data  {.tabset}
 
 ### Load/Install the Required Packages
 
 ```{r load packages, echo = FALSE}
-# Pathwork required to stich plots together using '+'
-library(patchwork)
+## CRAN packages
 
-# Viridis allows different colours to be added to plots
-library(viridis)
+## CRAN packages
 
-#Seurat is needed for most of this script
+## Pathwork is needed to stich plots together using '+'
+if(require("patchwork", quietly = TRUE)){
+    print("patchwork is loaded correctly")
+} else {
+    print("trying to install patchwork")
+    install.packages("patchwork")
+    if(require(patchwork)){
+        print("patchwork installed and loaded")
+    } else {
+        stop("could not install patchwork")
+    }
+}
+
+## viridis allows different colours to be added to plots
+if(require("viridis", quietly = TRUE)){
+    print("viridis is loaded correctly")
+} else {
+    print("trying to install viridis")
+    install.packages("viridis")
+    if(require(viridis)){
+        print("viridis installed and loaded")
+    } else {
+        stop("could not install viridis")
+    }
+}
+
+## Seurat is needed for most of this script
 if(require("Seurat", quietly = TRUE)){
     print("Seurat is loaded correctly")
 } else {
@@ -42,7 +66,8 @@ if(require("Seurat", quietly = TRUE)){
         stop("could not install Seurat")
     }
 }
-#cowplot is needed for plots in this script
+
+## cowplot is needed for plots in this script
 if(require("cowplot")){
     print("cowplot is loaded correctly")
 } else {
@@ -54,7 +79,8 @@ if(require("cowplot")){
         stop("could not install cowplot")
     }
 }
-#gridExtra is needed for grid graphics to plot multiple plots in the same view
+
+## gridExtra is needed for grid graphics to plot multiple plots in the same view
 if(require("gridExtra")){
     print("gridExtra is loaded correctly")
 } else {
@@ -66,7 +92,8 @@ if(require("gridExtra")){
         stop("could not install gridExtra")
     }
 }
-#for grid.arrange function to change size of title
+
+## grid is needed for grid.arrange function to change size of title
 if(require("grid")){
     print("grid is loaded correctly")
 } else {
@@ -78,7 +105,8 @@ if(require("grid")){
         stop("could not install grid")
     }
 }
-#for doing bulk correlation calculations
+
+##for doing bulk correlation calculations
 if(require("Hmisc")){
     print("Hmisc is loaded correctly")
 } else {
@@ -90,31 +118,8 @@ if(require("Hmisc")){
         stop("could not install Hmisc")
     }
 }
-# to work with data frames:
-if(require("dplyr")){
-    print("dplyr is loaded correctly")
-} else {
-    print("trying to install dplyr")
-    install.packages("dplyr")
-    if(require(dplyr)){
-        print("dplyr installed and loaded")
-    } else {
-        stop("could not install dplyr")
-    }
-}
-# to calculate pseudotime:
-if(require("monocle3")){
-    print("monocle3 is loaded correctly")
-} else {
-    print("trying to install monocle3")
-    install.packages("monocle3")
-    if(require(monocle3)){
-        print("monocle3 installed and loaded")
-    } else {
-        stop("could not install monocle3")
-    }
-}
-# to melt dataframes for plotting:
+
+## reshape2 to melt dataframes for plotting:
 if(require("reshape2")){
     print("reshape2 is loaded correctly")
 } else {
@@ -126,6 +131,29 @@ if(require("reshape2")){
         stop("could not install reshape2")
     }
 }
+
+## to work with data frames:
+if(require("dplyr")){
+    print("dplyr is loaded correctly")
+} else {
+    print("trying to install dplyr")
+    install.packages("dplyr")
+    if(require(dplyr)){
+        print("dplyr installed and loaded")
+    } else {
+        stop("could not install dplyr")
+    }
+}
+
+## non-CRAN packages
+
+## monocle3 to calculate pseudotime:
+if(require("monocle3")){
+    print("monocle3 is loaded correctly")
+} else {
+    print("Please install monocle3 (https://cole-trapnell-lab.github.io/monocle3/docs/installation/)")
+}
+
 #set the seed for both the mixture models and also for the sample function later on:
 set.seed(-92497)
 ```
