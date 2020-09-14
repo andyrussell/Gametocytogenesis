@@ -188,9 +188,9 @@ load in datasets
 ## load the 30k 10X dataset
 #pb_30k_sex_filtered <- readRDS("pb_30k_sex_filtered.RDS")
 ## load the 10X dataset
-pb_sex_filtered <- readRDS("/Users/Andy/pb_sex_filtered.RDS")
+pb_sex_filtered <- readRDS("../data_to_export/pb_sex_filtered.RDS")
 ## load the SS2 dataset
-ss2_mutants_final <- readRDS("/Users/Andy/ss2_mutants_final.RDS")
+ss2_mutants_final <- readRDS("../data_to_export/Users/Andy/ss2_mutants_final.RDS")
 
 ## inspect
 paste("10x dataset")
