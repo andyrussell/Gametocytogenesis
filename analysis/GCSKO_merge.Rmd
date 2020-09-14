@@ -30,13 +30,35 @@ SS2 mutant data - ss2_mutants_final
 ### Load/Install the Required Packages
 
 ```{r load packages, echo = FALSE}
-# Pathwork required to stich plots together using '+'
-library(patchwork)
+## CRAN packages
 
-# Viridis allows different colours to be added to plots
-library(viridis)
+## Pathwork required to stich plots together using '+'
+if(require("patchwork", quietly = TRUE)){
+    print("patchwork is loaded correctly")
+} else {
+    print("trying to install patchwork")
+    install.packages("patchwork")
+    if(require(patchwork)){
+        print("patchwork installed and loaded")
+    } else {
+        stop("could not install patchwork")
+    }
+}
 
-#Seurat is needed for most of this script
+## viridis allows different colours to be added to plots
+if(require("viridis", quietly = TRUE)){
+    print("viridis is loaded correctly")
+} else {
+    print("trying to install viridis")
+    install.packages("viridis")
+    if(require(viridis)){
+        print("viridis installed and loaded")
+    } else {
+        stop("could not install viridis")
+    }
+}
+
+## Seurat is needed for most of this script
 if(require("Seurat", quietly = TRUE)){
     print("Seurat is loaded correctly")
 } else {
@@ -48,7 +70,7 @@ if(require("Seurat", quietly = TRUE)){
         stop("could not install Seurat")
     }
 }
-#cowplot is needed for plots in this script
+## cowplot is needed for plots in this script
 if(require("cowplot")){
     print("cowplot is loaded correctly")
 } else {
