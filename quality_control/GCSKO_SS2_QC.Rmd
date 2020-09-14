@@ -1266,8 +1266,8 @@ save the session objects
 #load(file = "../GCSKO_SS2_QC.RData")
 
 ## save final object
-saveRDS(ss2_mutants_final, file = "../data_export/ss2_mutants_final.RDS") 
-ss2_mutants_final <- readRDS("../data_export/ss2_mutants_final.RDS")
+saveRDS(ss2_mutants_final, file = "../data_to_export/ss2_mutants_final.RDS") 
+ss2_mutants_final <- readRDS("../data_to_export/ss2_mutants_final.RDS")
 ```
 
 # Appendix {.tabset}

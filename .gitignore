@@ -16,3 +16,9 @@ images_to_export/barcode_plot_5k.png
 data_to_export/pb_sex_filtered.RDS
 images_to_export/barcode_plot_5k.png
 images_to_export/QC_10X_composite_plot.png
+quality_control/GCSKO_SS2_QC.utf8.md
+quality_control/GCSKO_SS2_QC.nb.html
+quality_control/GCSKO_SS2_QC.knit.md
+quality_control/GCSKO_SS2_QC.nb.html
+data_to_export/ss2_mutants_final.RDS
+quality_control/GCSKO_SS2_QC.nb.html
