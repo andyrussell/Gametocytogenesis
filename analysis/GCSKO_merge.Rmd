@@ -112,13 +112,7 @@ if(require("dplyr")){
 if(require("monocle3")){
     print("monocle3 is loaded correctly")
 } else {
-    print("trying to install monocle3")
-    install.packages("monocle3")
-    if(require(monocle3)){
-        print("monocle3 installed and loaded")
-    } else {
-        stop("could not install monocle3")
-    }
+    print("Please install monocle3 (https://cole-trapnell-lab.github.io/monocle3/docs/installation/)")
 }
 # to melt dataframes for plotting:
 if(require("reshape2")){
