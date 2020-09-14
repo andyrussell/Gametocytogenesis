@@ -6,3 +6,7 @@ In this project, we explore the process of gametocytogenesis in *Plasmodium berg
 
 Please contact ar19@sanger.ac.uk with any questions, or if you would like to collaborate.
 
+
+## Basic steps
+- Run quality control notebooks to generate QCed data files
+- Run analysis notebooks
