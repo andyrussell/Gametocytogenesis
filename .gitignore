@@ -4,7 +4,7 @@
 .Ruserdata
 .DS_Store
 *.RDS
-*.html
+*.html # TODO: remove this and publish the html files before publication. But useful to exclude during development.
 images_to_export/QC_mito_violin.png
 images_to_export/QC_mito_graph.png
 images_to_export/QC_failed_position.png
