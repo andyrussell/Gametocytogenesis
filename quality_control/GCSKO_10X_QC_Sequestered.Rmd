@@ -1,7 +1,7 @@
 ---
 subtitle: 'Gametocyte Development in <i>Plasmodium berghei</i>'
 title: |
-  ![](/Users/Andy/GCSKO/GCSKO_analysis_git/GCSKO_logo.jpg){width=300px}  
+  ![](../GCSKO_logo.jpg){width=300px}  
   10X Quality Control Sequestered Dataset
 author: "[Andrew Russell](https://ajcrussell.wixsite.com/mysite/about)"
 institute: Wellcome Sanger Institute
@@ -21,8 +21,8 @@ This data has been processed using CellRanger into counts tables. This initial a
 
 <b>Pb straight bleed experiment (run #: 22252 lane 5 Hiseq 4000)) (AKA 30K cells):</b>
 
-<div style="width:500px; height:400px">![](/Users/Andy/GCSKO/GCSKO_analysis_git/data/10X/22252_5_cellranger_output_1.png)</div>
-<div style="width:500px; height:200px">![](/Users/Andy/GCSKO/GCSKO_analysis_git/data/10X/22252_5_cellranger_output_2.png)</div>
+<div style="width:500px; height:400px">![](../data/10X/22252_5_cellranger_output_1.png)</div>
+<div style="width:500px; height:200px">![](../data/10X/22252_5_cellranger_output_2.png)</div>
 
 # 2. Read in the data  {.tabset}
 
@@ -116,7 +116,7 @@ set.seed(-92497)
 This will be helpful later on. This contains annotations for each gene:
 ```{r import GTF}
 ##Import gtf file:
-gtf <- read.table("/Users/Andy/GCSKO/GCSKO_analysis_git/data/Reference/Pberghei.gtf", sep="\t", header = FALSE)
+gtf <- read.table("../data/Reference/Pberghei.gtf", sep="\t", header = FALSE)
 head(gtf)
 ```
 
