@@ -3,7 +3,9 @@ title: "Useful extra bits of code"
 output: html_notebook
 ---
 
-## Extras
+# Extras
+
+## From SS2 QC
 
 ### Old way of plotting microtitre plates
 
@@ -131,3 +133,213 @@ UMAP_400
 UMAP_800
 UMAP_1200
 ```
+
+## From GCSKO_merge
+
+### Methods for plotting separate plots and editing them from one Seurat object:
+
+Not very customisable, so make a ggplot2 workaround:
+
+```{r}
+## make a dataframe of embeddings and meta data
+#plotting_df <- cbind(as.data.frame(tenx.mutant.integrated@reductions$umapoptimised@cell.embeddings), as.data.frame(tenx.mutant.integrated@meta.data))
+
+## subset by experiment:
+#cells_10x <- plotting_df[plotting_df$experiment == "mutants",]
+#cells_ss2 <- plotting_df[plotting_df$experiment == "tenx_5k",]
+
+## plot
+#ggplot(cells_10x, aes(x=UMAP_1, y=UMAP_2, color=seurat_clusters_plotting)) , geom_point() , theme_void()
+
+#ggplot(cells_ss2, aes(x=UMAP_1, y=UMAP_2, color=seurat_clusters_plotting)) , geom_point() , theme_void()
+```
+
+option 2:
+```{r}
+ob.list <- SplitObject(tenx.mutant.integrated, split.by = "experiment")
+plot.list <- lapply(X = ob.list, FUN = function(x) {
+    DimPlot(x, reduction = "umap", label = TRUE, label.size = 5, repel = TRUE, pt.size = 1) + theme(legend.position="bottom")
+})
+## https://github.com/satijalab/seurat/issues/1825
+```
+plot together 
+```{r}
+## use this function to extract legend:
+## https://stackoverflow.com/questions/13649473/add-a-common-legend-for-combined-ggplots
+## https://github.com/hadley/ggplot2/wiki/Share-a-legend-between-two-ggplot2-graphs
+g_legend<-function(a.gplot){
+   tmp <- ggplot_gtable(ggplot_build(a.gplot))
+   leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+   legend <- tmp$grobs[[leg]]
+   return(legend)}
+
+p1 <- plot.list$mutants + theme_void() + guides(colour=guide_legend(nrow=2,byrow=TRUE, override.aes = list(size=4)))
+p2 <- plot.list$tenx_5k + theme_void()
+
+mylegend<-g_legend(p1)
+
+p3 <- grid.arrange(arrangeGrob(p1 , theme(legend.position="none"),
+                               p2 , theme(legend.position="none"), nrow=1), 
+                              mylegend, nrow=2,heights=c(10, 1))
+
+## to add titles to plots:
+#, labs(title = paste("Smart-seq2", "\n", "(mutant and wild-type)"))
+```
+pathwork way:
+```{r}
+#library(patchwork)
+combined <- p1 + p2 & theme(legend.position = "bottom")
+combined + plot_layout(guides = "collect")
+```
+
+## solve rgl installation problem https://stackoverflow.com/questions/31820865/installing-rgl-on-ubuntu-and-mac-x11-not-found
+solved the monocle issue by following:
+```{bash}
+sudo add-apt-repository ppa:ubuntugis/ubuntugis-unstable
+sudo apt-get update
+sudo apt-get install libudunits2-dev libgdal-dev libgeos-dev libproj-dev 
+```
+here: https://github.com/r-spatial/sf 
+
+then devtools::install_github('cole-trapnell-lab/monocle3')
+
+## optimisation of UMAP
+
+optimise UMAP
+```{r}
+for(i in c(5,10,20,50)){
+tenx.mutant.integrated <- RunUMAP(tenx.mutant.integrated, reduction = "pca", dims = 1:8, seed.use = 7000, n.neighbors = i, reduction.name = paste0("umap",i))
+}
+DimPlot(tenx.mutant.integrated, reduction = "umap5", split.by = "experiment", pt.size = 0.01)
+DimPlot(tenx.mutant.integrated, reduction = "umap10", split.by = "experiment", pt.size = 0.01)
+DimPlot(tenx.mutant.integrated, reduction = "umap20", split.by = "experiment", pt.size = 0.01)
+DimPlot(tenx.mutant.integrated, reduction = "umap50", split.by = "experiment", pt.size = 0.01)
+```
+
+```{r}
+for(i in c(0.5, 0.1, 0.05, 0.01)){
+tenx.mutant.integrated <- RunUMAP(tenx.mutant.integrated, reduction = "pca", dims = 1:8, seed.use = 7000, n.neighbors = 50, min.dist = i, reduction.name = paste0("umap",i))
+}
+
+DimPlot(tenx.mutant.integrated, reduction = "umap0.5", split.by = "experiment", pt.size = 0.01)
+DimPlot(tenx.mutant.integrated, reduction = "umap0.1", split.by = "experiment", pt.size = 0.01)
+DimPlot(tenx.mutant.integrated, reduction = "umap0.05", split.by = "experiment", pt.size = 0.01)
+DimPlot(tenx.mutant.integrated, reduction = "umap0.01", split.by = "experiment", pt.size = 0.01)
+```
+
+```{r}
+tenx.mutant.integrated <- RunUMAP(tenx.mutant.integrated, reduction = "pca", dims = 1:8, reduction.name = "umapoptimised", metric = "cosine")
+
+DimPlot(tenx.mutant.integrated, reduction = "umapoptimised", split.by = "experiment", pt.size = 0.01)
+```
+
+optimising UMAP 2
+
+```{r}
+## original optimisation
+# tenx.mutant.integrated <- RunUMAP(tenx.mutant.integrated, reduction = "pca", dims = 1:8, n.neighbors = 50, seed.use = 1234, min.dist = 0.5, repulsion.strength = 0.05, reduction.name = "umapoptimised")
+
+test_seurat_object <- RunUMAP(test_seurat_object, reduction = "pca", dims = 1:10, n.neighbors = 150, seed.use = 1234, min.dist = 0.4, repulsion.strength = 0.03, local.connectivity = 150, reduction.name = "umapoptimised")
+
+test_seurat_object <- RunUMAP(test_seurat_object, reduction = "pca", dims = 1:10, n.neighbors = 150, seed.use = 1234, min.dist = 0.4, repulsion.strength = 0.03, local.connectivity = 150)
+
+#test_seurat_object <- RunUMAP(test_seurat_object, reduction = "pca", dims = 1:10, n.neighbors = 150, seed.use = 1234, min.dist = 0.01, repulsion.strength = 0.01, local.connectivity = 150, reduction.name = "umapoptimised", spread = 1, set.op.mix.ratio = 1)
+
+
+#3
+#test_seurat_object <- RunUMAP(test_seurat_object, reduction = "pca", dims = 1:11, n.neighbors = 150, seed.use = 1234, min.dist = 0.01, repulsion.strength = 0.01, local.connectivity = 150, reduction.name = "umapoptimised", spread = 1, set.op.mix.ratio = 1, metric = "manhattan")
+#dp3 
+
+dp1 <- DimPlot(test_seurat_object, reduction = "umapoptimised", label = TRUE, repel = FALSE, pt.size = 0.05) , coord_fixed()
+dp1
+```
+
+feature plot with viridis:
+```{r, fig.height = 6, fig.width = 8}
+# PBANKA-0515000 - p25 - female
+# PBANKA-1319500 - CCP2 - female - used in 820 line
+# PBANKA-1212600 - HAP2 - male
+# PBANKA-0600600 - NEK3 - male
+# PBANKA-1315700 - RON2 - (asexuals and some male?)
+# "PBANKA-0416100" - dynenin heavy chain - male - used in 820 line
+# PBANKA-1437500 - AP2-G - seuxal commitment gene
+# PBANKA-0831000 - MSP1 - late asexual
+# PBANKA-1102200 - MSP8 - early asexual (from Bozdech paper)
+
+inferno <- viridis(4, direction = 1, option = "inferno")
+
+FeaturePlot(tenx.mutant.integrated.sex, features = c("PBANKA-0515000", "PBANKA-1319500", "PBANKA-1212600","PBANKA-0600600", "PBANKA-1315700", "PBANKA-0416100", "PBANKA-1437500", "PBANKA-0831000", "PBANKA-1102200"), coord.fixed = TRUE, reduction = "pca", min.cutoff = "q1", cols = inferno, pt.size = 0.01) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+```
+
+```{r}
+VlnPlot(tenx.mutant.integrated.sex, features = c("PBANKA-1319500", "PBANKA-0416100"), group.by = "identity_updated")
+```
+
+```{r}
+cells_28 <- rownames(tenx.mutant.integrated.sex@meta.data[tenx.mutant.integrated.sex@meta.data$identity_combined == "GCSKO-28", ])
+  
+seurat_28 <- SubsetData(tenx.mutant.integrated.sex, cells = cells_28)
+
+```
+
+```{r, fig.height = 4, fig.width = 10}
+plots <- FeaturePlot(seurat_28, features = c("PBANKA-1319500", "PBANKA-0416100"), blend = TRUE, combine = FALSE, coord.fixed = TRUE)
+
+plots[[3]] + NoLegend()  # Get just the co-expression plot, built-in legend is meaningless for this plot
+plots[[4]] # Get just the key
+CombinePlots(plots[3:4], legend = 'none', ncol =2, nrow = 1, rel_widths = c(2, 1), rel_heights = c(4,1)) # Stitch the co-expression and key plots together
+```
+
+```{r}
+## extract data from Seurat
+seurat.object.subset <- SubsetData(tenx.mutant.integrated, subset.name = "seurat_clusters", accept.value = c("24","14"))
+seurat.object.subset
+## counts
+data <- as(as.matrix(GetAssayData(seurat.object.subset, assay = "integrated", slot = "data")), 'sparseMatrix')
+## meta data
+pd <- data.frame(seurat.object.subset@meta.data)
+
+## write to file
+write.csv(data, file = "~/data_to_export/cluster_14_and_24_cells.csv")
+write.csv(pd, file = "~/data_to_export/cluster_14_and_24_meta_data.csv")
+```
+
+Export just smart-seq2 and just 10x 
+```{r}
+## extract only cells in cluster 14:
+seurat.object.subset <- SubsetData(tenx.mutant.integrated, subset.name = "seurat_clusters", accept.value = c("24"))
+##get their names:
+names_of_cells_in_cluster_24 <- colnames(seurat.object.subset@assays$RNA@counts)
+
+## Subset 10X Dataset
+tenx_cluster_24 <- SubsetData(pb_sex_filtered, cells = names_of_cells_in_cluster_24)
+tenx_cluster_24_matrix <- as(as.matrix(GetAssayData(tenx_cluster_24, assay = "RNA", slot = "data")), 'sparseMatrix')
+#pd <- data.frame(seurat.object.subset@meta.data)
+
+## Subset SS2 Dataset
+ss2_cluster_24 <- SubsetData(ss2_mutants_final, cells = names_of_cells_in_cluster_24)
+ss2_cluster_24_matrix <- as(as.matrix(GetAssayData(ss2_cluster_24, assay = "RNA", slot = "data")), 'sparseMatrix')
+
+
+## write to file
+write.csv(ss2_cluster_24_matrix, file = "~/data_to_export/ss2_cluster_24_matrix.csv")
+write.csv(tenx_cluster_24_matrix, file = "~/data_to_export/tenx_cluster_24_matrix.csv")
+```
+
+
+### MCA datsets
+a new object will be the MCA dataset:
+
+(file:///Users/ar19/Desktop/PhD/MCA_Publication/MCA_10X_SS2_Data.nb.html)
+ss2_molecules <- read.csv("/Users/ar19/Desktop/mca.qc.tmm_norm_counts_20180625.csv", header = TRUE, row.names=1, stringsAsFactors = TRUE)
+ss2_anno <- read.csv("/Users/ar19/Desktop/QC_pheno_20180625.csv", header = TRUE, stringsAsFactors = TRUE, row.names = 1)
+(file:///Users/ar19/Desktop/PhD/MCA_Publication/MCA%20-%20Genes%20Captured%20Analysis.nb.html)
+
+molecules <- read.table("/Volumes/team222/MCA/Countfiles/allcounts3.csv", header = TRUE, sep = ",", row.names=1, stringsAsFactors = TRUE)
+anno <- read.delim("/Volumes/team222/MCA/Countfiles/allpheno5.csv", header = TRUE, sep = ",")

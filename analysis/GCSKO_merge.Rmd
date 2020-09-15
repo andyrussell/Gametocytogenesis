@@ -203,19 +203,18 @@ screen_hits <- c("PBANKA-0516300",
 
 load in datasets
 ```{r}
-## load the 30k 10X dataset
-#pb_30k_sex_filtered <- readRDS("pb_30k_sex_filtered.RDS")
 ## load the 10X dataset
-pb_sex_filtered <- readRDS("/Users/Andy/pb_sex_filtered.RDS")
-#pb_sex_filtered <- readRDS("/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/pb_sex_filtered.RDS")
+pb_sex_filtered <- readRDS("../data_to_export/pb_sex_filtered.RDS")
 ## load the SS2 dataset
-ss2_mutants_final <- readRDS("/Users/Andy/ss2_mutants_final.RDS")
+ss2_mutants_final <- readRDS("../data_to_export/ss2_mutants_final.RDS")
 
 ## inspect
 paste("10x dataset")
 pb_sex_filtered
 paste("Smart-seq2 dataset")
 ss2_mutants_final
+paste("The composition of the Smart-seq2 dataset is:")
+table(ss2_mutants_final@meta.data$genotype)
 ```
 
 # 3. Merging the Smart-seq2 and 10X Data {.tabset}
@@ -301,10 +300,10 @@ tenx.mutant.integrated <- IntegrateData(anchorset = tenx.mutant.anchors, dims = 
 
 ### PCA
 ```{r, fig.width = 10, fig.height = 5}
-# Make the default assay integrated
+## Make the default assay integrated
 DefaultAssay(tenx.mutant.integrated) <- "integrated"
 
-# Run the standard workflow for visualization and clustering
+## Run the standard workflow for visualization and clustering
 tenx.mutant.integrated <- ScaleData(tenx.mutant.integrated, verbose = FALSE)
 tenx.mutant.integrated <- RunPCA(tenx.mutant.integrated, npcs = 30, verbose = FALSE)
 
@@ -339,7 +338,7 @@ tenx.mutant.integrated <- RunUMAP(tenx.mutant.integrated, reduction = "pca", dim
 
 ```{r umap visualise 2}
 ## plot
-dp1 <- DimPlot(tenx.mutant.integrated, label = TRUE, repel = FALSE, pt.size = 0.05, dims = c(2,1)) + 
+dp1 <- DimPlot(tenx.mutant.integrated, label = TRUE, repel = FALSE, pt.size = 0.05, dims = c(2,1), group.by = "experiment") + 
   ## fix the axis
   coord_fixed() + 
   ## reverse the scale
@@ -453,7 +452,7 @@ plot
 #}
 
 ## plot
-list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[[3]] + list_UMAPs_by_cluster[[4]] + list_UMAPs_by_cluster[[5]] + list_UMAPs_by_cluster[[6]] + list_UMAPs_by_cluster[[7]] + list_UMAPs_by_cluster[[8]] + list_UMAPs_by_cluster[[9]] + list_UMAPs_by_cluster[[10]] + list_UMAPs_by_cluster[[11]] + list_UMAPs_by_cluster[[12]] + list_UMAPs_by_cluster[[13]] + list_UMAPs_by_cluster[[14]] + list_UMAPs_by_cluster[[15]] + list_UMAPs_by_cluster[[16]] + list_UMAPs_by_cluster[[17]] + list_UMAPs_by_cluster[[18]] + list_UMAPs_by_cluster[[19]] + list_UMAPs_by_cluster[[20]] + list_UMAPs_by_cluster[[21]] + list_UMAPs_by_cluster[[22]]
+list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[[3]] + list_UMAPs_by_cluster[[4]] + list_UMAPs_by_cluster[[5]] + list_UMAPs_by_cluster[[6]] + list_UMAPs_by_cluster[[7]] + list_UMAPs_by_cluster[[8]] + list_UMAPs_by_cluster[[9]] + list_UMAPs_by_cluster[[10]] + list_UMAPs_by_cluster[[11]] + list_UMAPs_by_cluster[[12]] + list_UMAPs_by_cluster[[13]] + list_UMAPs_by_cluster[[14]] + list_UMAPs_by_cluster[[15]] + list_UMAPs_by_cluster[[16]] + list_UMAPs_by_cluster[[17]] + list_UMAPs_by_cluster[[18]] + list_UMAPs_by_cluster[[19]] + list_UMAPs_by_cluster[[20]]
 ```
 
 #### resolution = 1.2
@@ -500,7 +499,7 @@ plot
 #}
 
 ## plot
-list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[[3]] + list_UMAPs_by_cluster[[4]] + list_UMAPs_by_cluster[[5]] + list_UMAPs_by_cluster[[6]] + list_UMAPs_by_cluster[[7]] + list_UMAPs_by_cluster[[8]] + list_UMAPs_by_cluster[[9]] + list_UMAPs_by_cluster[[10]] + list_UMAPs_by_cluster[[11]] + list_UMAPs_by_cluster[[12]] + list_UMAPs_by_cluster[[13]] + list_UMAPs_by_cluster[[14]] + list_UMAPs_by_cluster[[15]] + list_UMAPs_by_cluster[[16]] + list_UMAPs_by_cluster[[17]] + list_UMAPs_by_cluster[[18]] + list_UMAPs_by_cluster[[19]] + list_UMAPs_by_cluster[[20]] + list_UMAPs_by_cluster[[21]] + list_UMAPs_by_cluster[[22]] + list_UMAPs_by_cluster[[23]] + list_UMAPs_by_cluster[[24]]
+list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[[3]] + list_UMAPs_by_cluster[[4]] + list_UMAPs_by_cluster[[5]] + list_UMAPs_by_cluster[[6]] + list_UMAPs_by_cluster[[7]] + list_UMAPs_by_cluster[[8]] + list_UMAPs_by_cluster[[9]] + list_UMAPs_by_cluster[[10]] + list_UMAPs_by_cluster[[11]] + list_UMAPs_by_cluster[[12]] + list_UMAPs_by_cluster[[13]] + list_UMAPs_by_cluster[[14]] + list_UMAPs_by_cluster[[15]] + list_UMAPs_by_cluster[[16]] + list_UMAPs_by_cluster[[17]] + list_UMAPs_by_cluster[[18]] + list_UMAPs_by_cluster[[19]] + list_UMAPs_by_cluster[[20]] + list_UMAPs_by_cluster[[21]] + list_UMAPs_by_cluster[[22]]
 ```
 
 #### resolution = 1.5
@@ -538,7 +537,7 @@ for(i in seq_along(levels(tenx.mutant.integrated@meta.data$integrated_snn_res.1.
 
 ```{r, fig.height = 10, fig.width = 10}
 ## 1.5 resolution
-list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[[3]] + list_UMAPs_by_cluster[[4]] + list_UMAPs_by_cluster[[5]] + list_UMAPs_by_cluster[[6]] + list_UMAPs_by_cluster[[7]] + list_UMAPs_by_cluster[[8]] + list_UMAPs_by_cluster[[9]] + list_UMAPs_by_cluster[[10]] + list_UMAPs_by_cluster[[11]] + list_UMAPs_by_cluster[[12]] + list_UMAPs_by_cluster[[13]] + list_UMAPs_by_cluster[[14]] + list_UMAPs_by_cluster[[15]] + list_UMAPs_by_cluster[[16]] + list_UMAPs_by_cluster[[17]] + list_UMAPs_by_cluster[[18]] + list_UMAPs_by_cluster[[19]] + list_UMAPs_by_cluster[[20]] + list_UMAPs_by_cluster[[21]] + list_UMAPs_by_cluster[[22]] + list_UMAPs_by_cluster[[23]] + list_UMAPs_by_cluster[[24]] + list_UMAPs_by_cluster[[25]] + list_UMAPs_by_cluster[[26]]
+list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[[3]] + list_UMAPs_by_cluster[[4]] + list_UMAPs_by_cluster[[5]] + list_UMAPs_by_cluster[[6]] + list_UMAPs_by_cluster[[7]] + list_UMAPs_by_cluster[[8]] + list_UMAPs_by_cluster[[9]] + list_UMAPs_by_cluster[[10]] + list_UMAPs_by_cluster[[11]] + list_UMAPs_by_cluster[[12]] + list_UMAPs_by_cluster[[13]] + list_UMAPs_by_cluster[[14]] + list_UMAPs_by_cluster[[15]] + list_UMAPs_by_cluster[[16]] + list_UMAPs_by_cluster[[17]] + list_UMAPs_by_cluster[[18]] + list_UMAPs_by_cluster[[19]] + list_UMAPs_by_cluster[[20]] + list_UMAPs_by_cluster[[21]] + list_UMAPs_by_cluster[[22]] + list_UMAPs_by_cluster[[23]] + list_UMAPs_by_cluster[[24]] + list_UMAPs_by_cluster[[25]]
 ```
 
 #### resolution = 2
@@ -585,8 +584,45 @@ plot
 #}
 
 ## plot
-list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[[3]] + list_UMAPs_by_cluster[[4]] + list_UMAPs_by_cluster[[5]] + list_UMAPs_by_cluster[[6]] + list_UMAPs_by_cluster[[7]] + list_UMAPs_by_cluster[[8]] + list_UMAPs_by_cluster[[9]] + list_UMAPs_by_cluster[[10]] + list_UMAPs_by_cluster[[11]] + list_UMAPs_by_cluster[[12]] + list_UMAPs_by_cluster[[13]] + list_UMAPs_by_cluster[[14]] + list_UMAPs_by_cluster[[15]] + list_UMAPs_by_cluster[[16]] + list_UMAPs_by_cluster[[17]] + list_UMAPs_by_cluster[[18]] + list_UMAPs_by_cluster[[19]] + list_UMAPs_by_cluster[[20]] + list_UMAPs_by_cluster[[21]] + list_UMAPs_by_cluster[[22]] + list_UMAPs_by_cluster[[23]] + list_UMAPs_by_cluster[[24]] + list_UMAPs_by_cluster[[25]] + list_UMAPs_by_cluster[[26]] + list_UMAPs_by_cluster[[27]] + list_UMAPs_by_cluster[[28]] + list_UMAPs_by_cluster[[29]] + list_UMAPs_by_cluster[[30]] + list_UMAPs_by_cluster[[31]] + list_UMAPs_by_cluster[[32]] + list_UMAPs_by_cluster[[33]]
+list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[[3]] + list_UMAPs_by_cluster[[4]] + list_UMAPs_by_cluster[[5]] + list_UMAPs_by_cluster[[6]] + list_UMAPs_by_cluster[[7]] + list_UMAPs_by_cluster[[8]] + list_UMAPs_by_cluster[[9]] + list_UMAPs_by_cluster[[10]] + list_UMAPs_by_cluster[[11]] + list_UMAPs_by_cluster[[12]] + list_UMAPs_by_cluster[[13]] + list_UMAPs_by_cluster[[14]] + list_UMAPs_by_cluster[[15]] + list_UMAPs_by_cluster[[16]] + list_UMAPs_by_cluster[[17]] + list_UMAPs_by_cluster[[18]] + list_UMAPs_by_cluster[[19]] + list_UMAPs_by_cluster[[20]] + list_UMAPs_by_cluster[[21]] + list_UMAPs_by_cluster[[22]] + list_UMAPs_by_cluster[[23]] + list_UMAPs_by_cluster[[24]] + list_UMAPs_by_cluster[[25]] + list_UMAPs_by_cluster[[26]] + list_UMAPs_by_cluster[[27]] + list_UMAPs_by_cluster[[28]] + list_UMAPs_by_cluster[[29]] + list_UMAPs_by_cluster[[30]] + list_UMAPs_by_cluster[[31]]
 ```
+
+3 vs 19 on resolution 2 already looks pretty cool:
+
+```{r}
+## reset the default identity
+## generate new clusters at mid resolution
+## 2
+tenx.mutant.integrated <- FindNeighbors(tenx.mutant.integrated, dims = 1:15)
+tenx.mutant.integrated <- FindClusters(tenx.mutant.integrated, resolution = 2, random.seed = 42, algorithm = 2)
+
+
+## Find deferentially expressed features between the two clusters
+early.sex.de.markers <- FindMarkers(tenx.mutant.integrated, ident.1 = "5", ident.2 = "3")
+# view results
+head(early.sex.de.markers)
+```
+
+look at them across the dataset
+
+```{r, fig.height = 6}
+DotPlot(tenx.mutant.integrated, features = c(rownames(early.sex.de.markers[1:10,]), "PBANKA-1302700")) + RotatedAxis()
+```
+
+```{r, fig.height = 6}
+DotPlot(tenx.mutant.integrated, features = screen_hits) + RotatedAxis()
+```
+
+```{r}
+## find all markers
+all.markers <- FindAllMarkers(tenx.mutant.integrated, only.pos = FALSE, min.pct = 0.25, logfc.threshold = 0.25)
+```
+
+```{r}
+top_two <- all.markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_logFC)
+top_two
+```
+
 
 #### resolution = 4
 
@@ -632,35 +668,37 @@ plot
 #}
 
 ## plot
-list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[[3]] + list_UMAPs_by_cluster[[4]] + list_UMAPs_by_cluster[[5]] + list_UMAPs_by_cluster[[6]] + list_UMAPs_by_cluster[[7]] + list_UMAPs_by_cluster[[8]] + list_UMAPs_by_cluster[[9]] + list_UMAPs_by_cluster[[10]] + list_UMAPs_by_cluster[[11]] + list_UMAPs_by_cluster[[12]] + list_UMAPs_by_cluster[[13]] + list_UMAPs_by_cluster[[14]] + list_UMAPs_by_cluster[[15]] + list_UMAPs_by_cluster[[16]] + list_UMAPs_by_cluster[[17]] + list_UMAPs_by_cluster[[18]] + list_UMAPs_by_cluster[[19]] + list_UMAPs_by_cluster[[20]] + list_UMAPs_by_cluster[[21]] + list_UMAPs_by_cluster[[22]] + list_UMAPs_by_cluster[[23]] + list_UMAPs_by_cluster[[24]] + list_UMAPs_by_cluster[[25]] + list_UMAPs_by_cluster[[26]] + list_UMAPs_by_cluster[[27]] + list_UMAPs_by_cluster[[28]] + list_UMAPs_by_cluster[[29]] + list_UMAPs_by_cluster[[30]] + list_UMAPs_by_cluster[[31]] + list_UMAPs_by_cluster[[32]] + list_UMAPs_by_cluster[[33]] + list_UMAPs_by_cluster[[34]] + list_UMAPs_by_cluster[[35]] + list_UMAPs_by_cluster[[36]] + list_UMAPs_by_cluster[[37]] + list_UMAPs_by_cluster[[38]] + list_UMAPs_by_cluster[[39]] + list_UMAPs_by_cluster[[40]] + list_UMAPs_by_cluster[[41]] + list_UMAPs_by_cluster[[42]] + list_UMAPs_by_cluster[[43]] + list_UMAPs_by_cluster[[44]] + list_UMAPs_by_cluster[[45]] + list_UMAPs_by_cluster[[46]]
+list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[[3]] + list_UMAPs_by_cluster[[4]] + list_UMAPs_by_cluster[[5]] + list_UMAPs_by_cluster[[6]] + list_UMAPs_by_cluster[[7]] + list_UMAPs_by_cluster[[8]] + list_UMAPs_by_cluster[[9]] + list_UMAPs_by_cluster[[10]] + list_UMAPs_by_cluster[[11]] + list_UMAPs_by_cluster[[12]] + list_UMAPs_by_cluster[[13]] + list_UMAPs_by_cluster[[14]] + list_UMAPs_by_cluster[[15]] + list_UMAPs_by_cluster[[16]] + list_UMAPs_by_cluster[[17]] + list_UMAPs_by_cluster[[18]] + list_UMAPs_by_cluster[[19]] + list_UMAPs_by_cluster[[20]] + list_UMAPs_by_cluster[[21]] + list_UMAPs_by_cluster[[22]] + list_UMAPs_by_cluster[[23]] + list_UMAPs_by_cluster[[24]] + list_UMAPs_by_cluster[[25]] + list_UMAPs_by_cluster[[26]] + list_UMAPs_by_cluster[[27]] + list_UMAPs_by_cluster[[28]] + list_UMAPs_by_cluster[[29]] + list_UMAPs_by_cluster[[30]] + list_UMAPs_by_cluster[[31]] + list_UMAPs_by_cluster[[32]] + list_UMAPs_by_cluster[[33]] + list_UMAPs_by_cluster[[34]] + list_UMAPs_by_cluster[[35]] + list_UMAPs_by_cluster[[36]] + list_UMAPs_by_cluster[[37]] + list_UMAPs_by_cluster[[38]] + list_UMAPs_by_cluster[[39]] + list_UMAPs_by_cluster[[40]] + list_UMAPs_by_cluster[[41]] + list_UMAPs_by_cluster[[42]] + list_UMAPs_by_cluster[[43]] + list_UMAPs_by_cluster[[44]] + list_UMAPs_by_cluster[[45]]
 ```
+
 #### UMAP clustering
 
 ```{r}
 ## run a new UMAP with 
 tenx.mutant.integrated <- RunUMAP(tenx.mutant.integrated, reduction = "pca", dims = 1:10, n.components = 10)
+```
 
+```{r}
 ## generate new clusters at low resolution
-## 1
 tenx.mutant.integrated <- FindNeighbors(tenx.mutant.integrated, dims = 1:10, reduction = "umap")
-tenx.mutant.integrated <- FindClusters(tenx.mutant.integrated, resolution = 1, random.seed = 42, algorithm = 2)
+tenx.mutant.integrated <- FindClusters(tenx.mutant.integrated, resolution = 0.5, random.seed = 42, algorithm = 2)
 ```
 ```{r, echo = FALSE, message=FALSE}
 ## for loop which takes each cluster and makes a list of cells and then plots a highlighted plot and adds it to a list
 
 ## make a blank list
-list_UMAPs_by_cluster <- vector(mode = "list", length = length(levels(tenx.mutant.integrated@meta.data$integrated_snn_res.1)))
+list_UMAPs_by_cluster <- vector(mode = "list", length = length(levels(tenx.mutant.integrated@meta.data$integrated_snn_res.0.5)))
 
 ## for loop
-for(i in seq_along(levels(tenx.mutant.integrated@meta.data$integrated_snn_res.1))){
+for(i in seq_along(levels(tenx.mutant.integrated@meta.data$integrated_snn_res.0.5))){
   ## make a list of cells
-  list_of_cells <- rownames(tenx.mutant.integrated@meta.data[which(tenx.mutant.integrated@meta.data$integrated_snn_res.1 == levels(tenx.mutant.integrated@meta.data$integrated_snn_res.1)[i]), ])
+  list_of_cells <- rownames(tenx.mutant.integrated@meta.data[which(tenx.mutant.integrated@meta.data$integrated_snn_res.0.5 == levels(tenx.mutant.integrated@meta.data$integrated_snn_res.0.5)[i]), ])
   uamp_plot <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = list_of_cells, dims = c(2,1), reduction = "DIM_UMAP") +
     ## fix coordinates
     coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
-  labs(title = paste("cluster", levels(tenx.mutant.integrated@meta.data$integrated_snn_res.1)[i])) + 
+  labs(title = paste("cluster", levels(tenx.mutant.integrated@meta.data$integrated_snn_res.0.5)[i])) + 
   theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
   ## add to the list
   list_UMAPs_by_cluster[[i]] <- uamp_plot
@@ -680,7 +718,7 @@ plot
 #}
 
 ## plot
-list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[[3]] + list_UMAPs_by_cluster[[4]] + list_UMAPs_by_cluster[[5]] + list_UMAPs_by_cluster[[6]] + list_UMAPs_by_cluster[[7]] + list_UMAPs_by_cluster[[8]] + list_UMAPs_by_cluster[[9]] + list_UMAPs_by_cluster[[10]] + list_UMAPs_by_cluster[[11]] + list_UMAPs_by_cluster[[12]] + list_UMAPs_by_cluster[[13]] + list_UMAPs_by_cluster[[14]] + list_UMAPs_by_cluster[[15]] + list_UMAPs_by_cluster[[16]] + list_UMAPs_by_cluster[[17]] + list_UMAPs_by_cluster[[18]] + list_UMAPs_by_cluster[[19]] + list_UMAPs_by_cluster[[20]] + list_UMAPs_by_cluster[[21]] + list_UMAPs_by_cluster[[22]] + list_UMAPs_by_cluster[[23]] + list_UMAPs_by_cluster[[24]] + list_UMAPs_by_cluster[[25]] + list_UMAPs_by_cluster[[26]] + list_UMAPs_by_cluster[[27]] + list_UMAPs_by_cluster[[28]] + list_UMAPs_by_cluster[[29]] + list_UMAPs_by_cluster[[30]] + list_UMAPs_by_cluster[[31]] + list_UMAPs_by_cluster[[32]] + list_UMAPs_by_cluster[[33]] + list_UMAPs_by_cluster[[34]] 
+list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[[3]] + list_UMAPs_by_cluster[[4]] + list_UMAPs_by_cluster[[5]] + list_UMAPs_by_cluster[[6]] + list_UMAPs_by_cluster[[7]] + list_UMAPs_by_cluster[[8]] + list_UMAPs_by_cluster[[9]] + list_UMAPs_by_cluster[[10]] + list_UMAPs_by_cluster[[11]] + list_UMAPs_by_cluster[[12]] + list_UMAPs_by_cluster[[13]] + list_UMAPs_by_cluster[[14]] + list_UMAPs_by_cluster[[15]] + list_UMAPs_by_cluster[[16]] + list_UMAPs_by_cluster[[17]] + list_UMAPs_by_cluster[[18]] + list_UMAPs_by_cluster[[19]] + list_UMAPs_by_cluster[[20]] + list_UMAPs_by_cluster[[21]] + list_UMAPs_by_cluster[[22]] + list_UMAPs_by_cluster[[23]] + list_UMAPs_by_cluster[[24]] + list_UMAPs_by_cluster[[25]] + list_UMAPs_by_cluster[[26]]
 ```
 
 ### Pick final resolution 
@@ -690,7 +728,7 @@ We will look in more detail at cells as they enter the sexual trajecotry later. 
 ```{r, fig.height = 3, fig.width = 5}
 ## generate final clusters which will be written into the 'seurat.clusters' slot in meta data
 tenx.mutant.integrated <- FindNeighbors(tenx.mutant.integrated, dims = 1:10, reduction = "umap")
-tenx.mutant.integrated <- FindClusters(tenx.mutant.integrated, resolution = 1, random.seed = 42, algorithm = 2)
+tenx.mutant.integrated <- FindClusters(tenx.mutant.integrated, resolution = 0.5, random.seed = 42, algorithm = 2)
 
 ## Plot
 DimPlot(tenx.mutant.integrated, label = TRUE, repel = TRUE, pt.size = 0.05, group.by = "seurat_clusters", dims = c(2,1), reduction = "DIM_UMAP") + coord_fixed()
@@ -735,7 +773,7 @@ plots <- FeaturePlot(tenx.mutant.integrated, features = c("PBANKA-1319500", "PBA
 plots[[3]] + NoLegend() + plots[[4]]/plot_spacer() + plot_layout(widths = c(2,1))
 ```
 
-#### Known Marker Genes (Fig. 3.B.)
+#### Known Marker Genes Plots
 
 marker genes plots
 ```{r, fig.height = 6, fig.width = 6}
@@ -749,48 +787,57 @@ marker genes plots
 # PBANKA-0831000 - MSP1 - late asexual
 # PBANKA-1102200 - MSP8 - early asexual (from Bozdech paper)
 # PBANKA-0711900 - HSP70 - promoter used for GFP and RFP expression in the mutants
-# PBANKA-1400400 - FAMB - ring marker
+# PBANKA-1400400 - FAMB - ring marker - discovered by looking for marker genes in data
+# PBANKA-0722600 - Fam-b2 - ring marker - https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5113031/ 
 
 
-marker_gene_plot_CCP2 <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-1319500", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP") + 
+marker_gene_plot_CCP2 <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-1319500", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("CCP2 (Female)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
 
-marker_gene_plot_MG1 <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-0416100", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP") + 
+marker_gene_plot_MG1 <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-0416100", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("MG1 (Male)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
 
-marker_gene_plot_AP2G <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-1437500", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP") + 
+marker_gene_plot_AP2G <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-1437500", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("AP2G (Commitment)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
 
-marker_gene_plot_MSP1 <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-0831000", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP") + 
+marker_gene_plot_MSP1 <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-0831000", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("MSP1 (Schizont)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
 
-marker_gene_plot_MSP8 <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-1102200", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP") + 
+marker_gene_plot_MSP8 <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-1102200", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("MSP8 (Asexual)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
 
-marker_gene_plot_SBP1 <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-1101300", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP") + 
+marker_gene_plot_SBP1 <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-1101300", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("SBP1 (Ring)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
 
-marker_gene_plot_FAMB <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-1400400", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP") + 
+marker_gene_plot_FAMB <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-0722600", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP", pt.size = 1, order = TRUE) + 
   theme_void() + 
-  labs(title = paste("FAMB (Ring)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+  labs(title = paste("Fam-b2 (Ring)")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
 
-marker_gene_plot_HSP70 <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-0711900", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP") + 
+marker_gene_plot_HSP70 <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-0711900", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("(HSP70; Reporter)","\n", "PBANKA_0711900")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
 
 ##original label:
 # labs(title = paste("(CCP2; Female)","\n", "PBANKA_1319500"))
@@ -806,13 +853,13 @@ tenx.mutant.integrated@meta.data$cluster_colours_figure <- NA
 
 ## define which clusters will be which identity
 
-male_clusters <- c("26", "22", "11", "17")
+male_clusters <- c("20", "17", "8", "18")
 
-female_clusters <- c("30", "32", "27", "12", "13", "18")
+female_clusters <- c("23", "19", "21", "5")
 
-asex_clusters <- c("7", "10", "9", "14", "1", "3", "4", "8", "5", "6", "2", "0", "16", "19", "28", "15", "21", "23", "24", "25", "31", "29", "33")
+asex_clusters <- c("6", "4", "9", "2", "1", "7", "0", "3", "12", "16", "10", "11", "24", "14", "15", "22", "25")
 
-bipotential_clusters <- c("20")
+bipotential_clusters <- c("13")
 
 ## check length of the unique entries in the manualy created list above and the number of clusters in total
 paste("Is the total number of clusters in the list the same as the number of clusters in the slot?", identical(length(unique(c(male_clusters, female_clusters, asex_clusters, bipotential_clusters))), length(levels(tenx.mutant.integrated@meta.data$seurat_clusters))))
@@ -827,6 +874,14 @@ table(tenx.mutant.integrated@meta.data$cluster_colours_figure)
 ```
 
 # 7. Plot Figures {.tabset}
+
+useful tools for all plots
+```{r}
+## define male and female symbol
+female_symbol <- intToUtf8(9792)
+male_symbol <- intToUtf8(9794)
+```
+
 
 #### Fig. 3.A. (All Cells by Male, Female, Male)
 
@@ -843,6 +898,7 @@ DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, grou
   scale_colour_manual(values=pal_sex) + 
   theme_void() + 
   theme(legend.position = "none")
+  
 ```
 
 #### Fig. Sup. UMAP with Clusters
@@ -919,7 +975,7 @@ p4 <- grid.arrange(arrangeGrob(p1 + theme(legend.position="none") + labs(title =
 ```
 
 Make final plots:
-```{r}
+```{r, fig.height = 10, fig.width = 10}
 p1 <- plot.list$`10X_WT` + 
   coord_fixed() +
   theme_void() +
@@ -953,78 +1009,122 @@ UMAP_composite
 ```
 save
 ```{r}
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/umap_paper_figure.png", plot = UMAP_composite, device = "png", path = NULL, scale = 1, width = 30, height = 30, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/merge_umap_technology_and_markers.png", plot = UMAP_composite, device = "png", path = NULL, scale = 1, width = 30, height = 30, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 Specific gene expression of mutants
 ```{r}
-# PBANKA-1418100        GCSKO-17
-# PBANKA-0102400         GCSKO-2
-# PBANKA-0716500        GCSKO-19
-# PBANKA-1435200        GCSKO-20
-# PBANKA-0902300        GCSKO-13
-# PBANKA-0413400    GCSKO-10_820
-# PBANKA-0828000         GCSKO-3
-# PBANKA-1302700       GCSKO-oom
-# PBANKA-1447900        GCSKO-29
-# PBANKA-1454800        GCSKO-21
-# PBANKA-1144800        GCSKO-28
+# PBANKA-1418100        GCSKO-17  FD3   
+# PBANKA-0102400         GCSKO-2  MD3 
+# PBANKA-0716500        GCSKO-19  MD4 
+# PBANKA-1435200        GCSKO-20  FD4 
+# PBANKA-0902300        GCSKO-13  FD2
+# PBANKA-0413400    GCSKO-10_820  MD5
+# PBANKA-0828000         GCSKO-3  GD1
+# PBANKA-1302700       GCSKO-oom  MD1 
+# PBANKA-1447900        GCSKO-29  MD2
+# PBANKA-1454800        GCSKO-21  FD1
+# PBANKA-1144800        GCSKO-28  FD5
 
 
-marker_gene_plot_17 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-1418100", coord.fixed = TRUE, min.cutoff = "q1") + 
+marker_gene_plot_17 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-1418100", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("17")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_2 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-0102400", coord.fixed = TRUE, min.cutoff = "q1") + 
+marker_gene_plot_2 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-0102400", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("2")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_19 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-0716500", coord.fixed = TRUE, min.cutoff = "q1") + 
+marker_gene_plot_19 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-0716500", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("19")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_20 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-1435200", coord.fixed = TRUE, min.cutoff = "q1") + 
+marker_gene_plot_20 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-1435200", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("20")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_13 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-0902300", coord.fixed = TRUE, min.cutoff = "q1") + 
+marker_gene_plot_13 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-0902300", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("13")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_10 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-0413400", coord.fixed = TRUE, min.cutoff = "q1") + 
+marker_gene_plot_10 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-0413400", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("10")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_3 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-0828000", coord.fixed = TRUE, min.cutoff = "q1") + 
+marker_gene_plot_3 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-0828000", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("3")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_oom <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-1302700", coord.fixed = TRUE, min.cutoff = "q1") + 
+marker_gene_plot_oom <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-1302700", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("oom")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_29 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-1447900", coord.fixed = TRUE, min.cutoff = "q1") + 
+marker_gene_plot_29 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-1447900", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("29")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_21 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-1454800", coord.fixed = TRUE, min.cutoff = "q1") + 
+marker_gene_plot_21 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-1454800", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("21")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_28 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-1144800", coord.fixed = TRUE, min.cutoff = "q1") + 
+marker_gene_plot_28 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-1144800", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("28")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
 ##original label:
 # labs(title = paste("(CCP2; Female)","\n", "PBANKA_1319500"))
@@ -1038,7 +1138,7 @@ mutant_expression_composite
 
 save
 ```{r}
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/umap_mutants_paper_figure.png", plot = mutant_expression_composite, device = "png", path = NULL, scale = 1, width = 30, height = 30, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/merge_umap_mutant_gene_expression.png", plot = mutant_expression_composite, device = "png", path = NULL, scale = 1, width = 30, height = 30, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 #### Fig. Sup. Look at specific mutants
@@ -1071,85 +1171,125 @@ pm1 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
   labs(title = paste("Mutant 28","\n", "(PBANKA_1144800)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
 pm2 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_17, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
   labs(title = paste("Mutant 17","\n", "(PBANKA_1418100)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
 pm3 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_2, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
   labs(title = paste("Mutant 2","\n", "(PBANKA_0102400)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
 pm4 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_19, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) +
   theme_void() + 
   labs(title = paste("Mutant 19","\n", "(PBANKA_0716500)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
 pm5 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_20, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
   labs(title = paste("Mutant 20","\n", "(PBANKA_1435200)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
 pm6 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_13, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
   labs(title = paste("Mutant 13","\n", "PBANKA_0902300")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
 pm7 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_10, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
   labs(title = paste("Mutant 10","\n", "(PBANKA_0413400)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
 pm8 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_3, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
   labs(title = paste("Mutant 3","\n", "(PBANKA_0828000)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
 pm9 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_oom, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
   labs(title = paste("Mutant oom","\n", "(PBANKA_1302700)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
 pm10 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_29, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
   labs(title = paste("Mutant 29","\n", "(PBANKA_1447900)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
 pm11 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_21, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
   labs(title = paste("Mutant 21","\n", "(PBANKA_1454800)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-pm1 + pm2 + pm4 + pm5 + pm11 + pm7 + pm6 + pm8 + pm9 + pm10 + pm3
-#pm1 , pm2 , pm4 , pm5 , pm11 , pm7 , pm6 , pm8 , pm9 , pm10 , pm3
+## plot composite plot
+## not used as outside plots have odd sizes
+#pm1 + pm2 + pm4 + pm5 + pm11 + pm7 + pm6 + pm8 + pm9 + pm10 + pm3
 
-plot_grid(pm1 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm2 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm4 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm5 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm11 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm7 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm6 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm8 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm9 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm10 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm3+ theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), nrow = 3)
+## plot composite plot
+mutant_cell_locations <- plot_grid(pm1 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm2 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm4 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm5 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm11 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm7 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm6 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm8 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm9 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm10 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm3+ theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), nrow = 3)
 
-#plot_grid(p1, p3, labels = c('A', 'B'), label_size = 12)
-#ggsave("foo.pdf", arrangeGrob(plot1, plot2))
+## print
+mutant_cell_locations
+```
+
+save
+```{r}
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/merge_umap_mutant_cell_locations.png", plot = mutant_cell_locations, device = "png", path = NULL, scale = 1, width = 30, height = 30, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 ### Figure. Sup. Dot Plot Figures
@@ -1461,39 +1601,8 @@ print(dot_plot_paper_figure)
 
 save
 ```{r}
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/merge_dot_plot_paper_figure.png", plot = dot_plot_paper_figure, device = "png", path = NULL, scale = 1, width = 30, height = 35, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/merge_dot_plot.png", plot = dot_plot_paper_figure, device = "png", path = NULL, scale = 1, width = 30, height = 35, units = "cm", dpi = 300, limitsize = TRUE)
 ```
-
-# Differential Expression TBC! {.tabset}
-
-19 vs 8 on resolution 2 already looks pretty cool:
-
-```{r}
-## reset the default identity
-#tenx.mutant.integrated <- FindNeighbors(tenx.mutant.integrated, dims = 1:15)
-#tenx.mutant.integrated <- FindClusters(tenx.mutant.integrated, resolution = 1.5, random.seed = 42, algorithm = 2)
-## Select from the appropriate dim slot
-cluster_19_cells <- 
-cluster_8_cells <- 
-
-# Find deferentially expressed features between CD14+ and FCGR3A+ Monocytes
-early.sex.de.markers <- FindMarkers(tenx.mutant.integrated, ident.1 = "19", ident.2 = "8")
-# view results
-head(early.sex.de.markers)
-```
-
-look at them across the dataset
-
-```{r, fig.height = 6}
-DotPlot(tenx.mutant.integrated, features = c(rownames(early.sex.de.markers[1:10,]), "PBANKA-1302700")) + RotatedAxis()
-```
-
-```{r, fig.height = 6}
-DotPlot(tenx.mutant.integrated, features = screen_hits) + RotatedAxis()
-```
-19 --> 13 
-female - 14,15,17,9,
-male - 25,20,21,7
 
 
 # 8. Subset sexual cells {.tabset}
@@ -1502,11 +1611,17 @@ Make a subsetted Seurat object of sexual cells.
 
 Include the pre-branch too as well as any weird clusters that may have clustered out. 
 
+it's been a while since we looked at the clusters so let's check them out again:
+```{r, fig.height = 4, fig.width = 4}
+## Plot
+DimPlot(tenx.mutant.integrated, label = TRUE, repel = TRUE, pt.size = 0.05, group.by = "seurat_clusters", dims = c(2,1), reduction = "DIM_UMAP") + coord_fixed()
+```
+
 ### Define cells and subset
 ```{r}
 ## define cells
 ## 2 and 0 are at the beginning of the stalk
-sex_clusters <- c(bipotential_clusters, female_clusters, male_clusters, "2", "0")
+sex_clusters <- c(bipotential_clusters, female_clusters, male_clusters, "0", "3")
 
 ## subset cells into new object
 tenx.mutant.integrated.sex <- subset(tenx.mutant.integrated, idents = sex_clusters)
@@ -1526,7 +1641,7 @@ DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, pt.size = 0.1, s
 we want to remove:
 ```{r}
 ## look at original UMAP
-DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, pt.size = 0.1, dims = c(2,1), reduction = "DIM_UMAP") + coord_fixed() + geom_hline(aes(yintercept = 0.15, alpha = 5)) + geom_vline(aes(xintercept = 1.9, alpha = 5))
+DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, pt.size = 0.1, dims = c(2,1), reduction = "DIM_UMAP") + coord_fixed() + geom_hline(aes(yintercept = -1.2, alpha = 5)) + geom_vline(aes(xintercept = 0.1, alpha = 5))
 ```
 
 ```{r}
@@ -1534,7 +1649,7 @@ DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, pt.size = 0.1, d
 df_sex_cell_embeddings <- as.data.frame(tenx.mutant.integrated.sex@reductions[["DIM_UMAP"]]@cell.embeddings)
 
 ## subset anything lower than -0.75 in UMAP 2 and -7 in UMAP 1
-remove_cells <- row.names(df_sex_cell_embeddings[which(df_sex_cell_embeddings$DIMUMAP_2 < 1.9 & df_sex_cell_embeddings$DIMUMAP_1 > 0.15), ])
+remove_cells <- row.names(df_sex_cell_embeddings[which(df_sex_cell_embeddings$DIMUMAP_2 < 0.1 & df_sex_cell_embeddings$DIMUMAP_1 > -1.2), ])
 
 ## plot these cells
 DimPlot(tenx.mutant.integrated.sex, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = remove_cells, dims = c(2,1), reduction = "DIM_UMAP") + 
@@ -1544,6 +1659,19 @@ DimPlot(tenx.mutant.integrated.sex, label = FALSE, repel = TRUE, pt.size = 0.1, 
   #labs(title = paste("(Mutant oom)","\n", "PBANKA_1302700")) + 
   theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
 ```
+
+```{r}
+DimPlot(tenx.mutant.integrated.sex, label = FALSE, repel = TRUE, pt.size = 1, dims = c(2,1), reduction = "DIM_UMAP", group.by = "identity_combined") + 
+  coord_fixed() 
+```
+
+
+then check what the IDs of these cells are to ensure they aren't a genuine mutant signature
+```{r}
+tenx.mutant.integrated.sex@meta.data[rownames(tenx.mutant.integrated.sex@meta.data) %in% remove_cells, ]$identity_combined
+```
+
+Although there are a number of GCSKO-21 cells, there are still many remaining in the sex cluster above and the cells near the asexual cycle also have a GCSKO-17 cell with them and are therefore not exclusively belonging to that mutant so we will remove these cells. 
 
 ## Final Subset
 ```{r}
@@ -1577,9 +1705,9 @@ Save environment
 Save object(s)
 ```{r}
 ## Save an object to a file
-saveRDS(tenx.mutant.integrated.sex, file = "/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/tenx.mutant.integrated.sex.rds")
+saveRDS(tenx.mutant.integrated.sex, file = "/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/tenx.mutant.integrated.sex.RDS")
 ## Restore the object
-#readRDS(file = "/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/tenx.mutant.integrated.sex.rds")
+#readRDS(file = "/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/tenx.mutant.integrated.sex.RDS")
 
 ## save integrated object to file
 saveRDS(tenx.mutant.integrated, file = "/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/tenx.mutant.integrated.RDS") 
@@ -1596,39 +1724,27 @@ sessionInfo()
 
 ## Extras
 
-### MCA datsets
-a new object will be the MCA dataset:
-
-(file:///Users/ar19/Desktop/PhD/MCA_Publication/MCA_10X_SS2_Data.nb.html)
-ss2_molecules <- read.csv("/Users/ar19/Desktop/mca.qc.tmm_norm_counts_20180625.csv", header = TRUE, row.names=1, stringsAsFactors = TRUE)
-ss2_anno <- read.csv("/Users/ar19/Desktop/QC_pheno_20180625.csv", header = TRUE, stringsAsFactors = TRUE, row.names = 1)
-(file:///Users/ar19/Desktop/PhD/MCA_Publication/MCA%20-%20Genes%20Captured%20Analysis.nb.html)
-
-molecules <- read.table("/Volumes/team222/MCA/Countfiles/allcounts3.csv", header = TRUE, sep = ",", row.names=1, stringsAsFactors = TRUE)
-anno <- read.delim("/Volumes/team222/MCA/Countfiles/allpheno5.csv", header = TRUE, sep = ",")
-
-
-### Part 2 data frames for Arthur
+### Part 2 export data frames for Arthur
 
 -- Subset only 10X cells
 
--- cluster 24 is predet cells
+-- cluster 24 is predetermination cells
 -- cluster 29 is post cells
 -- cluster 36 is post cells
 ```{r}
 ## Subset 10X Dataset, cluster 24
-# extract only cells in cluster 24
+## extract only cells in cluster 24
 seurat.object.subset <- SubsetData(tenx.mutant.integrated, subset.name = "seurat_clusters", accept.value = c("24"))
-#get the names of the cells in cluster of interest
+## get the names of the cells in cluster of interest
 names_of_cells_in_cluster_24 <- colnames(seurat.object.subset@assays$RNA@counts)
-# subset seurat
+## subset seurat
 tenx_cluster_24 <- SubsetData(pb_sex_filtered, cells = names_of_cells_in_cluster_24)
-# extract data
+## extract data
 tenx_cluster_24_matrix_data <- as(as.matrix(GetAssayData(tenx_cluster_24, assay = "RNA", slot = "data")), 'sparseMatrix')
-# extract counts
+## extract counts
 tenx_cluster_24_matrix_counts <- as(as.matrix(GetAssayData(tenx_cluster_24, assay = "RNA", slot = "counts")), 'sparseMatrix')
-# extract meta data
-# make big meta data dataframe
+## extract meta data
+## make big meta data dataframe
 meta_df <- data.frame(tenx.mutant.integrated.sex@meta.data)
 #meta_df <- data.frame(tenx.mutant.integrated@meta.data)
 tenx_cluster_24_pd <- meta_df[which(rownames(meta_df) %in% colnames(tenx_cluster_24_matrix_counts)), ]
@@ -1673,200 +1789,3 @@ tenx_cluster_36_pd <- meta_df[which(rownames(meta_df) %in% colnames(tenx_cluster
 #write.csv(tenx_cluster_36_matrix_counts, file = "~/data_to_export/tenx_cluster_36_matrix_counts.csv")
 write.csv(tenx_cluster_36_pd, file = "~/data_to_export/tenx_cluster_36_pd.csv")
 ```
-
-### Methods for plotting separate plots and editing them from one Seurat object:
-
-Not very customisable, so make a ggplot2 workaround:
-
-```{r}
-## make a dataframe of embeddings and meta data
-#plotting_df <- cbind(as.data.frame(tenx.mutant.integrated@reductions$umapoptimised@cell.embeddings), as.data.frame(tenx.mutant.integrated@meta.data))
-
-## subset by experiment:
-#cells_10x <- plotting_df[plotting_df$experiment == "mutants",]
-#cells_ss2 <- plotting_df[plotting_df$experiment == "tenx_5k",]
-
-## plot
-#ggplot(cells_10x, aes(x=UMAP_1, y=UMAP_2, color=seurat_clusters_plotting)) , geom_point() , theme_void()
-
-#ggplot(cells_ss2, aes(x=UMAP_1, y=UMAP_2, color=seurat_clusters_plotting)) , geom_point() , theme_void()
-```
-
-option 2:
-```{r}
-ob.list <- SplitObject(tenx.mutant.integrated, split.by = "experiment")
-plot.list <- lapply(X = ob.list, FUN = function(x) {
-    DimPlot(x, reduction = "umap", label = TRUE, label.size = 5, repel = TRUE, pt.size = 1) + theme(legend.position="bottom")
-})
-## https://github.com/satijalab/seurat/issues/1825
-```
-plot together 
-```{r}
-## use this function to extract legend:
-## https://stackoverflow.com/questions/13649473/add-a-common-legend-for-combined-ggplots
-## https://github.com/hadley/ggplot2/wiki/Share-a-legend-between-two-ggplot2-graphs
-g_legend<-function(a.gplot){
-   tmp <- ggplot_gtable(ggplot_build(a.gplot))
-   leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
-   legend <- tmp$grobs[[leg]]
-   return(legend)}
-
-p1 <- plot.list$mutants + theme_void() + guides(colour=guide_legend(nrow=2,byrow=TRUE, override.aes = list(size=4)))
-p2 <- plot.list$tenx_5k + theme_void()
-
-mylegend<-g_legend(p1)
-
-p3 <- grid.arrange(arrangeGrob(p1 , theme(legend.position="none"),
-                               p2 , theme(legend.position="none"), nrow=1), 
-                              mylegend, nrow=2,heights=c(10, 1))
-
-## to add titles to plots:
-#, labs(title = paste("Smart-seq2", "\n", "(mutant and wild-type)"))
-```
-pathwork way:
-```{r}
-#library(patchwork)
-combined <- p1 + p2 & theme(legend.position = "bottom")
-combined + plot_layout(guides = "collect")
-```
-
-## solve rgl installation problem https://stackoverflow.com/questions/31820865/installing-rgl-on-ubuntu-and-mac-x11-not-found
-solved the monocle issue by following:
-```{bash}
-sudo add-apt-repository ppa:ubuntugis/ubuntugis-unstable
-sudo apt-get update
-sudo apt-get install libudunits2-dev libgdal-dev libgeos-dev libproj-dev 
-```
-here: https://github.com/r-spatial/sf 
-
-then devtools::install_github('cole-trapnell-lab/monocle3')
-
-## optimisation of UMAP
-
-optimise UMAP
-```{r}
-for(i in c(5,10,20,50)){
-tenx.mutant.integrated <- RunUMAP(tenx.mutant.integrated, reduction = "pca", dims = 1:8, seed.use = 7000, n.neighbors = i, reduction.name = paste0("umap",i))
-}
-DimPlot(tenx.mutant.integrated, reduction = "umap5", split.by = "experiment", pt.size = 0.01)
-DimPlot(tenx.mutant.integrated, reduction = "umap10", split.by = "experiment", pt.size = 0.01)
-DimPlot(tenx.mutant.integrated, reduction = "umap20", split.by = "experiment", pt.size = 0.01)
-DimPlot(tenx.mutant.integrated, reduction = "umap50", split.by = "experiment", pt.size = 0.01)
-```
-
-```{r}
-for(i in c(0.5, 0.1, 0.05, 0.01)){
-tenx.mutant.integrated <- RunUMAP(tenx.mutant.integrated, reduction = "pca", dims = 1:8, seed.use = 7000, n.neighbors = 50, min.dist = i, reduction.name = paste0("umap",i))
-}
-
-DimPlot(tenx.mutant.integrated, reduction = "umap0.5", split.by = "experiment", pt.size = 0.01)
-DimPlot(tenx.mutant.integrated, reduction = "umap0.1", split.by = "experiment", pt.size = 0.01)
-DimPlot(tenx.mutant.integrated, reduction = "umap0.05", split.by = "experiment", pt.size = 0.01)
-DimPlot(tenx.mutant.integrated, reduction = "umap0.01", split.by = "experiment", pt.size = 0.01)
-```
-
-```{r}
-tenx.mutant.integrated <- RunUMAP(tenx.mutant.integrated, reduction = "pca", dims = 1:8, reduction.name = "umapoptimised", metric = "cosine")
-
-DimPlot(tenx.mutant.integrated, reduction = "umapoptimised", split.by = "experiment", pt.size = 0.01)
-```
-
-optimising UMAP 2
-
-```{r}
-## original optimisation
-# tenx.mutant.integrated <- RunUMAP(tenx.mutant.integrated, reduction = "pca", dims = 1:8, n.neighbors = 50, seed.use = 1234, min.dist = 0.5, repulsion.strength = 0.05, reduction.name = "umapoptimised")
-
-test_seurat_object <- RunUMAP(test_seurat_object, reduction = "pca", dims = 1:10, n.neighbors = 150, seed.use = 1234, min.dist = 0.4, repulsion.strength = 0.03, local.connectivity = 150, reduction.name = "umapoptimised")
-
-test_seurat_object <- RunUMAP(test_seurat_object, reduction = "pca", dims = 1:10, n.neighbors = 150, seed.use = 1234, min.dist = 0.4, repulsion.strength = 0.03, local.connectivity = 150)
-
-#test_seurat_object <- RunUMAP(test_seurat_object, reduction = "pca", dims = 1:10, n.neighbors = 150, seed.use = 1234, min.dist = 0.01, repulsion.strength = 0.01, local.connectivity = 150, reduction.name = "umapoptimised", spread = 1, set.op.mix.ratio = 1)
-
-
-#3
-#test_seurat_object <- RunUMAP(test_seurat_object, reduction = "pca", dims = 1:11, n.neighbors = 150, seed.use = 1234, min.dist = 0.01, repulsion.strength = 0.01, local.connectivity = 150, reduction.name = "umapoptimised", spread = 1, set.op.mix.ratio = 1, metric = "manhattan")
-#dp3 
-
-dp1 <- DimPlot(test_seurat_object, reduction = "umapoptimised", label = TRUE, repel = FALSE, pt.size = 0.05) , coord_fixed()
-dp1
-```
-
-feature plot with viridis:
-```{r, fig.height = 6, fig.width = 8}
-# PBANKA-0515000 - p25 - female
-# PBANKA-1319500 - CCP2 - female - used in 820 line
-# PBANKA-1212600 - HAP2 - male
-# PBANKA-0600600 - NEK3 - male
-# PBANKA-1315700 - RON2 - (asexuals and some male?)
-# "PBANKA-0416100" - dynenin heavy chain - male - used in 820 line
-# PBANKA-1437500 - AP2-G - seuxal commitment gene
-# PBANKA-0831000 - MSP1 - late asexual
-# PBANKA-1102200 - MSP8 - early asexual (from Bozdech paper)
-
-inferno <- viridis(4, direction = 1, option = "inferno")
-
-FeaturePlot(tenx.mutant.integrated.sex, features = c("PBANKA-0515000", "PBANKA-1319500", "PBANKA-1212600","PBANKA-0600600", "PBANKA-1315700", "PBANKA-0416100", "PBANKA-1437500", "PBANKA-0831000", "PBANKA-1102200"), coord.fixed = TRUE, reduction = "pca", min.cutoff = "q1", cols = inferno, pt.size = 0.01) +
-  theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank(),
-        axis.title.y=element_blank(),
-        axis.text.y=element_blank(),
-        axis.ticks.y=element_blank())
-```
-
-```{r}
-VlnPlot(tenx.mutant.integrated.sex, features = c("PBANKA-1319500", "PBANKA-0416100"), group.by = "identity_updated")
-```
-
-```{r}
-cells_28 <- rownames(tenx.mutant.integrated.sex@meta.data[tenx.mutant.integrated.sex@meta.data$identity_combined == "GCSKO-28", ])
-  
-seurat_28 <- SubsetData(tenx.mutant.integrated.sex, cells = cells_28)
-
-```
-
-```{r, fig.height = 4, fig.width = 10}
-plots <- FeaturePlot(seurat_28, features = c("PBANKA-1319500", "PBANKA-0416100"), blend = TRUE, combine = FALSE, coord.fixed = TRUE)
-
-plots[[3]] + NoLegend()  # Get just the co-expression plot, built-in legend is meaningless for this plot
-plots[[4]] # Get just the key
-CombinePlots(plots[3:4], legend = 'none', ncol =2, nrow = 1, rel_widths = c(2, 1), rel_heights = c(4,1)) # Stitch the co-expression and key plots together
-```
-
-```{r}
-## extract data from Seurat
-seurat.object.subset <- SubsetData(tenx.mutant.integrated, subset.name = "seurat_clusters", accept.value = c("24","14"))
-seurat.object.subset
-## counts
-data <- as(as.matrix(GetAssayData(seurat.object.subset, assay = "integrated", slot = "data")), 'sparseMatrix')
-## meta data
-pd <- data.frame(seurat.object.subset@meta.data)
-
-## write to file
-write.csv(data, file = "~/data_to_export/cluster_14_and_24_cells.csv")
-write.csv(pd, file = "~/data_to_export/cluster_14_and_24_meta_data.csv")
-```
-
-Export just smart-seq2 and just 10x 
-```{r}
-## extract only cells in cluster 14:
-seurat.object.subset <- SubsetData(tenx.mutant.integrated, subset.name = "seurat_clusters", accept.value = c("24"))
-##get their names:
-names_of_cells_in_cluster_24 <- colnames(seurat.object.subset@assays$RNA@counts)
-
-## Subset 10X Dataset
-tenx_cluster_24 <- SubsetData(pb_sex_filtered, cells = names_of_cells_in_cluster_24)
-tenx_cluster_24_matrix <- as(as.matrix(GetAssayData(tenx_cluster_24, assay = "RNA", slot = "data")), 'sparseMatrix')
-#pd <- data.frame(seurat.object.subset@meta.data)
-
-## Subset SS2 Dataset
-ss2_cluster_24 <- SubsetData(ss2_mutants_final, cells = names_of_cells_in_cluster_24)
-ss2_cluster_24_matrix <- as(as.matrix(GetAssayData(ss2_cluster_24, assay = "RNA", slot = "data")), 'sparseMatrix')
-
-
-## write to file
-write.csv(ss2_cluster_24_matrix, file = "~/data_to_export/ss2_cluster_24_matrix.csv")
-write.csv(tenx_cluster_24_matrix, file = "~/data_to_export/tenx_cluster_24_matrix.csv")
-```
-
