@@ -1,7 +1,7 @@
 ---
 subtitle: 'Gametocyte Development in <i>Plasmodium berghei</i>'
 title: |
-  ![](/Users/Andy/GCSKO/GCSKO_analysis_git/GCSKO_logo.jpg){width=300px}  
+  ![](../GCSKO_logo.jpg){width=300px}  
   Smart-seq2 Quality Control
 author: "[Andrew Russell](https://ajcrussell.wixsite.com/mysite/about)"
 institute: Wellcome Sanger Institute
@@ -112,7 +112,7 @@ library(dplyr) #for mutating table
 This will be helpful later on. This contains annotations for each gene:
 ```{r import GTF}
 ##Import gtf file:
-gtf <- read.table("/Users/Andy/GCSKO/GCSKO_analysis_git/data/Reference/Pberghei.gtf", sep="\t", header = FALSE)
+gtf <- read.table("../data/Reference/Pberghei.gtf", sep="\t", header = FALSE)
 
 ## inspect
 head(gtf)
@@ -123,10 +123,10 @@ head(gtf)
 
 ```{r import data}
 ## read in counts
-counts <- read.delim("/Users/Andy/GCSKO/GCSKO_analysis_git/data/Smartseq2/counts_2020.csv", sep = ",", stringsAsFactors = FALSE, row.names = 1)
+counts <- read.delim("../data/Smartseq2/counts_2020.csv", sep = ",", stringsAsFactors = FALSE, row.names = 1)
 
 ## read in pheno
-pheno <- read.delim("/Users/Andy/GCSKO/GCSKO_analysis_git/data/Smartseq2/pheno_2020.csv", sep = ",", stringsAsFactors = FALSE)
+pheno <- read.delim("../data/Smartseq2/pheno_2020.csv", sep = ",", stringsAsFactors = FALSE)
 
 ## check dimensions of both
 expected_number_of_cells <- ( 384 * 12)
@@ -338,7 +338,7 @@ sample_map_no_reads <- ggplot(data=table_platemap, aes(x=Column, y=Row_rev)) +
 sample_map_no_reads
 
 ## save
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_SS2_platemap_no_count.png", plot = sample_map_no_reads, device = "png", path = NULL, scale = 1, width = 12, height = 12, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("../images_to_export/QC_SS2_platemap_no_count.png", plot = sample_map_no_reads, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 ### Filter Mitochondrial
@@ -402,7 +402,7 @@ QC_mito_violin <- v1 + v2 + plot_layout(ncol = 2, nrow = 1, widths = c(4, 1), he
 QC_mito_violin
 
 ## save
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_SS2_mito_violin.png", plot = QC_mito_violin, device = "png", path = NULL, scale = 1, width = 15, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("../images_to_export/QC_SS2_mito_violin.png", plot = QC_mito_violin, device = "png", path = NULL, scale = 1, width = 15, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 make a dataframe for plotting
@@ -437,7 +437,7 @@ QC_mito_graph <- ggplot(df, aes(x = nCount, y = nGenes)) +
 QC_mito_graph
 
 ## save
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_SS2_mito_graph.png", plot = QC_mito_graph, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("../images_to_export/QC_SS2_mito_graph.png", plot = QC_mito_graph, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 ```{r, echo = FALSE}
@@ -502,7 +502,7 @@ QC_composite_plot <- dens1 + plot_spacer() + plot1 + dens2 + plot_layout(ncol = 
 QC_composite_plot
 
 ## save
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_SS2_composite_plot.png", plot = QC_composite_plot, device = "png", path = NULL, scale = 1, width = 20, height = 20, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("../images_to_export/QC_SS2_composite_plot.png", plot = QC_composite_plot, device = "png", path = NULL, scale = 1, width = 20, height = 20, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 ***
@@ -603,7 +603,7 @@ platemap_failed_qc <- ggplot(data=table_platemap, aes(x=Column, y=Row_rev)) +
 platemap_failed_qc
 
 ## save
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_SS2_platemap_failed.png", plot = platemap_failed_qc, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("../images_to_export/QC_SS2_platemap_failed_qc.png", plot = platemap_failed_qc, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 ### bar chart of distance from edge of plate
@@ -646,7 +646,7 @@ position_qc_fail <- ggplot(frequency_of_failed_cells, aes(x=distance_from_edge, 
   coord_cartesian(clip = 'off')
 
 ## save
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_SS2_failed_position.png", plot = position_qc_fail, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("../images_to_export/QC_SS2_failed_position.png", plot = position_qc_fail, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 
 ## plot
 position_qc_fail
@@ -678,7 +678,7 @@ mapping_rate_plot <- ggplot(df_mapping_rates_hisat, aes(x = reorder(cell_name,al
    scale_fill_manual(values=c("red2", "green4"))
 
 ## save
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_SS2_mapping_rate.eps", plot = mapping_rate_plot, device = "eps", path = NULL, scale = 1, width = 20, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("../images_to_export/QC_SS2_mapping_rate.eps", plot = mapping_rate_plot, device = "eps", path = NULL, scale = 1, width = 20, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 
 ## plot
 mapping_rate_plot
@@ -728,7 +728,7 @@ QC_by_genotype <- ggplot(df_cells_recovered, aes(x=genotype, y=recovered_pc ,fil
 QC_by_genotype
 
 ## save
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_SS2_by_genotype.png", plot = QC_by_genotype, device = "png", path = NULL, scale = 1, width = 15, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("../images_to_export/QC_SS2_by_genotype.png", plot = QC_by_genotype, device = "png", path = NULL, scale = 1, width = 15, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 Investigate 20 and 2 further
@@ -838,7 +838,7 @@ QC_failed_plates <- grid.arrange(arrangeGrob(plot_list[[1]] + theme(legend.posit
 QC_failed_plates
 
 ## save
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_SS2_failed_plates.png", plot = QC_failed_plates, device = "png", path = NULL, scale = 1, width = 27, height = 25, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("../images_to_export/QC_failed_plates.png", plot = QC_SS2_failed_plates, device = "png", path = NULL, scale = 1, width = 27, height = 25, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 ### Add bulk metadata
@@ -855,7 +855,7 @@ library(Hmisc)
 x10 <- as.matrix(ss2_mutants_final@assays$RNA@data)
 rownames(x10) <- gsub("-", "_", rownames(x10))
 #read in bulk data:
-hoo<-as.matrix(read.table("/Users/Andy/GCSKO/GCSKO_analysis_git/data/Reference/hoo_berg2.txt",header=T, row.names=1))
+hoo<-as.matrix(read.table("../data/Reference/hoo_berg2.txt",header=T, row.names=1))
 #Make a blank dataframe in which to add prediction:
 df <- data.frame(matrix(ncol = 4, nrow = 0))
 colnames(df) <- c("Prediction(Spearman)","r(Spearman)","Prediction(Pearsons)","r(Pearsons)")
@@ -901,7 +901,7 @@ ss2_mutants_final <- AddMetaData(ss2_mutants_final, metadata = df)
 #### Kasia's data
 Can also do with Kasia's timecourse data:
 ```{r kasia}
-kas<-as.matrix(read.table("/Users/Andy/GCSKO/GCSKO_analysis_git/data/Reference/AP2OETC.txt",header=T, row.names=1))
+kas<-as.matrix(read.table("../data/Reference/AP2OETC.txt",header=T, row.names=1))
 #Make a blank dataframe in which to add prediction:
 dfs <- data.frame(matrix(ncol = 4, nrow = 0))
 colnames(dfs) <- c("ID","Prediction","r (Pearson)")
@@ -1115,10 +1115,10 @@ FeaturePlot(ss2_mutants_final, features = c("Prediction.Spearman._Kasia", "Predi
 ### set up MCA data
 ```{r}
 ## read in data
-counts_mca <- read.table("/Users/Andy/GCSKO/GCSKO_analysis_git/data/Reference/allcounts4.csv", header = TRUE, sep = ",", row.names=1, stringsAsFactors = TRUE)
+counts_mca <- read.table("../data/Reference/allcounts4.csv", header = TRUE, sep = ",", row.names=1, stringsAsFactors = TRUE)
 dim(counts_mca)
 
-anno_mca <- read.delim("/Users/Andy/GCSKO/GCSKO_analysis_git/data/Reference/allpheno8.2.csv", header = TRUE, sep = ",", row.names=1)
+anno_mca <- read.delim("../data/Reference/allpheno8.2.csv", header = TRUE, sep = ",", row.names=1)
 dim(anno_mca)
 
 ## subset all blood stage cells
@@ -1246,8 +1246,8 @@ generate clusters:
 
 save counts and pheno without anopheles and control cells
 ```{r}
-write.csv(counts, file = "/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/counts_2020_filtered.csv")
-write.csv(pheno, file = "/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/pheno_2020_filtered.csv")
+write.csv(counts, file = "../data_to_export/counts_2020_filtered.csv")
+write.csv(pheno, file = "../data_to_export/pheno_2020_filtered.csv")
 ```
 
 save counts and pheno objects
@@ -1255,20 +1255,19 @@ save counts and pheno objects
 pheno_filtered_cells <- ss2_mutants_final@meta.data
 counts_filtered_cells <- ss2_mutants_final@assays$RNA@counts
 
-write.csv(counts_filtered_cells, file = "/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/counts_post_qc.csv")
-write.csv(pheno_filtered_cells, file = "/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/pheno_post_qc.csv")
+write.csv(counts_filtered_cells, file = "../data_to_export/counts_post_qc.csv")
+write.csv(pheno_filtered_cells, file = "../data_to_export/pheno_post_qc.csv")
 ```
 
 save the session objects
 ```{r}
 ## save all data 
-#save.image(file = "/Users/Andy/GCSKO/GCSKO_analysis_git/GCSKO_SS2_QC.RData")
-#load(file = "/Users/Andy/GCSKO/GCSKO_analysis_git/GCSKO_SS2_QC.RData")
+#save.image(file = "../GCSKO_SS2_QC.RData")
+#load(file = "../GCSKO_SS2_QC.RData")
 
 ## save final object
-saveRDS(ss2_mutants_final, file = "/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/ss2_mutants_final.RDS") 
-## to read this object back in if needed
-#ss2_mutants_final <- readRDS("/Users/Andy/GCSKO/GCSKO_analysis_git/ss2_mutants_final.RDS")
+saveRDS(ss2_mutants_final, file = "../data_to_export/ss2_mutants_final.RDS") ## to read this object back in if needed
+ss2_mutants_final <- readRDS("../data_to_export/ss2_mutants_final.RDS")
 ```
 
 # Appendix {.tabset}

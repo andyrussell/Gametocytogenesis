@@ -1,7 +1,7 @@
 ---
 subtitle: 'Gametocyte Development in <i>Plasmodium berghei</i>'
 title: |
-  ![](/Users/Andy/GCSKO/GCSKO_analysis_git/GCSKO_logo.jpg){width=300px}  
+  ![](../GCSKO_logo.jpg){width=300px}  
   Merging Smart-seq2 and 10X Datasets
 author: "[Andrew Russell](https://ajcrussell.wixsite.com/mysite/about)"
 institute: Wellcome Sanger Institute
@@ -615,11 +615,11 @@ DotPlot(tenx.mutant.integrated, features = screen_hits) + RotatedAxis()
 
 ```{r}
 ## find all markers
-all.markers <- FindAllMarkers(tenx.mutant.integrated, only.pos = FALSE, min.pct = 0.25, logfc.threshold = 0.25)
+#all.markers <- FindAllMarkers(tenx.mutant.integrated, only.pos = FALSE, min.pct = 0.25, logfc.threshold = 0.25)
 ```
 
 ```{r}
-top_two <- all.markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_logFC)
+#top_two <- all.markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_logFC)
 top_two
 ```
 
@@ -1009,7 +1009,7 @@ UMAP_composite
 ```
 save
 ```{r}
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/merge_umap_technology_and_markers.png", plot = UMAP_composite, device = "png", path = NULL, scale = 1, width = 30, height = 30, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("../images_to_export/merge_umap_technology_and_markers.png", plot = UMAP_composite, device = "png", path = NULL, scale = 1, width = 30, height = 30, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 Specific gene expression of mutants
@@ -1138,7 +1138,7 @@ mutant_expression_composite
 
 save
 ```{r}
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/merge_umap_mutant_gene_expression.png", plot = mutant_expression_composite, device = "png", path = NULL, scale = 1, width = 30, height = 30, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("../images_to_export/merge_umap_mutant_gene_expression.png", plot = mutant_expression_composite, device = "png", path = NULL, scale = 1, width = 30, height = 30, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 #### Fig. Sup. Look at specific mutants
@@ -1601,9 +1601,8 @@ print(dot_plot_paper_figure)
 
 save
 ```{r}
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/merge_dot_plot.png", plot = dot_plot_paper_figure, device = "png", path = NULL, scale = 1, width = 30, height = 35, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("../images_to_export/merge_dot_plot.png", plot = dot_plot_paper_figure, device = "png", path = NULL, scale = 1, width = 30, height = 35, units = "cm", dpi = 300, limitsize = TRUE)
 ```
-
 
 # 8. Subset sexual cells {.tabset}
 
@@ -1705,14 +1704,14 @@ Save environment
 Save object(s)
 ```{r}
 ## Save an object to a file
-saveRDS(tenx.mutant.integrated.sex, file = "/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/tenx.mutant.integrated.sex.RDS")
+saveRDS(tenx.mutant.integrated.sex, file = "../tenx.mutant.integrated.sex.RDS")
 ## Restore the object
-#readRDS(file = "/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/tenx.mutant.integrated.sex.RDS")
+#readRDS(file = "../data_to_export/tenx.mutant.integrated.sex.RDS")
 
 ## save integrated object to file
-saveRDS(tenx.mutant.integrated, file = "/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/tenx.mutant.integrated.RDS") 
+saveRDS(tenx.mutant.integrated, file = "../data_to_export/tenx.mutant.integrated.RDS") 
 ## restore the object
-#tenx.mutant.integrated <- readRDS("/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/tenx.mutant.integrated.RDS")
+#tenx.mutant.integrated <- readRDS("../data_to_export/tenx.mutant.integrated.RDS")
 ```
 
 # Appendix {.tabset}

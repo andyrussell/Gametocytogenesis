@@ -1,7 +1,7 @@
 ---
 subtitle: 'Gametocyte Development in <i>Plasmodium berghei</i>'
 title: |
-  ![](/Users/Andy/GCSKO/GCSKO_analysis_git/GCSKO_logo.jpg){width=300px}  
+  ![](../GCSKO_logo.jpg){width=300px}  
   10X Quality Control
 author: "[Andrew Russell](https://ajcrussell.wixsite.com/mysite/about)"
 institute: Wellcome Sanger Institute
@@ -40,8 +40,8 @@ This data has been processed using CellRanger into counts tables. This initial a
 
 <b>Pb 1:1 mix experiment (run #: 24284 lanes 1 and 2 (Hiseq 2500)):</b>
 
-<div style="width:500px; height:400px">![](/Users/Andy/GCSKO/GCSKO_analysis_git/data/10X/24284_cellranger_output_1.png)</div>
-<div style="width:500px; height:200px">![](/Users/Andy/GCSKO/GCSKO_analysis_git/data/10X/24284_cellranger_output_2.png)</div>
+<div style="width:500px; height:400px">![](../data/10X/24284_cellranger_output_1.png)</div>
+<div style="width:500px; height:200px">![](../data/10X/24284_cellranger_output_2.png)</div>
 
 <b>We will load this data in and for each run:</b>
 
@@ -187,7 +187,7 @@ set.seed(-92497)
 This will be helpful later on. This contains annotations for each gene:
 ```{r import gtf}
 ##Import gtf file:
-gtf <- read.table("/Users/Andy/GCSKO/GCSKO_analysis_git/data/Reference/Pberghei.gtf", sep="\t", header = FALSE)
+gtf <- read.table("../data/Reference/Pberghei.gtf", sep="\t", header = FALSE)
 head(gtf)
 ```
 
@@ -195,7 +195,7 @@ head(gtf)
 
 ```{r import data}
 ## read in 10x output 
-tenx5k_raw_data <- Read10X("/Users/Andy/GCSKO/GCSKO_analysis_git/data/10X/tenx_24284")
+tenx5k_raw_data <- Read10X("../data/10X/tenx_24284")
 
 ## Create Seurat object
 tenx5k <- CreateSeuratObject(counts = tenx5k_raw_data, min.cells = 0, min.features = 0, project = "GCSKO")
@@ -330,7 +330,7 @@ barcode_plot <- ggplot(df_barcodes, aes(x=barcode_rank, y=lib_size, colour = cel
 barcode_plot
 
 ## save the plot
-ggsave("QC_10X_barcode_plot_5k.png", plot = barcode_plot, device = "png", height = 15, width = 15, units = "cm", path = "/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/")
+ggsave("QC_10X_barcode_plot_5k.png", plot = barcode_plot, device = "png", height = 15, width = 15, units = "cm", path = "../images_to_export/")
 ```
 
 so the number of cells that is retained is:
@@ -494,7 +494,7 @@ QC_composite_plot <- dens1 + plot_spacer() + plot1 + dens2 + plot_layout(ncol = 
 QC_composite_plot
 
 ## save
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/QC_10X_composite_plot.png", plot = QC_composite_plot, device = "png", path = NULL, scale = 1, width = 15, height = 15, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("../images_to_export/QC_10X_composite_plot.png", plot = QC_composite_plot, device = "png", path = NULL, scale = 1, width = 20, height = 20, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 ### Filtering
@@ -805,7 +805,7 @@ library(Hmisc)
 x10 <- as.matrix(pb_sex_filtered@assays$RNA@data)
 rownames(x10) <- gsub("-", "_", rownames(x10))
 #read in bulk data:
-hoo<-as.matrix(read.table("/Users/Andy/GCSKO/GCSKO_analysis_git/data/Reference/hoo_berg2.txt",header=T, row.names=1))
+hoo<-as.matrix(read.table("../data/Reference/hoo_berg2.txt",header=T, row.names=1))
 #Make a blank dataframe in which to add prediction:
 df <- data.frame(matrix(ncol = 4, nrow = 0))
 colnames(df) <- c("Prediction(Spearman)","r(Spearman)","Prediction(Pearsons)","r(Pearsons)")
@@ -851,7 +851,7 @@ pb_sex_filtered <- AddMetaData(pb_sex_filtered, metadata = df)
 ### Kasia's data
 Can also do with Kasia's timecourse data:
 ```{r}
-kas<-as.matrix(read.table("/Users/Andy/GCSKO/GCSKO_analysis_git/data/Reference/AP2OETC.txt",header=T, row.names=1))
+kas<-as.matrix(read.table("../data/Reference/AP2OETC.txt",header=T, row.names=1))
 #Make a blank dataframe in which to add prediction:
 dfs <- data.frame(matrix(ncol = 4, nrow = 0))
 colnames(dfs) <- c("ID","Prediction","r (Pearson)")
@@ -933,7 +933,7 @@ Save object(s)
 #load(file = "Part_2_input.Rdata")
 
 ## save RDS
-saveRDS(pb_sex_filtered, file = "/Users/Andy/GCSKO/GCSKO_analysis_git/data_to_export/pb_sex_filtered.RDS", compress = FALSE) 
+saveRDS(pb_sex_filtered, file = "../data_to_export/pb_sex_filtered.RDS", compress = FALSE) 
 #pb_sex_filtered <- readRDS("pb_sex_filtered.RDS")
 
 ## Save Robj
