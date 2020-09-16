@@ -942,20 +942,20 @@ UMAP_hoo <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size
   coord_fixed() + 
   theme_void() +
   labs(title = paste("Hoo Predicted Timepoint")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 10, face = "bold")) +
-  scale_colour_manual(values = inferno(12)) +
-  theme(legend.position = "bottom") +
-  labs(colour = "hour")
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) +
+  scale_colour_manual(values = inferno(12))  +
+  labs(colour = "hour") +
+  theme(legend.position = "bottom", legend.title=element_text(size=10))
 
 ## ap2g timecourse in this paper correlation
 UMAP_kasia <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, group.by = "Prediction.Spearman._Kasia", dims = c(2,1), reduction = "DIM_UMAP") +
   coord_fixed() + 
   theme_void() +
   labs(title = paste("AP2G Timecourse Predicted Timepoint")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 10, face = "bold")) +
-  scale_colour_manual(values = inferno(10)) +
-  theme(legend.position = "bottom") +
-  labs(colour = "hour")
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) +
+  scale_colour_manual(values = inferno(10))  +
+  labs(colour = "hour") +
+  theme(legend.position = "bottom", legend.title=element_text(size=10))
 
 ## combine
 umap_bulk <- wrap_plots(UMAP_hoo, UMAP_kasia, ncol = 2)
@@ -967,7 +967,6 @@ umap_bulk
 ```{r}
 ggsave("../images_to_export/merge_umap_bulk_prediction.png", plot = umap_bulk, device = "png", path = NULL, scale = 1, width = 30, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 ```
-
 
 #### Fig. 3.C. By Experiment
 
