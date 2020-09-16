@@ -739,6 +739,7 @@ DimPlot(tenx.mutant.integrated, label = TRUE, repel = TRUE, pt.size = 0.05, grou
 We will get some high level insight into these clusters now
 
 ```{r, fig.height = 3, fig.width = 5}
+## TODO - move this to once clusters are identified
 v1 <- VlnPlot(object = tenx.mutant.integrated, features = "nFeature_RNA", group.by = "seurat_clusters", pt.size = 0.01)
 
 v2 <- VlnPlot(object = tenx.mutant.integrated, features = "nCount_RNA", group.by = "seurat_clusters", pt.size = 0.01)
@@ -893,19 +894,26 @@ male_symbol <- intToUtf8(9794)
 # 4 = yellow - "#ffe400"
 pal_sex <- c("#0052c5","#ffe400", "#a52b1e", "#016c00")
 
-DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, group.by = "cluster_colours_figure", dims = c(2,1), reduction = "DIM_UMAP") +
+UMAP_identity <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, group.by = "cluster_colours_figure", dims = c(2,1), reduction = "DIM_UMAP") +
   coord_fixed() + 
   scale_colour_manual(values=pal_sex) + 
   theme_void() + 
   theme(legend.position = "none")
-  
+
+## print
+UMAP_identity
+```
+
+save
+```{r}
+ggsave("../images_to_export/merge_UMAP_identity.png", plot = UMAP_identity, device = "png", path = NULL, scale = 1, width = 20, height = 20, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 #### Fig. Sup. UMAP with Clusters
 
 ```{r, fig.height = 4, fig.width = 4}
 ## Plot
-DimPlot(tenx.mutant.integrated, label = TRUE, repel = TRUE, pt.size = 0.5, dims = c(2,1), reduction = "DIM_UMAP") + 
+umap_cluster <- DimPlot(tenx.mutant.integrated, label = TRUE, repel = TRUE, pt.size = 0.5, dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() +
   theme(legend.position="bottom", 
         axis.line=element_blank(),
@@ -915,7 +923,51 @@ DimPlot(tenx.mutant.integrated, label = TRUE, repel = TRUE, pt.size = 0.5, dims 
         axis.title.x=element_blank(),
         axis.title.y=element_blank()) + 
   guides(colour=guide_legend(nrow = 6, byrow = TRUE, override.aes = list(size=4)))
+
+## print
+umap_cluster
 ```
+
+save
+```{r}
+#ggsave("../images_to_export/merge_umap_cluster.png", plot = umap_cluster, device = "png", path = NULL, scale = 1, width = 30, height = 30, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+#### Fig. 3.C. By bulk correlation
+
+```{r}
+## make plots
+## hoo dataset correlation
+UMAP_hoo <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, group.by = "Prediction.Spearman.", dims = c(2,1), reduction = "DIM_UMAP") +
+  coord_fixed() + 
+  theme_void() +
+  labs(title = paste("Hoo Predicted Timepoint")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 10, face = "bold")) +
+  scale_colour_manual(values = inferno(12)) +
+  theme(legend.position = "bottom") +
+  labs(colour = "hour")
+
+## ap2g timecourse in this paper correlation
+UMAP_kasia <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, group.by = "Prediction.Spearman._Kasia", dims = c(2,1), reduction = "DIM_UMAP") +
+  coord_fixed() + 
+  theme_void() +
+  labs(title = paste("AP2G Timecourse Predicted Timepoint")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 10, face = "bold")) +
+  scale_colour_manual(values = inferno(10)) +
+  theme(legend.position = "bottom") +
+  labs(colour = "hour")
+
+## combine
+umap_bulk <- wrap_plots(UMAP_hoo, UMAP_kasia, ncol = 2)
+
+## print
+umap_bulk
+```
+
+```{r}
+ggsave("../images_to_export/merge_umap_bulk_prediction.png", plot = umap_bulk, device = "png", path = NULL, scale = 1, width = 30, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
 
 #### Fig. 3.C. By Experiment
 
