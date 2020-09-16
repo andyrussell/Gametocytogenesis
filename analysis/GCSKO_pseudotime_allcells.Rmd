@@ -216,6 +216,13 @@ df_plot <- data.frame(t(data.frame(matrix_mod[c("PBANKA-1447900", "PBANKA-143750
 ggplot(df_plot, aes(PBANKA.1447900, PBANKA.1437500)) + geom_point()
 ```
 
+by cluster
+
+```{r}
+
+```
+
+
 ## Pseudotime calculation
 
 ### Preprocess
@@ -415,9 +422,6 @@ plot_cells(monocle.object, genes=gene_module_df %>% filter(module %in% c(1:20)),
                           theme(legend.position = "bottom")
 ```
 
-Whilst these modules are interesting 
-
-
 Make a dataframe to plot
 ```{r}
 ## make cell group df
@@ -432,6 +436,36 @@ Find out how many genes there are per total so we can add this to the plot
 ## how many genes per module?
 genes_per_module <- as.data.frame(table(gene_module_df$module))
 genes_per_module
+```
+
+```{r}
+## prepare custom dataframe for all cells by modules:
+agg_mat_no_group <- aggregate_gene_expression(monocle.object, gene_module_df)
+
+## extract pseudotime values 
+monocle.object@colData$pt <- pseudotime(monocle.object, reduction_method = "UMAP")
+
+## make an anotation
+anno_no_group <- data.frame(monocle.object@colData$cluster_colours_figure, monocle.object@colData$pt, row.names = rownames(monocle.object@colData))
+names(anno_no_group) <- c("sex", "Pseudotime")
+
+## make annotation colours
+annotation_colours <- list(sex = c(Male="#016c00", Female="#a52b1e", Bipotential = "#ffe400", Asexual = "#0052c5"),
+                           Pseudotime = magma(12, direction = 1))
+
+## change the order of the data frame
+col.order <- rownames(anno_no_group[with(anno_no_group, order(sex, Pseudotime)), ])
+agg_mat_no_group <- agg_mat_no_group[,col.order]
+
+## plot
+pheatmap::pheatmap(agg_mat_no_group, 
+                   #scale="row",
+                   cluster_cols = FALSE,
+                   clustering_method="complete",
+                   show_colnames = FALSE,
+                   annotation_col = anno_no_group, 
+                   annotation_colors = annotation_colours, 
+                   cutree_rows = 7)
 ```
 
 Make annotations to add to the heatmap
@@ -528,40 +562,6 @@ pheatmap::pheatmap(agg_mat_df,
   theme(legend.position = "bottom")
 ```
 
-ComplexHeatmap version
-```{r, fig.height = 10, fig.width = 12}
-library(ComplexHeatmap)
-library(RColorBrewer)
-
-## pheatmap calculates Z scores for plotting values
-scale_matrix_by_cols <- function (x) 
-{
-    m = apply(x, 1, mean, na.rm = T)
-    s = apply(x, 1, sd, na.rm = T)
-    return((x - m)/s)
-}
-## calculate z score by col
-agg_mat_df_scaled <- t(as.matrix(scale_matrix_by_cols(t(agg_mat_df))))
-
-## add annotation:
-heatmap_annotation <- HeatmapAnnotation(df = cluster_anno,
-                                        col = list(
-Identity = c(Male="#016c00", Female="#a52b1e", Asexual= "#0052c5", Committed = "#f2eb23")),
-                                        annotation_legend_param = list(Median_Pseudotime_of_Cluster = list(direction = "horizontal"), Identity = list(nrow = 1)))
-
-## plot
-modules_heatmap <- Heatmap(agg_mat_df_scaled,
-        column_order = NULL,
-        clustering_method_rows = "ward.D2",
-        bottom_annotation = heatmap_annotation,
-        col = colorRampPalette(rev(brewer.pal(n = 7, name =
-  "RdYlBu")))(100), 
-        heatmap_legend_param = list(direction = "horizontal"))
-draw(modules_heatmap, merge_legend = TRUE, heatmap_legend_side = "bottom", 
-    annotation_legend_side = "bottom")
-
-## https://www.biostars.org/p/380544/ 
-```
 
 ```{r, fig.height = 10, fig.width = 12}
 ## subset aggregated matrix to take out problematic clusters 22, 42, (44 - alreayd removed as it doesn't have any 10x cells)
@@ -602,52 +602,6 @@ draw(modules_heatmap, merge_legend = TRUE, heatmap_legend_side = "bottom",
 ```{r}
 ## save the gene modules in case you want to return to these later
 modules_df_original_10x_data_set <- gene_module_df
-```
-
-Find out which modules our mutant genes reside in
-```{r}
-## create a list of our mutant gene IDs
-list_of_mutant_genes <- c("PBANKA-0828000", "PBANKA-1302700", "PBANKA-1447900", "PBANKA-0102400", "PBANKA-0716500", "PBANKA-1435200", "PBANKA-1418100", "PBANKA-1144800", "PBANKA-0902300", "PBANKA-0413400", "PBANKA-1454800")
-
-## make a dataframe to convert the gene IDs into actual IDs
-df_mutant_ids <- as.data.frame(unique(cbind(tenx.mutant.integrated@meta.data$identity_gene_updated, tenx.mutant.integrated@meta.data$identity_updated)))[-c(1, 4),]
-# remove the "820" bit on 10
-df_mutant_ids$V1 <- gsub("_820", "", df_mutant_ids$V1)
-# change the underscore (_) to a dash (-) in gene IDs
-df_mutant_ids$V1 <- gsub("_", "-", df_mutant_ids$V1)
-names(df_mutant_ids) <- c("gene_ID", "mutant_identity")
-
-## subset modules df to include only mutant gene IDs
-df_mutant_gene_modules <- as.data.frame(gene_module_df[which(gene_module_df$id %in% list_of_mutant_genes),])
-names(df_mutant_gene_modules)[1] <- "gene_ID"
-
-## merge dataframes
-df_mutant_gene_modules <- merge(df_mutant_gene_modules, df_mutant_ids, by = "gene_ID")
-
-## Inspect
-df_mutant_gene_modules
-```
-
-so modules of interest are:
-```{r}
-table(df_mutant_gene_modules$module)
-```
-
-Which modules do other genes of interest lie in?:
-```{r}
-## landmark genes (genes of interest)
-# AP2G - PBANKA-1437500
-# AP2 - PBANKA-0909600 - from poran paper
-# AP2G-2 - PBANKA-1034300 
-
-## create a list of landmark genes
-list_of_landmark_genes <- c("PBANKA-1437500", "PBANKA-0909600","PBANKA-1034300")
-
-## make dataframe
-df_landmark_gene_modules <- gene_module_df[which(gene_module_df$id %in% list_of_landmark_genes),]
-
-## inspect
-df_landmark_gene_modules
 ```
 
 It would be nice to include a measure of Psuedotime in the heatmap.
@@ -710,7 +664,7 @@ tenx.mutant.integrated <- AddMetaData(tenx.mutant.integrated, pt_values, "old_pt
 
 Save old modules
 ```{r}
-write.csv(modules_df_original_10x_data_set, file = "~/data_to_export/modules_df_original_10x_data_set.csv")
+write.csv(modules_df_original_10x_data_set, file = "../data_to_export/modules_df_original_10x_data_set.csv")
 ```
 
 
@@ -893,3 +847,43 @@ ggplot(female_cells_df, aes(x = pt, y = reorder(identity_combined, pt, median), 
   theme_classic()
 ```
 
+
+
+
+
+
+
+ComplexHeatmap version
+```{r, fig.height = 10, fig.width = 12}
+library(ComplexHeatmap)
+library(RColorBrewer)
+
+## pheatmap calculates Z scores for plotting values
+scale_matrix_by_cols <- function (x) 
+{
+    m = apply(x, 1, mean, na.rm = T)
+    s = apply(x, 1, sd, na.rm = T)
+    return((x - m)/s)
+}
+## calculate z score by col
+agg_mat_df_scaled <- t(as.matrix(scale_matrix_by_cols(t(agg_mat_df))))
+
+## add annotation:
+heatmap_annotation <- HeatmapAnnotation(df = cluster_anno,
+                                        col = list(
+Identity = c(Male="#016c00", Female="#a52b1e", Asexual= "#0052c5", Committed = "#f2eb23")),
+                                        annotation_legend_param = list(Median_Pseudotime_of_Cluster = list(direction = "horizontal"), Identity = list(nrow = 1)))
+
+## plot
+modules_heatmap <- Heatmap(agg_mat_df_scaled,
+        column_order = NULL,
+        clustering_method_rows = "ward.D2",
+        bottom_annotation = heatmap_annotation,
+        col = colorRampPalette(rev(brewer.pal(n = 7, name =
+  "RdYlBu")))(100), 
+        heatmap_legend_param = list(direction = "horizontal"))
+draw(modules_heatmap, merge_legend = TRUE, heatmap_legend_side = "bottom", 
+    annotation_legend_side = "bottom")
+
+## https://www.biostars.org/p/380544/ 
+```

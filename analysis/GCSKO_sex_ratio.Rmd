@@ -1,0 +1,269 @@
+---
+subtitle: 'Gametocyte Development in <i>Plasmodium berghei</i>'
+title: |
+  ![](../GCSKO_logo.jpg){width=300px}  
+  Sex Ratio Calculation
+author: "[Andrew Russell](https://ajcrussell.wixsite.com/mysite/about)"
+institute: Wellcome Sanger Institute
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output:
+  html_notebook:
+    theme: cosmo
+    toc: yes
+    toc_depth: 3
+    #toc_float: yes
+    df_print: paged
+---
+***
+# 1. Introduction and Aims {.tabset}
+
+In this script we will calculate sex ratios from the cells present in the sex branch for each genotype.
+
+
+
+# 3. Sex ratio calculation {.tabset}
+
+The sex ratio is defined as the proportion of males to females in a population. Since some of our mutants have literally 0 males or females, we will add 0.1 to them in order to generate a ratio.
+
+Arthur method
+```{r}
+
+pollmalesexratio<- z[, colData(z)$exclude_for_sex_ratio == "FALSE" & colData(z)$sex == "male"&colData(sexbranch)$experiment != "tenx_5k"]
+pollfemalesexratio<- z[, colData(z)$exclude_for_sex_ratio == "FALSE" & colData(z)$sex == "female"&colData(sexbranch)$experiment != "tenx_5k"]
+
+ratio<-c(as.numeric(dim(pollfemalesexratio[,(colData(pollfemalesexratio)$identity_updated == "GCSKO-10_820")])[2]+0.1)/as.numeric(dim(pollmalesexratio[,(colData(pollmalesexratio)$identity_updated == "GCSKO-10_820")])[2]+0.1),
+         as.numeric(dim(pollfemalesexratio[,(colData(pollfemalesexratio)$identity_updated == "GCSKO-17")])[2]+0.1)/as.numeric(dim(pollmalesexratio[,(colData(pollmalesexratio)$identity_updated == "GCSKO-17")])[2]+0.1),
+         as.numeric(dim(pollfemalesexratio[,(colData(pollfemalesexratio)$identity_updated == "GCSKO-19")])[2]+0.1)/as.numeric(dim(pollmalesexratio[,(colData(pollmalesexratio)$identity_updated == "GCSKO-19")])[2]+0.1),
+         as.numeric(dim(pollfemalesexratio[,(colData(pollfemalesexratio)$identity_updated == "GCSKO-2")])[2]+0.1)/as.numeric(dim(pollmalesexratio[,(colData(pollmalesexratio)$identity_updated == "GCSKO-2")])[2]+0.2),
+         as.numeric(dim(pollfemalesexratio[,(colData(pollfemalesexratio)$identity_updated == "GCSKO-20")])[2]+0.1)/as.numeric(dim(pollmalesexratio[,(colData(pollmalesexratio)$identity_updated == "GCSKO-20")])[2]+0.1),
+         as.numeric(dim(pollfemalesexratio[,(colData(pollfemalesexratio)$identity_updated == "GCSKO-21")])[2]+0.1)/as.numeric(dim(pollmalesexratio[,(colData(pollmalesexratio)$identity_updated == "GCSKO-21")])[2]+0.1),
+         as.numeric(dim(pollfemalesexratio[,(colData(pollfemalesexratio)$identity_updated == "GCSKO-28")])[2]+0.1)/as.numeric(dim(pollmalesexratio[,(colData(pollmalesexratio)$identity_updated == "GCSKO-28")])[2]+0.1),
+         as.numeric(dim(pollfemalesexratio[,(colData(pollfemalesexratio)$identity_updated == "GCSKO-29")])[2]+0.1)/as.numeric(dim(pollmalesexratio[,(colData(pollmalesexratio)$identity_updated == "GCSKO-29")])[2]+0.1),
+         as.numeric(dim(pollfemalesexratio[,(colData(pollfemalesexratio)$identity_updated == "GCSKO-3")])[2]+0.1)/as.numeric(dim(pollmalesexratio[,(colData(pollmalesexratio)$identity_updated == "GCSKO-3")])[2]+0.1),
+         as.numeric(dim(pollfemalesexratio[,(colData(pollfemalesexratio)$identity_updated == "GCSKO-oom")])[2]+0.1)/as.numeric(dim(pollmalesexratio[,(colData(pollmalesexratio)$identity_updated == "GCSKO-oom")])[2]+0.1),
+         as.numeric(dim(pollfemalesexratio[,(colData(pollfemalesexratio)$identity_updated == "GCSKO-13")])[2]+0.1)/as.numeric(dim(pollmalesexratio[,(colData(pollmalesexratio)$identity_updated == "GCSKO-13")])[2]+0.1),
+         as.numeric(dim(pollfemalesexratio[,(colData(pollfemalesexratio)$identity_updated == "WT")])[2]+0.1)/as.numeric(dim(pollmalesexratio[,(colData(pollmalesexratio)$identity_updated == "WT")])[2]+0.1))                                                                                          
+
+mutant<-c('GCSKO-10_820','GCSKO-17','GCSKO-19','GCSKO-2','GCSKO-20','GCSKO-21','GCSKO-28','GCSKO-29','GCSKO-3','GCSKO-oom','GCSKO-13','WT')
+sexratio<- data.frame(mutant, log(ratio))
+sexratio$mutant <- factor(sexratio$mutant, levels = rev(sexratio$mutant))
+ggplot(sexratio, aes(x=mutant, log.ratio.)) + 
+  geom_violin()+ coord_flip()+ stat_summary(fun.y=median, geom="point", size=2, color="red")+ scale_fill_brewer(palette="RdBu") + theme_minimal()+ylim(-7.5,7.5)
+
+pollmales<- z[,  colData(z)$sex == "male"&colData(sexbranch)$experiment != "tenx_5k"]
+pollfemale<- z[, colData(z)$sex == "female"&colData(sexbranch)$experiment != "tenx_5k"]
+
+## define the dataframes
+femalePT<- data.frame(pollfemale$identity_updated, pollfemale$PT_LineageFemale)
+malePT<- data.frame(pollmales$identity_updated, pollmales$PT_LineageMale)
+
+```
+
+plot pseudotime vs. genotype
+```{r}
+## plot females 
+ggplot(femalePT, aes(x = pollfemale.PT_LineageFemale, y =  pollfemale.identity_updated)) +
+  geom_density_ridges_gradient(scale = 3, rel_min_height = 0.01,  quantile_lines = TRUE, quantiles = 2, point_alpha = 0.5, alpha = 0.5) +
+  labs(title = 'Female') +
+  theme_classic()
+
+## plot males
+ggplot(malePT, aes(x = pollmales.PT_LineageMale, y =  pollmales.identity_updated)) +
+  geom_density_ridges_gradient(scale = 3, rel_min_height = 0.01,  quantile_lines = TRUE, quantiles = 2, point_alpha = 0.5, alpha = 0.5)  +
+  labs(title = 'Male') +
+  theme_classic()
+```
+
+
+Andy method
+
+Calculate sex ratios
+```{r}
+## add values for the exclude when calculating sex ratio column into 10X data
+## get 10X cells
+tenx_cells_sex <- which(tenx.mutant.integrated.sex$experiment == "tenx_5k")
+## add to column for calculating sex ratio
+tenx.mutant.integrated.sex@meta.data$exclude_for_sex_ratio[tenx_cells_sex] <- "FALSE"
+## add a column for 10X WT cells
+tenx.mutant.integrated.sex@meta.data$sub_identity_updated[tenx_cells_sex] <- "WT_10X" 
+
+## subset males into new seurat object
+#ss2_mutants_final_male <- SubsetData(tenx.mutant.integrated.sex, ident.use = c(11,30,27,7, 13,20,16,12,19,1,14))
+
+## subset females into new seurat object
+#ss2_mutants_final_female <- SubsetData(tenx.mutant.integrated.sex, ident.use = c(17,24, 23, 18, 22, 28, 26, 6, 8, 31, 21, 15, 9, 10, 29, 3))
+
+## use designations above for sexes
+male_cells <- rownames(tenx.mutant.integrated.sex@meta.data[tenx.mutant.integrated.sex@meta.data$sex_UMAP == "male", ])
+female_cells <- rownames(tenx.mutant.integrated.sex@meta.data[tenx.mutant.integrated.sex@meta.data$sex_UMAP == "female", ])
+ss2_mutants_final_male <- SubsetData(tenx.mutant.integrated.sex, cells = male_cells)
+ss2_mutants_final_female <- SubsetData(tenx.mutant.integrated.sex, cells = female_cells)
+
+## inspect
+ss2_mutants_final_male
+ss2_mutants_final_female
+```
+
+```{r}
+## calculate sex ratios
+##subset out H, sorted cells:
+df_male <- ss2_mutants_final_male@meta.data[ss2_mutants_final_male@meta.data$exclude_for_sex_ratio == FALSE,]
+
+dim(df_male)
+
+df_female <- ss2_mutants_final_female@meta.data[ss2_mutants_final_female@meta.data$exclude_for_sex_ratio == FALSE,]
+
+dim(df_female)
+
+## make dataframe
+df_sex_ratio <- merge(
+  as.data.frame(table(df_male$sub_identity_updated)), 
+  as.data.frame(table(df_female$sub_identity_updated)), 
+  by = "Var1", all=TRUE)
+
+# or use identity_updated
+
+## add names
+names(df_sex_ratio) <- c("genotype", "male", "female")
+
+## change the NAs to 0
+df_sex_ratio[is.na(df_sex_ratio)] <- 0
+
+## collapse 820 wild-types together
+combined_m <- df_sex_ratio[df_sex_ratio$genotype == "WT-820_3_5", ]$male + df_sex_ratio[df_sex_ratio$genotype == "WT-820", ]$male
+combined_f <- df_sex_ratio[df_sex_ratio$genotype == "WT-820_3_5", ]$female + df_sex_ratio[df_sex_ratio$genotype == "WT-820", ]$female
+df_sex_ratio <- rbind(df_sex_ratio, c("WT-820-combined", combined_m, combined_f))
+# remove old rows
+df_sex_ratio <- df_sex_ratio[-which(df_sex_ratio$genotype == "WT-820_3_5" | df_sex_ratio$genotype == "WT-820"), ]
+# need to make numeric again
+df_sex_ratio$male <- as.numeric(df_sex_ratio$male)
+df_sex_ratio$female <- as.numeric(df_sex_ratio$female)
+df_sex_ratio$genotype <- as.character(df_sex_ratio$genotype)
+# add name for WT combined
+df_sex_ratio$genotype[19] <- "WT-820-combined"
+
+## calculate sex ratio
+df_sex_ratio$sex_ratio <- (df_sex_ratio$male + 0.1)/(df_sex_ratio$female + 0.1)
+
+## log sex ratio
+df_sex_ratio$sex_ratio_log <- log10(df_sex_ratio$sex_ratio)
+
+##view
+df_sex_ratio
+```
+
+```{r}
+## remove WT-2 because it is really inappropriate to have a sex ratio for this:
+df_sex_ratio <- df_sex_ratio[-which(df_sex_ratio$genotype == "WT-2"),]
+```
+
+plot
+```{r, fig.height = 7, fig.width = 6}
+library(latex2exp) # so you can plot the fraction
+
+## make extra column for plotting aesthetics:
+df_sex_ratio$above <- df_sex_ratio$sex_ratio_log > 0
+
+## make extra column with ratio in it:
+df_sex_ratio$genotype_with_n <- paste0(df_sex_ratio$genotype, " (", df_sex_ratio$male, "/", df_sex_ratio$female, ")")
+
+## reorder genotype so it is in the correct order for plotting
+df_sex_ratio$genotype_with_n <- factor(df_sex_ratio$genotype_with_n, levels = df_sex_ratio$genotype_with_n[order(df_sex_ratio$sex_ratio_log)])
+
+## plot
+sex_ratio_plot <- ggplot(df_sex_ratio, aes(sex_ratio_log, genotype_with_n, color = above)) +
+      ## add the lines for the lollipop plot
+      geom_segment(aes(x = 0, y = genotype_with_n, xend = sex_ratio_log, yend = genotype_with_n), color = "grey50") +
+      ## add the points for the lollipop plot
+      geom_point(aes(size = 4)) +
+      ## add the wild-type rectangle
+      annotate("rect", xmin= -0.23182478, xmax = 1.00105797, ymin=-Inf , ymax=Inf, alpha=0.4, color=NA,linetype = 2, fill="#999999") +
+      ## make prettier
+      theme_classic() +
+      theme(legend.position = "none", text=element_text(size=16, family="Arial")) + 
+      ## change axis labels
+      labs(y = expression(paste("Genotype", group("(", frac(paste("n male"), "n female"), ")")))) +
+      xlab(expression(paste("Sex Ratio (", log[10], 
+                               group("(",
+                                      frac(paste("n male + 0.1"), 
+                                           paste("n female + 0.1")),
+                                   ")"), ")" ))) +
+      ## change colours of lollipops
+      scale_colour_manual(values = c("#a52b1e", "#016c00")) +
+      ## annotate phenotypes
+      geom_hline(aes(yintercept = 5.5)) #+
+      #geom_hline(aes(yintercept = 14.5))
+
+print(sex_ratio_plot)
+
+#paste("Sex Ratio", "\n", "log10((n male + 0.1)/(n female + 0.1))")
+#theme(legend.position = "none", text=element_text(size=16, family="Arial"))
+
+## fraction titles: https://groups.google.com/forum/#!topic/ggplot2/bgNRnZ82hJY 
+## https://uc-r.github.io/lollipop
+
+ggsave(filename = "~/images_to_export/sex_ratio_plot.png", device = "png", width = 7, height = 7, units = "in")
+```
+
+plot pseudotime vs. genotype
+```{r}
+## extract sexes
+male_df <- tenx.mutant.integrated.sex@meta.data[which(tenx.mutant.integrated.sex@meta.data$sex == "male"), ]
+female_df <- tenx.mutant.integrated.sex@meta.data[which(tenx.mutant.integrated.sex@meta.data$sex == "female"), ]
+
+## define the dataframes
+male_df$identity_combined <- factor(male_df$identity_combined, levels = c("GCSKO-oom", "GCSKO-29", "GCSKO-2", "GCSKO-19", "GCSKO-3", "GCSKO-13", "GCSKO-21", "GCSKO-28", "GCSKO-10_820", "GCSKO-17", "GCSKO-20", "WT", "WT_10X"))
+female_df$identity_combined <- factor(female_df$identity_combined, levels = c("GCSKO-oom", "GCSKO-29", "GCSKO-2", "GCSKO-19", "GCSKO-3", "GCSKO-13", "GCSKO-21", "GCSKO-28", "GCSKO-10_820", "GCSKO-17", "GCSKO-20", "WT", "WT_10X"))
+```
+
+```{r, fig.width = 10, fig.height = 5}
+## plot females 
+p1 <- ggplot(female_df, aes(x = PT_LineageFemale, y =  identity_combined, fill = stat(x))) +
+  geom_density_ridges_gradient(scale = 2, rel_min_height = 0.03,  quantile_lines = TRUE, quantiles = 2, point_alpha = 0.5, alpha = 0.8) +
+  theme_classic() +
+  scale_y_discrete(drop=FALSE) +
+  labs(title = 'Female', x = "Female Branch Pseudotime", y = "Genotype") +
+  scale_fill_viridis_c(name = "pseudotime", option = "C", alpha = 1) +
+  theme(legend.position = "bottom", panel.grid.major.y = element_line(size = (0.2), colour="grey"))
+
+## plot males
+p2 <- ggplot(male_df, aes(x = PT_LineageMale, y =  identity_combined, fill = stat(x))) +
+  geom_density_ridges_gradient(scale = 2, rel_min_height = 0.03,  quantile_lines = TRUE, quantiles = 2, point_alpha = 0.5, alpha = 0.8, na.rm = FALSE)  +
+  theme_classic() +
+  scale_y_discrete(drop=FALSE) +
+  labs(title = 'Male', x = "Male Branch Pseudotime") +
+  scale_fill_viridis_c(name = "pseudotime", option = "C", alpha = 1) +
+  theme(legend.position = "bottom",
+        panel.grid.major.y = element_line(size = (0.2), colour="grey"),
+        axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+p1+p2
+```
+
+```{r, fig.width = 10, fig.height = 5}
+## plot females 
+p1 <- ggplot(female_df, aes(x = old_pt_values, y =  identity_combined, fill = stat(x))) +
+  geom_density_ridges_gradient(scale = 2, rel_min_height = 0.03,  quantile_lines = TRUE, quantiles = 2, point_alpha = 0.5, alpha = 0.8) +
+  theme_classic() +
+  scale_y_discrete(drop=FALSE) +
+  labs(title = 'Female', x = "Female Branch Pseudotime", y = "Genotype") +
+  scale_fill_viridis_c(name = "pseudotime", option = "C", alpha = 1) +
+  theme(legend.position = "bottom", panel.grid.major.y = element_line(size = (0.2), colour="grey"))
+
+## plot males
+p2 <- ggplot(male_df, aes(x = old_pt_values, y =  identity_combined, fill = stat(x))) +
+  geom_density_ridges_gradient(scale = 2, rel_min_height = 0.03,  quantile_lines = TRUE, quantiles = 2, point_alpha = 0.5, alpha = 0.8, na.rm = FALSE)  +
+  theme_classic() +
+  scale_y_discrete(drop=FALSE) +
+  labs(title = 'Male', x = "Male Branch Pseudotime") +
+  scale_fill_viridis_c(name = "pseudotime", option = "C", alpha = 1) +
+  theme(legend.position = "bottom",
+        panel.grid.major.y = element_line(size = (0.2), colour="grey"),
+        axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+p1+p2
+```

@@ -182,34 +182,24 @@ tenx.mutant.integrated.sex <- readRDS("../data_to_export/tenx.mutant.integrated.
 #tenx.mutant.integrated <- readRDS("../data_to_export/tenx.mutant.integrated.RDS")
 ```
 
+```{r}
+## add old pt values
+## these values are calculated in hte GCSKO_pseudotime_allcells.Rmd script and so were added after the object was split into sex only.
+tenx.all <- readRDS("../data_to_export/tenx.mutant.integrated.RDS")
+tenx.all.meta <- as.data.frame(tenx.all@meta.data)
+tenx.all.meta <- tenx.all.meta[which(rownames(tenx.all.meta) %in% rownames(tenx.mutant.integrated.sex@meta.data)),]
+tenx.mutant.integrated.sex <- AddMetaData(tenx.mutant.integrated.sex, tenx.all.meta$old_pt_values, col.name = "old_pt_values")
+## then remove these objects so they don't use up memory
+rm(tenx.all, tenx.all.meta)
+```
+
 # 3. Dimensionalty Reduction {.tabset}
 
 We will now re-calculate the UMAP, PCA and diffusion map to visualise the data since the old visualisation used the variation in the whole dataset and so some of the variation in this set of cells was obscured.
 
 ref: https://github.com/satijalab/seurat/issues/1883
 
-## A. Diffusion Map
-
-construct map
-```{r}
-## construct diffusion map
-## http://www.bioconductor.org/packages/devel/bioc/vignettes/slingshot/inst/doc/vignette.html
-## input is a transformed expression matrix (genes as cols and cells as rows)
-dm <- DiffusionMap(t(as.data.frame(tenx.mutant.integrated.sex@assays$integrated@data)))
-
-## extract meta data for plotting
-df_meta_data <- (as.data.frame(tenx.mutant.integrated.sex@meta.data))
-
-## make combined dataframe
-rd2 <- as.data.frame(cbind(DC1 = dm$DC1, DC2 = dm$DC2, identity = as.factor(as.character(tenx.mutant.integrated.sex@meta.data$post_integration_clusters))))
-
-## plot
-ggplot(rd2, aes(x = DC1, y = DC2, colour = as.character(identity))) + geom_point(size = 1) + 
-  theme(axis.ticks.y = element_blank()) + 
-  theme_classic()
-```
-
-## B. Recalculate PCA
+## A. Recalculate PCA
 
 The PCA is used as the basis of other dimensionality reductions so we will now recalculate this to get to our final UMAP.
 
@@ -228,7 +218,7 @@ Have a quick look at the output
 FeaturePlot(tenx.mutant.integrated.sex, reduction = "pca", pt.size = 0.01, features = "old_pt_values")
 ```
 
-#### Optimise UMAP
+## B. UMAP
 
 calculate UMAP
 ```{r, fig.height = 7, fig.width = 7}
@@ -250,25 +240,6 @@ plots <- FeaturePlot(tenx.mutant.integrated.sex, features = c("PBANKA-1319500", 
 plots[[3]] + NoLegend()  # Get just the co-expression plot, built-in legend is meaningless for this plot
 plots[[4]] # Get just the key
 CombinePlots(plots[3:4], legend = 'none', ncol =2, nrow = 1, rel_widths = c(2, 1), rel_heights = c(4,1)) # Stitch the co-expression and key plots together
-```
-
-Optimise further - delete this?
-```{r, fig.height = 7, fig.width = 7}
-## UMAP used for main fig.
-## tenx.mutant.integrated <- RunUMAP(tenx.mutant.integrated, reduction = "pca", dims = 1:10, n.neighbors = 150, seed.use = 1234, min.dist = 0.4, repulsion.strength = 0.03, local.connectivity = 150)
-
-## UAMP used for sex UMAP above
-## tenx.mutant.integrated.sex <- RunUMAP(tenx.mutant.integrated.sex, reduction = "pca", dims = 1:15, n.neighbors = 20, seed.use = 1234, min.dist = 0.5, repulsion.strength = 0.05, reduction.name = "umapoptimised_post_repca")
-
-## run UMAP
-#tenx.mutant.integrated.sex <- RunUMAP(tenx.mutant.integrated.sex, reduction = "pca", dims = 1:15, n.neighbors = 30, seed.use = 1234, min.dist = 0.5, repulsion.strength = 0.03, local.connectivity = 15, reduction.name = "umapoptimised_post_repca")
-
-## plot
-#DimPlot(tenx.mutant.integrated.sex, reduction = "umapoptimised_post_repca", label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, split.by = "genotype_combined") +
-  # coord_fixed() +
-  # theme_void() +
-  # theme(legend.position = "bottom") +
-  # guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
 ```
 
 # 4. Clustering {.tabset}
@@ -2813,3 +2784,30 @@ getAnywhere(aggregate_gene_expression)
 ```
 
 so essentially it first takes the counts matrix and subsets it by your gene groups, then it sums the values - if you specify scale then it will calcualte the z score of the transformed dataframe 
+
+
+
+
+
+
+
+## A. Diffusion Map
+
+construct map
+```{r}
+## construct diffusion map
+## http://www.bioconductor.org/packages/devel/bioc/vignettes/slingshot/inst/doc/vignette.html
+## input is a transformed expression matrix (genes as cols and cells as rows)
+dm <- DiffusionMap(t(as.data.frame(tenx.mutant.integrated.sex@assays$integrated@data)))
+
+## extract meta data for plotting
+df_meta_data <- (as.data.frame(tenx.mutant.integrated.sex@meta.data))
+
+## make combined dataframe
+rd2 <- as.data.frame(cbind(DC1 = dm$DC1, DC2 = dm$DC2, identity = as.factor(as.character(tenx.mutant.integrated.sex@meta.data$post_integration_clusters))))
+
+## plot
+ggplot(rd2, aes(x = DC1, y = DC2, colour = as.character(identity))) + geom_point(size = 1) + 
+  theme(axis.ticks.y = element_blank()) + 
+  theme_classic()
+```
