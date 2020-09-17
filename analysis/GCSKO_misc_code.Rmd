@@ -343,3 +343,36 @@ ss2_anno <- read.csv("/Users/ar19/Desktop/QC_pheno_20180625.csv", header = TRUE,
 
 molecules <- read.table("/Volumes/team222/MCA/Countfiles/allcounts3.csv", header = TRUE, sep = ",", row.names=1, stringsAsFactors = TRUE)
 anno <- read.delim("/Volumes/team222/MCA/Countfiles/allpheno5.csv", header = TRUE, sep = ",")
+
+
+
+
+
+
+
+
+
+
+
+Nice bit of code for installing github/devtools packages:
+```{r}
+##multiCoxPH is needed for correlation using poran way
+if(require("multiCoxPH", quietly = TRUE)){
+    print("multiCoxPH is loaded correctly")
+} else {
+    print("trying to install multiCoxPH")
+    if(require("devtools", quietly = TRUE)){
+      install_github("Fishified/multiCoxPH")
+    } else{
+      install.packages("devtools")
+      require("devtools")
+      install_github("Fishified/multiCoxPH")
+    }
+    if(require(multiCoxPH)){
+        print("multiCoxPH installed and loaded")
+    } else {
+        stop("could not install multiCoxPH")
+    }
+}
+```
+

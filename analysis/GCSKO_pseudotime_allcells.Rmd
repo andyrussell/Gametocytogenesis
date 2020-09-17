@@ -21,7 +21,7 @@ We have merged the two datasets together in GCSKO_merge.Rmd. Here, we will perfo
 
 # 2. Read in the data  {.tabset}
 
-### Load/Install the Required Packages
+## Load/Install the Required Packages
 
 ```{r load packages, echo = FALSE}
 ## CRAN packages
@@ -143,6 +143,19 @@ if(require("dplyr")){
     }
 }
 
+## ggnewscale enables resetting of colour and fill in ggplot2 so you can have two scales on the plot at the same time
+if(require("ggnewscale")){
+    print("ggnewscale is loaded correctly")
+} else {
+    print("trying to install ggnewscale")
+    install.packages("ggnewscale")
+    if(require(ggnewscale)){
+        print("ggnewscale installed and loaded")
+    } else {
+        stop("could not install ggnewscale")
+    }
+}
+
 ## non-CRAN packages
 
 ## monocle3 to calculate pseudotime:
@@ -188,40 +201,6 @@ When you try and use 1 and 2 together, there are issues with calling modules. I 
 ## B. 10X cells
 
 The above analysis results in hardly any genes in the modules, most likely due to the normalisation effect of Seurat. Here, we will take just the 10X object, which has coverage of the lifecyle and also does not require batch correction.
-
-## correlation of AP2G with other genes
-
-We can look to see if there are any genes with correlated highly with AP2G expression
-```{r}
-##ref: https://github.com/satijalab/seurat/issues/519 
-matrix <- tenx.mutant.integrated@assays$RNA@data
-matrix_mod<-as.matrix(matrix)
-gene<-as.numeric(matrix_mod["PBANKA-1437500",])
-correlations<-apply(matrix_mod,1,function(x){cor(gene,x)})
-
-## extract the top 100 correlated genes
-top_hundred <- tail(na.omit(correlations[order(correlations)]), 200)
-
-## create a list of our mutant gene IDs
-list_of_mutant_genes <- c("PBANKA-0828000", "PBANKA-1302700", "PBANKA-1447900", "PBANKA-0102400", "PBANKA-0716500", "PBANKA-1435200", "PBANKA-1418100", "PBANKA-1144800", "PBANKA-0902300", "PBANKA-0413400", "PBANKA-1454800")
-
-top_hundred[which(names(top_hundred) %in% list_of_mutant_genes)]
-```
-
-This is mutant 29, we can also visualise this in a dot plot
-
-```{r}
-df_plot <- data.frame(t(data.frame(matrix_mod[c("PBANKA-1447900", "PBANKA-1437500"), ])))
-
-ggplot(df_plot, aes(PBANKA.1447900, PBANKA.1437500)) + geom_point()
-```
-
-by cluster
-
-```{r}
-
-```
-
 
 ## Pseudotime calculation
 
@@ -468,6 +447,16 @@ pheatmap::pheatmap(agg_mat_no_group,
                    cutree_rows = 7)
 ```
 
+
+
+
+
+
+
+
+
+### by cluster plot
+
 Make annotations to add to the heatmap
 ```{r}
 ## change names for row names to include "module " at the beginning of them
@@ -625,6 +614,8 @@ ggplot(meta_data_df, aes(x = pt, y = seurat_clusters, fill = stat(x))) +
   geom_hline(aes(yintercept = 28.5))
 ```
 
+
+### module expression in mutants
 Make a heatmap of module expression in mutants:
 ```{r}
 ## the aggregate_gene_expression function in Monocle is located here: https://github.com/cole-trapnell-lab/monocle3/blob/1a02274209c765fe7a60f533a31b1da3dacf6785/R/cluster_genes.R
@@ -654,51 +645,13 @@ pheatmap::pheatmap(agg_mat_mutants, scale="column", clustering_method="ward.D2")
 
 
 
-#### Add original pt values
-```{r}
-## extract pt values
-pt_values <- as.data.frame(pseudotime(monocle.object.all, reduction_method = "UMAP"))
-
-tenx.mutant.integrated <- AddMetaData(tenx.mutant.integrated, pt_values, "old_pt_values")
-```
-
-Save old modules
-```{r}
-write.csv(modules_df_original_10x_data_set, file = "../data_to_export/modules_df_original_10x_data_set.csv")
-```
 
 
-# 9. Save and Export {.tabset}
 
-Save environment
-```{r}
-## This saves everything in the global environment for easy recall later
-#save.image(file = "GCSKO_pseudotime_allcells.RData")
-#load(file = "GCSKO_pseudotime_allcells.RData")
-```
+# Pseudotime of all cells
 
-Save object(s)
-```{r}
-## save integrated object to file
-#saveRDS(tenx.mutant.integrated, file = "../data_to_export/tenx.mutant.integrated.RDS") 
-## restore the object
-#tenx.mutant.integrated <- readRDS("../data_to_export/tenx.mutant.integrated.RDS")
-```
+This will allow one to plot PT of all cells rather than just the 10x cells we did above
 
-# Appendix {.tabset}
-
-## Session Info 
-```{r, echo = FALSE}
-sessionInfo()
-```
-
-## Acknowledgements
-```{r}
-## help was obtained from here to understand how to use integrated counts from Seurat (the short awnser is that we used non-integrated counts and only 10x for this part). It also contains some useful code that was used for extracting UMAP coordaintes.
-## https://github.com/satijalab/seurat/issues/1658
-```
-
-## Pseudotime of all cells
 ```{r}
 ## extract data from Seurat
 seurat.object.all <- tenx.mutant.integrated
@@ -761,45 +714,226 @@ monocle.object.all = order_cells(monocle.object.all)
 
 
 ## plot
-plot_cells(monocle.object.all, color_cells_by = "pseudotime", label_cell_groups=FALSE, cell_size = 1, x = 2, y = 1) +
+umap_pt <- plot_cells(monocle.object.all, color_cells_by = "pseudotime", label_cell_groups=FALSE, cell_size = 1, x = 2, y = 1) +
   coord_fixed() +
   theme_void() +
   labs(title = "Pseudotime") +
   theme(plot.title = element_text(hjust = 0.5))
 
+## view plot
+umap_pt
+
 ## help was obtained from here
 ## https://github.com/satijalab/seurat/issues/1658
 ```
 
-### Module Analysis
+save
 ```{r}
-## find genes that change as a function of pt
-monocle.object.all_pr_test_res <- graph_test(monocle.object.all, neighbor_graph="principal_graph", cores=8)
-
-## find significant genes
-pr_deg_ids <- row.names(subset(monocle.object.all_pr_test_res, q_value < 0.05))
-
-## collect into modules
-gene_module_df_all <- find_gene_modules(monocle.object.all[pr_deg_ids,], resolution=c(1,10^seq(-6,-1)))
-
-## how many genes in modules?
-dim(gene_module_df_all)
+ggsave("../images_to_export/pt_all_UMAP_pt.png", plot = umap_pt, device = "png", path = NULL, scale = 1, width = 20, height = 20, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
-### Plot Modules
+#### Add original pt values
+
 ```{r}
-## create a dataframe with clusters and modules
-cell_group_df_all <- tibble::tibble(cell=row.names(colData(monocle.object.all)), cell_group=colData(monocle.object.all)$seurat_clusters)
+## extract pt values
+pt_values <- as.data.frame(pseudotime(monocle.object.all, reduction_method = "UMAP"))
 
-## aggregate gene expression
-agg_mat_all <- aggregate_gene_expression(monocle.object.all, gene_module_df_all, cell_group_df_all)
-
-## modify row names
-row.names(agg_mat_all) <- stringr::str_c("Module ", row.names(agg_mat_all))
-
-## plot heatmap
-pheatmap::pheatmap(agg_mat_all, scale="column", clustering_method="ward.D2")
+tenx.mutant.integrated <- AddMetaData(tenx.mutant.integrated, pt_values, "old_pt_values")
 ```
+
+Save old modules
+```{r}
+write.csv(modules_df_original_10x_data_set, file = "../data_to_export/modules_df_original_10x_data_set.csv")
+```
+
+# dot plot of expression by pt
+
+annotations for plot
+```{r}
+## create annotation of clusters for heatmap
+cluster_anno <- data.frame(cluster = unique(as.data.frame(tenx.mutant.integrated@meta.data)$seurat_clusters))
+row.names(cluster_anno) <- cluster_anno$cluster
+
+## clusters were defined in the merge script earlier as:
+male_clusters <- c("20", "17", "8", "18")
+female_clusters <- c("23", "19", "21", "5")
+asex_clusters <- c("6", "4", "9", "2", "1", "7", "0", "3", "12", "16", "10", "11", "24", "14", "15", "22", "25")
+bipotential_clusters <- c("13")
+
+## add identities to the column
+cluster_anno$group <- NA
+cluster_anno$group[which(cluster_anno$cluster %in% asex_clusters)] <- "Asexual"
+cluster_anno$group[which(cluster_anno$cluster %in% male_clusters)] <- "Male"
+cluster_anno$group[which(cluster_anno$cluster %in% female_clusters)] <- "Female"
+cluster_anno$group[which(cluster_anno$cluster %in% bipotential_clusters)] <- "Committed"
+cluster_anno <- cluster_anno[ , 2, drop = FALSE]
+cluster_anno
+
+## Make a df of meta data
+## this is used later in the ridgeplots too
+## extract pseudotime values
+pt_values <- as.data.frame(tenx.mutant.integrated@meta.data$old_pt_values)
+pt_values$cell_name <- rownames(tenx.mutant.integrated@meta.data)
+meta_data_df <- as.data.frame(tenx.mutant.integrated@meta.data)
+meta_data_df$cell_name <- rownames(meta_data_df)
+meta_data_df <- merge(meta_data_df, pt_values, by = "cell_name")
+## the pt will be added to the last column so add the name pt to the merged df
+names(meta_data_df)[length(names(meta_data_df))] <- "pt"
+
+## add median pseudotime per cluster
+## help was obtained here:https://stackoverflow.com/questions/54360855/calculate-mean-for-column-grouped-by-values-of-two-other-columns
+## make subsetted dataframe with just cluster and pt
+df_median_pt <- meta_data_df[ ,c("pt", "seurat_clusters")]
+## apply across dataframe to get median
+mean.df1 <- tapply(df_median_pt$pt, list(df_median_pt$seurat_clusters), median)
+mean.df2 <- as.data.frame(as.table(mean.df1))
+## rename cols
+names(mean.df2) <- c("seurat_clusters", "pt_Median")
+## rename rows
+rownames(mean.df2) <- mean.df2$seurat_clusters
+## to make each value have the mean in the original dataframe
+#merge(df_median_pt, mean.df2)
+## add to annotation dataframe
+cluster_anno <- merge(cluster_anno, mean.df2, by=0)
+
+## add rownames to dataframe
+rownames(cluster_anno) <- cluster_anno$Row.names
+## subset to have only info of interest
+cluster_anno <- cluster_anno[,c(2,4)]
+names(cluster_anno) <- c("Identity", "Median_Pseudotime_of_Cluster")
+
+## this is for the rectangles on the plot below
+## add an order column too:
+my_levels <- c(asex_clusters, bipotential_clusters, male_clusters, female_clusters)
+## order the annotation
+cluster_anno <- cluster_anno[(match(my_levels, rownames(cluster_anno))), ]
+## add label 
+cluster_anno$order <- c(1:nrow(cluster_anno))
+## add coordinates for rectangles
+cluster_anno$y1 <- cluster_anno$order-0.5
+cluster_anno$y2 <- cluster_anno$order+0.5
+cluster_anno$x1 <- 18
+cluster_anno$x2 <- 18.5
+## add coordinates for identity rectangles
+cluster_anno$By1 <- cluster_anno$order-0.5
+cluster_anno$By2 <- cluster_anno$order+0.5
+cluster_anno$Bx1 <- 19
+cluster_anno$Bx2 <- 19.5
+
+## inspect
+cluster_anno
+```
+
+plot
+```{r, fig.width = 7, fig.height= 12}
+## plot
+dot_plot_paper_figure <- DotPlot(tenx.mutant.integrated, 
+                                 features = (c("PBANKA-1144800", "PBANKA-1435200", "PBANKA-1418100", "PBANKA-0902300", "PBANKA-1454800", "PBANKA-0828000", "PBANKA-0413400", "PBANKA-0716500", "PBANKA-0102400", "PBANKA-1447900", "PBANKA-1302700", "PBANKA-1437500", "PBANKA-0416100", "PBANKA-1300700", "PBANKA-0915000", "PBANKA-1443300", "PBANKA-1145900")), group.by = "seurat_clusters_plotting") +
+  theme_classic() +
+  ## change appearance and remove axis elements, and make room for arrows, and also change posoition of legends relative to one another
+  theme(axis.text.x = element_text(size=20, angle = 45, hjust=1,vjust=1, family="Arial"), legend.position = "bottom", legend.direction = "horizontal", legend.box = "vertical", plot.margin = unit(c(1,3,1,3), "lines"), text=element_text(size=20, family="Arial"), axis.title=element_text(size=20,family="Arial")) +
+  ##add these to above to remove y = plot.title = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.title.y = element_blank()
+  ## change the colours
+  scale_colour_viridis(option = "inferno", guide = "colourbar", na.value="white", begin = 0, end = 1, direction = 1) +
+  ## change x axis label
+  labs(x = "Gene",  title = "", y = "Cluster") +
+  ## annotate asex
+  geom_hline(aes(yintercept = (length(asex_clusters)+0.5))) +
+  ## annotate bipotential
+  geom_hline(aes(yintercept = (length(c(asex_clusters, bipotential_clusters))+0.5))) +
+  ## annotate sexes
+  geom_hline(aes(yintercept = (length(c(asex_clusters, bipotential_clusters, male_clusters))+0.5))) +
+  ## change label on bottom of plot so we can indicate markers
+   scale_x_discrete(labels = ((c(expression(paste(italic("fd5"))),
+    expression(paste(italic("fd4"))),
+    expression(paste(italic("fd3"))),
+    expression(paste(italic("fd2"))),
+    expression(paste(italic("fd1"))),
+    expression(paste(italic("gd1"))),
+    expression(paste(italic("md5"))),
+    expression(paste(italic("md4"))),
+    expression(paste(italic("md3"))),
+    expression(paste(italic("md2"))),
+    expression(paste(italic("md1"))),
+    expression(paste(italic("ap2-g"))),
+    expression(paste(italic("dhc, putative"), "(male)")),
+    expression(paste(italic("ccp1"), "(female)")),
+    expression(paste(italic("ama1"), "(schizont)")),
+    expression(paste(italic("msp9"), "(troph)")),
+    expression(paste(italic("mahrp1b"), "(ring)"))))))  +
+  ## add annotation on top of plot
+  #geom_rect(aes(xmin = 0, xmax = 1), ymin = length(cluster_anno$Identity), ymax = length(cluster_anno$Identity) + 1) +
+    ## flip coordinates 
+    geom_rect(data = cluster_anno, mapping=aes(xmin=x1, xmax=x2, ymin=y1, ymax=y2, fill=Median_Pseudotime_of_Cluster), inherit.aes = FALSE) +
+    scale_fill_viridis_c(option = "plasma") +
+  ## flip coordinates 
+  ## geoms below will use another color scale
+    new_scale_fill() +
+    geom_rect(data = cluster_anno, mapping=aes(xmin=Bx1, xmax=Bx2, ymin=By1, ymax=By2, fill=Identity), inherit.aes = FALSE) +
+    scale_fill_manual(values = c("Male" ="#016c00", "Female"="#a52b1e", "Asexual"= "#0052c5", "Committed" = "#f2eb23")) +
+    coord_flip()
+  
+  
+## view
+print(dot_plot_paper_figure)
+```
+
+save
+```{r}
+ggsave("../images_to_export/pt_all_dot_plot.png", plot = dot_plot_paper_figure, device = "png", path = NULL, scale = 1, width = 30, height = 35, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+# 9. Save and Export {.tabset}
+
+Save environment
+```{r}
+## This saves everything in the global environment for easy recall later
+#save.image(file = "GCSKO_pseudotime_allcells.RData")
+#load(file = "GCSKO_pseudotime_allcells.RData")
+```
+
+Save object(s)
+```{r}
+## save integrated object to file
+saveRDS(tenx.mutant.integrated, file = "../data_to_export/tenx.mutant.integrated.RDS") 
+## restore the object
+#tenx.mutant.integrated <- readRDS("../data_to_export/tenx.mutant.integrated.RDS")
+```
+
+# Appendix {.tabset}
+
+## Session Info 
+```{r, echo = FALSE}
+sessionInfo()
+```
+
+## Acknowledgements
+```{r}
+## help was obtained from here to understand how to use integrated counts from Seurat (the short awnser is that we used non-integrated counts and only 10x for this part). It also contains some useful code that was used for extracting UMAP coordaintes.
+## https://github.com/satijalab/seurat/issues/1658
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+After PT of all cells:
 
 ### Per branch analysis 
 ```{r}

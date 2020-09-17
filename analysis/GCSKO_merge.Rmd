@@ -894,7 +894,7 @@ male_symbol <- intToUtf8(9794)
 # 4 = yellow - "#ffe400"
 pal_sex <- c("#0052c5","#ffe400", "#a52b1e", "#016c00")
 
-UMAP_identity <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, group.by = "cluster_colours_figure", dims = c(2,1), reduction = "DIM_UMAP") +
+UMAP_identity <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.5, group.by = "cluster_colours_figure", dims = c(2,1), reduction = "DIM_UMAP") +
   coord_fixed() + 
   scale_colour_manual(values=pal_sex) + 
   theme_void() + 
@@ -913,7 +913,7 @@ ggsave("../images_to_export/merge_UMAP_identity.png", plot = UMAP_identity, devi
 
 ```{r, fig.height = 4, fig.width = 4}
 ## Plot
-umap_cluster <- DimPlot(tenx.mutant.integrated, label = TRUE, repel = TRUE, pt.size = 0.5, dims = c(2,1), reduction = "DIM_UMAP") + 
+umap_cluster <- DimPlot(tenx.mutant.integrated, label = TRUE, label.size = 8, repel = FALSE, pt.size = 0.5, dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() +
   theme(legend.position="bottom", 
         axis.line=element_blank(),
@@ -922,7 +922,7 @@ umap_cluster <- DimPlot(tenx.mutant.integrated, label = TRUE, repel = TRUE, pt.s
         axis.ticks=element_blank(),
         axis.title.x=element_blank(),
         axis.title.y=element_blank()) + 
-  guides(colour=guide_legend(nrow = 6, byrow = TRUE, override.aes = list(size=4)))
+  guides(colour=guide_legend(nrow = 3, byrow = TRUE, override.aes = list(size=5)))
 
 ## print
 umap_cluster
@@ -930,7 +930,7 @@ umap_cluster
 
 save
 ```{r}
-#ggsave("../images_to_export/merge_umap_cluster.png", plot = umap_cluster, device = "png", path = NULL, scale = 1, width = 30, height = 30, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("../images_to_export/merge_UMAP_cluster.png", plot = umap_cluster, device = "png", path = NULL, scale = 1, width = 20, height = 20, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 #### Fig. 3.C. By bulk correlation
