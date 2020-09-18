@@ -1380,12 +1380,12 @@ dot_plot_markers <- DotPlot(tenx.mutant.integrated, features = c("PBANKA-1319500
   #annotate("segment", x = 5.5, xend = 5.5, y = 21.5, yend = 25, colour = "green", size=1, alpha=1, arrow=arrow(length=unit(0.30,"cm"), type = "closed")) +
   #annotate("segment", x = 5.5, xend = 5.5, y = 16.5, yend = 21.5, colour = "red", size=1, alpha=1, arrow=arrow(length=unit(0.30,"cm"), type = "closed")) +
   #annotate("segment", x = 5.5, xend = 5.5, y = 0, yend = 15.5, colour = "grey", size=1, alpha=1, arrow=arrow(length=unit(0.30,"cm"), type = "closed")) +
-  ## annotate males
-  geom_hline(aes(yintercept = 28.5)) +
-  ## annotate females
-  geom_hline(aes(yintercept = 24.5)) +
-  ## annotate hermaphrodite
-  geom_hline(aes(yintercept = 23.5)) +
+  ## annotate asex
+  geom_hline(aes(yintercept = (length(asex_clusters)+0.5))) +
+  ## annotate bipotential
+  geom_hline(aes(yintercept = (length(c(asex_clusters, bipotential_clusters))+0.5))) +
+  ## annotate sexes
+  geom_hline(aes(yintercept = (length(c(asex_clusters, bipotential_clusters, male_clusters))+0.5))) +
   ## change label on bottom of plot so we can indicate markers
   scale_x_discrete(labels = c(paste("PBANKA-1102200","\n", "(MSP8; early asexual)"), paste("PBANKA-0831000","\n", "(MSP1; late asexual)"), paste("PBANKA-1437500", "\n", "(AP2G; sexual commitment)"), paste("PBANKA-0416100", "\n", "(MG1; male)"), paste("PBANKA-1319500", "\n", "(CCP2; female)")))
 
@@ -1422,12 +1422,12 @@ dot_plot_mutant_genes <- DotPlot(tenx.mutant.integrated, features = c("PBANKA-08
   scale_colour_viridis(option = "inferno", guide = "colourbar", na.value="white", begin = 0, end = 1, direction = 1) +
   ## change x axis label
   labs(x = "Mutant Genes",  title = "Expression of mutant genes by cluster", y = "Cluster") +
-  ## annotate males
-  geom_hline(aes(yintercept = 28.5)) +
-  ## annotate females
-  geom_hline(aes(yintercept = 24.5)) +
-  ## annotate hermaphrodite
-  geom_hline(aes(yintercept = 23.5)) +
+  ## annotate asex
+  geom_hline(aes(yintercept = (length(asex_clusters)+0.5))) +
+  ## annotate bipotential
+  geom_hline(aes(yintercept = (length(c(asex_clusters, bipotential_clusters))+0.5))) +
+  ## annotate sexes
+  geom_hline(aes(yintercept = (length(c(asex_clusters, bipotential_clusters, male_clusters))+0.5))) +
   ## change label on bottom of plot so we can indicate markers
   scale_x_discrete(labels = c(paste("PBANKA_1454800","\n", "(GCSKO 21)"),
                               paste("PBANKA-0413400","\n", "(GCSKO 10)"),
@@ -1607,52 +1607,6 @@ maybe the respresentation differences have batch-effects:
 #### Compose Final Plot
 ```{r, fig.width = 14, fig.height = 12}
 dot_plot_identity + dot_plot_markers + dot_plot_mutant_genes
-```
-
-```{r, fig.width = 7, fig.height= 12}
-## plot
-dot_plot_paper_figure <- DotPlot(tenx.mutant.integrated, 
-                                 features = rev(c("PBANKA-1144800", "PBANKA-1435200", "PBANKA-1418100", "PBANKA-0902300", "PBANKA-1454800", "PBANKA-0828000", "PBANKA-0413400", "PBANKA-0716500", "PBANKA-0102400", "PBANKA-1447900", "PBANKA-1302700", "PBANKA-1437500", "PBANKA-0416100", "PBANKA-1300700", "PBANKA-0915000", "PBANKA-1443300", "PBANKA-1145900")), group.by = "seurat_clusters_plotting") +
-  theme_classic() +
-  ## change appearance and remove axis elements, and make room for arrows, and also change posoition of legends relative to one another
-  theme(axis.text.x = element_text(size=12, angle = 45, hjust=1,vjust=1), legend.position = "bottom", legend.direction = "horizontal", legend.box = "vertical", plot.margin = unit(c(1,3,1,3), "lines"), text=element_text(size=16, family="Arial")) +
-  ##add these to above to remove y = plot.title = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.title.y = element_blank()
-  ## change the colours
-  scale_colour_viridis(option = "inferno", guide = "colourbar", na.value="white", begin = 0, end = 1, direction = 1) +
-  ## change x axis label
-  labs(x = "Gene",  title = "", y = "Cluster") +
-  ## annotate males
-  geom_hline(aes(yintercept = 28.5)) +
-  ## annotate females
-  geom_hline(aes(yintercept = 24.5)) +
-  ## annotate hermaphrodite
-  geom_hline(aes(yintercept = 23.5))  +
-  ## change label on bottom of plot so we can indicate markers
-   scale_x_discrete(labels = rev((c(expression(paste(italic("fd5"))),
-    expression(paste(italic("fd4"))),
-    expression(paste(italic("fd3"))),
-    expression(paste(italic("fd2"))),
-    expression(paste(italic("fd1"))),
-    expression(paste(italic("gd1"))),
-    expression(paste(italic("md5"))),
-    expression(paste(italic("md4"))),
-    expression(paste(italic("md3"))),
-    expression(paste(italic("md2"))),
-    expression(paste(italic("md1"))),
-    expression(paste(italic("ap2-g"))),
-    expression(paste(italic("dhc, putative"), "(male)")),
-    expression(paste(italic("ccp1"), "(female)")),
-    expression(paste(italic("ama1"), "(schizont)")),
-    expression(paste(italic("msp9"), "(troph)")),
-    expression(paste(italic("mahrp1b"), "(ring)"))))))
-
-## view
-print(dot_plot_paper_figure)
-```
-
-save
-```{r}
-ggsave("../images_to_export/merge_dot_plot.png", plot = dot_plot_paper_figure, device = "png", path = NULL, scale = 1, width = 30, height = 35, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 # 8. Subset sexual cells {.tabset}

@@ -193,6 +193,11 @@ tenx.mutant.integrated.sex <- AddMetaData(tenx.mutant.integrated.sex, tenx.all.m
 rm(tenx.all, tenx.all.meta)
 ```
 
+```{r}
+## create a list of our mutant gene IDs
+list_of_mutant_genes <- c("PBANKA-0828000", "PBANKA-1302700", "PBANKA-1447900", "PBANKA-0102400", "PBANKA-0716500", "PBANKA-1435200", "PBANKA-1418100", "PBANKA-1144800", "PBANKA-0902300", "PBANKA-0413400", "PBANKA-1454800")
+```
+
 # 3. Dimensionalty Reduction {.tabset}
 
 We will now re-calculate the UMAP, PCA and diffusion map to visualise the data since the old visualisation used the variation in the whole dataset and so some of the variation in this set of cells was obscured.
@@ -244,704 +249,141 @@ CombinePlots(plots[3:4], legend = 'none', ncol =2, nrow = 1, rel_widths = c(2, 1
 
 # 4. Clustering {.tabset}
 
-### Generate New Clusters
+### Investigate sub clustering of pre-branch clusters
 
-We must now recalculate the clusters to gain a better understanding of the heterogeneity of the subset. Since using the previous clusters, the asexual cells obscured some of the variation. 
-
-```{r}
-## copy old clusters
-tenx.mutant.integrated.sex <- AddMetaData(tenx.mutant.integrated.sex, tenx.mutant.integrated.sex@meta.data$seurat_clusters, col.name = "pre_sex_clusters")
-```
-
-```{r}
-## generate new clusters at various resolutions
-tenx.mutant.integrated.sex <- FindNeighbors(tenx.mutant.integrated.sex, dims = 1:15)
-tenx.mutant.integrated.sex <- FindClusters(tenx.mutant.integrated.sex, resolution = c(2,3,4,5,6), random.seed = 42, algorithm = 2)
-```
-
-### Visualise
-
-#### Choose Cluster Resolution
-
-View the clusters at different resolutions to chose the appropraite resolution
+Ultimately, we are looking for coexpression after the expression of AP2G:
 ```{r}
 ## plot
-DimPlot(tenx.mutant.integrated.sex, reduction = "umapoptimised_post_repca", label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "integrated_snn_res.2") +
-  coord_fixed() +
-  theme_void() +
-  theme(legend.position = "bottom") +
-  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
-
-DimPlot(tenx.mutant.integrated.sex, reduction = "umapoptimised_post_repca", label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "integrated_snn_res.3") +
-  coord_fixed() +
-  theme_void() +
-  theme(legend.position = "bottom") +
-  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
-
-DimPlot(tenx.mutant.integrated.sex, reduction = "umapoptimised_post_repca", label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "integrated_snn_res.4") +
-  coord_fixed() +
-  theme_void() +
-  theme(legend.position = "bottom") +
-  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
-
-DimPlot(tenx.mutant.integrated.sex, reduction = "umapoptimised_post_repca", label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "integrated_snn_res.5") +
-  coord_fixed() +
-  theme_void() +
-  theme(legend.position = "bottom") +
-  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
-
-DimPlot(tenx.mutant.integrated.sex, reduction = "umapoptimised_post_repca", label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "integrated_snn_res.6") +
-  coord_fixed() +
-  theme_void() +
-  theme(legend.position = "bottom") +
-  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
-```
-
-Go with 4 clusters
-```{r}
-tenx.mutant.integrated.sex <- FindClusters(tenx.mutant.integrated.sex, resolution = 4, random.seed = 42, algorithm = 2)
-
-DimPlot(tenx.mutant.integrated.sex, reduction = "umapoptimised_post_repca", label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5) +
-  coord_fixed() +
-  theme_void() +
-  theme(legend.position = "bottom") +
-  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
-```
-
-#### Original UMAP
-
-You can also use the original UMAP projection
-```{r, fig.height = 7, fig.width = 7}
-DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5) +
-  coord_fixed() +
-  theme_void() +
-  theme(legend.position = "bottom") +
-  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
-```
-
-#### Representation
-
-look at cluster representation
-```{r, echo = FALSE}
-## for loop which takes each cluster and makes a list of cells and then plots a highlighted plot and adds it to a list
-
-## make a df of the number of 
-n_per_cluster <- as.data.frame(table(tenx.mutant.integrated.sex@meta.data$seurat_clusters))
-rownames(n_per_cluster) <- n_per_cluster$Var1
-n_per_cluster <- n_per_cluster[,2]
-
-## make a blank list
-list_UMAPs_by_cluster <- vector(mode = "list", length = length(levels(tenx.mutant.integrated.sex@meta.data$seurat_clusters)))
-
-## for loop
-for(i in seq_along(levels(tenx.mutant.integrated.sex@meta.data$seurat_clusters))){
-  ## make a list of cells
-  list_of_cells <- rownames(tenx.mutant.integrated.sex@meta.data[which(tenx.mutant.integrated.sex@meta.data$seurat_clusters == levels(tenx.mutant.integrated.sex@meta.data$seurat_clusters)[i]), ])
-  umap_plot <- DimPlot(tenx.mutant.integrated.sex, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = list_of_cells, reduction = "umapoptimised_post_repca") + 
-  coord_fixed() + 
-  scale_color_manual(values=c("#000000", "#f54e1e")) + 
+marker_gene_plot_AP2G <- FeaturePlot(tenx.mutant.integrated.sex, features = "PBANKA-1437500", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP", pt.size = 1, order = TRUE) + 
   theme_void() + 
-  labs(title = paste("cluster", levels(tenx.mutant.integrated.sex@meta.data$seurat_clusters)[i], "\n", "(n = ", n_per_cluster[i],")")) + 
-  theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
-  ## add to the list
-  list_UMAPs_by_cluster[[i]] <- umap_plot
-}
+  labs(title = paste("AP2G Expression")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
+
+##view
+marker_gene_plot_AP2G
 ```
+and we have the following clusters currently:
 
-plot
-```{r}
-## this function writes the next bit of code for you
-ploty <- c()
-for(i in seq_along(levels(tenx.mutant.integrated.sex@meta.data$seurat_clusters))){
-  ploty <- paste0(ploty, "list_UMAPs_by_cluster[[", i, "]]", " + ")
-}
-```
-
-```{r, fig.height = 15, fig.width = 20}
-## plot
-library(gridExtra)
-grid.arrange(list_UMAPs_by_cluster[[1]] , list_UMAPs_by_cluster[[2]] , list_UMAPs_by_cluster[[3]] , list_UMAPs_by_cluster[[4]] , list_UMAPs_by_cluster[[5]] , list_UMAPs_by_cluster[[6]] , list_UMAPs_by_cluster[[7]] , list_UMAPs_by_cluster[[8]] , list_UMAPs_by_cluster[[9]] , list_UMAPs_by_cluster[[10]] , list_UMAPs_by_cluster[[11]] , list_UMAPs_by_cluster[[12]] , list_UMAPs_by_cluster[[13]] , list_UMAPs_by_cluster[[14]] , list_UMAPs_by_cluster[[15]] , list_UMAPs_by_cluster[[16]] , list_UMAPs_by_cluster[[17]] , list_UMAPs_by_cluster[[18]] , list_UMAPs_by_cluster[[19]] , list_UMAPs_by_cluster[[20]] , list_UMAPs_by_cluster[[21]] , list_UMAPs_by_cluster[[22]] , list_UMAPs_by_cluster[[23]] , list_UMAPs_by_cluster[[24]] , list_UMAPs_by_cluster[[25]] , list_UMAPs_by_cluster[[26]] , list_UMAPs_by_cluster[[27]] , list_UMAPs_by_cluster[[28]] , list_UMAPs_by_cluster[[29]] , list_UMAPs_by_cluster[[30]] , list_UMAPs_by_cluster[[31]], ncol = 5)
-```
-
-
-```{r}
-## for loop which takes each cluster and makes a list of cells and then plots a highlighted plot and adds it to a list
-
-## make a df of the number of 
-n_per_cluster <- as.data.frame(table(tenx.mutant.integrated.sex@meta.data$seurat_clusters))
-rownames(n_per_cluster) <- n_per_cluster$Var1
-n_per_cluster <- n_per_cluster[,2]
-
-## make a blank list
-list_UMAPs_by_cluster <- vector(mode = "list", length = length(levels(tenx.mutant.integrated.sex@meta.data$seurat_clusters)))
-
-## for loop
-for(i in seq_along(levels(tenx.mutant.integrated.sex@meta.data$seurat_clusters))){
-  ## make a list of cells
-  list_of_cells <- rownames(tenx.mutant.integrated.sex@meta.data[which(tenx.mutant.integrated.sex@meta.data$seurat_clusters == levels(tenx.mutant.integrated.sex@meta.data$seurat_clusters)[i]), ])
-  umap_plot <- DimPlot(tenx.mutant.integrated.sex,  reduction = "umap", label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = list_of_cells) + 
-  coord_fixed() + 
-  scale_color_manual(values=c("#000000", "#f54e1e")) + 
-  theme_void() + 
-  labs(title = paste("cluster", levels(tenx.mutant.integrated.sex@meta.data$seurat_clusters)[i], "\n", "(n = ", n_per_cluster[i],")")) + 
-  theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
-  ## add to the list
-  list_UMAPs_by_cluster[[i]] <- umap_plot
-}
-```
-
-```{r, fig.height = 15, fig.width = 20}
-## plot
-grid.arrange(list_UMAPs_by_cluster[[1]] , list_UMAPs_by_cluster[[2]] , list_UMAPs_by_cluster[[3]] , list_UMAPs_by_cluster[[4]] , list_UMAPs_by_cluster[[5]] , list_UMAPs_by_cluster[[6]] , list_UMAPs_by_cluster[[7]] , list_UMAPs_by_cluster[[8]] , list_UMAPs_by_cluster[[9]] , list_UMAPs_by_cluster[[10]] , list_UMAPs_by_cluster[[11]] , list_UMAPs_by_cluster[[12]] , list_UMAPs_by_cluster[[13]] , list_UMAPs_by_cluster[[14]] , list_UMAPs_by_cluster[[15]] , list_UMAPs_by_cluster[[16]] , list_UMAPs_by_cluster[[17]] , list_UMAPs_by_cluster[[18]] , list_UMAPs_by_cluster[[19]] , list_UMAPs_by_cluster[[20]] , list_UMAPs_by_cluster[[21]] , list_UMAPs_by_cluster[[22]] , list_UMAPs_by_cluster[[23]] , list_UMAPs_by_cluster[[24]] , list_UMAPs_by_cluster[[25]] , list_UMAPs_by_cluster[[26]] , list_UMAPs_by_cluster[[27]] , list_UMAPs_by_cluster[[28]] , list_UMAPs_by_cluster[[29]] , list_UMAPs_by_cluster[[30]] , list_UMAPs_by_cluster[[31]], ncol = 5)
-```
-
-#### Show correspondance with old clusters (Alluvium plot, Sankey diagram)
-
-```{r}
-##This is the set up for this:
-## two clusters that differ
-table(tenx.mutant.integrated.sex@meta.data$seurat_clusters, tenx.mutant.integrated.sex@meta.data$pre_sex_clusters)
-```
-
-```{r}
-## make a dataframe that is the meta data
-df_meta_data <- as.data.frame(tenx.mutant.integrated.sex@meta.data)
-
-df_alluvial <- melt(table(data.frame(full_clusters = df_meta_data$pre_sex_clusters, sex_clusters = df_meta_data$seurat_clusters)))
-
-## load required package
-library(ggalluvial)
-
-## plot
-ggplot(df_alluvial, aes(y = value, axis1 = full_clusters, axis2 = sex_clusters)) +
-  geom_alluvium(aes(fill = sex_clusters),
-                width = 0, knot.pos = 0, reverse = FALSE) +
-  guides(fill = FALSE) +
-  geom_stratum(width = 1/8, reverse = FALSE) +
-  geom_text(stat = "stratum", infer.label = TRUE, reverse = FALSE) +
-  scale_x_continuous(breaks = 1:2, labels = c("original cluster", "Sex Cluster")) +
-  coord_flip() +
-  ggtitle("Cluster Identiity in full dataset vs. sex only") +
-    theme_classic()
-```
-
-#### Show representation of genotypes per cluster
-
-prep for dotplot
-```{r}
-## make a dataframe that is the meta data
-df_meta_data <- as.data.frame(tenx.mutant.integrated.sex@meta.data)
-
-## define order for plotting 
-my_levels_sex <- c("0", "9", "28", "2", "29", "16", "22", "23", "15", "21", "30", "4", "3", "18", "7", "8", "6", "20", "12", "26", "13", "5", "11", "25", "1", "17", "10", "24", "14", "27", "19")
-
-## redefine order of clusters:
-df_meta_data$seurat_clusters <- factor(x = df_meta_data$seurat_clusters, levels = my_levels_sex)
-
-## make a new df of CLUSTER and IDENTITY
-dot_plot_df <- as.data.frame.matrix(table(df_meta_data$seurat_clusters, df_meta_data$identity_combined))
-dot_plot_df$cluster <- rownames(dot_plot_df)
-
-## calculate percentage of cells for each genotype
-dot_plot_df_pc <- (as.data.frame.matrix(prop.table(table(df_meta_data$seurat_clusters, df_meta_data$identity_combined), margin = 2)) * 100)
-
-## make a column for cluster names
-dot_plot_df_pc$cluster <- rownames(dot_plot_df_pc)
-
-## melt dataframe for plotting
-library(reshape2)
-dot_plot_df_pc_melted <- melt(dot_plot_df_pc, variable.name = "cluster")
-colnames(dot_plot_df_pc_melted)[2] <- "identity"
-
-## melt the raw number too
-dot_plot_df_melted <- melt(dot_plot_df, variable.name = "cluster")
-colnames(dot_plot_df_melted)[2] <- "identity"
-colnames(dot_plot_df_melted)[3] <- "raw_number"
-
-## merge together
-identical(dot_plot_df_melted$cluster, dot_plot_df_pc_melted$cluster)
-dot_plot_merged <- cbind(dot_plot_df_melted, dot_plot_df_pc_melted)
-dot_plot_merged <- dot_plot_merged[,c(1,2,3,6)]
-
-## redefine order of clusters
-dot_plot_merged$cluster <- factor(x = dot_plot_merged$cluster, levels = my_levels_sex)
-
-## where values are zero, add NA
-## find wells where it's zero
-zero_values <- dot_plot_merged$value == 0
-dot_plot_merged$value[zero_values] <- NA
-
-## also do for raw number
-zero_values <- dot_plot_merged$raw_number == 0
-dot_plot_merged$raw_number[zero_values] <- NA
-
-## reorder x axis:
-my_levels_genotype <- c("GCSKO-oom", "GCSKO-29", "GCSKO-2", "GCSKO-19", "GCSKO-3", "GCSKO-21", "GCSKO-13", "GCSKO-28", "GCSKO-10_820", "GCSKO-17", "GCSKO-20", "WT", "WT_10X")
-
-dot_plot_merged$identity <- factor(x = dot_plot_merged$identity, levels = my_levels_genotype)
-```
-
-plot
-```{r, fig.width = 6, fig.height= 7}
-## plot
-dot_plot_identity <- ggplot(dot_plot_merged, aes(y = factor(cluster), x = factor(identity))) +
-      ## make into a dot plot
-      geom_point(aes(colour=value, size=raw_number)) + 
-      scale_color_gradient(low="blue", high="red", limits=c( 0, max(dot_plot_df_pc_melted$value)), na.value="white") +
-      #change the colours
-      scale_colour_viridis(option = "inferno", guide = "colourbar", na.value="white") +
-      theme_classic() +
-      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(), text=element_text(size=16,  family="Arial")) +
-      ylab("Cluster") +
-      xlab("Identity") +
-      theme(axis.text.x=element_text(size=12, angle=45, hjust=1, vjust=1), axis.text.y=element_text(size=12,), legend.position = "bottom", plot.margin = unit(c(1,3,1,3), "lines")) +
-    ## annotate males
-    geom_hline(aes(yintercept = 5.5)) +
-    ## annotate females
-    geom_hline(aes(yintercept = 20.5)) +
-    ## annotate pheno 1
-    geom_vline(aes(xintercept = 4.5)) +
-    ## annotate pheno 2
-    geom_vline(aes(xintercept = 5.5)) +    
-    ## annotate pheno 3
-    geom_vline(aes(xintercept = 7.5)) +
-    ## annotate pheno 4
-    geom_vline(aes(xintercept = 11.5))
+```{r, fig.height = 4, fig.width = 4}
+## Plot
+umap_cluster <- DimPlot(tenx.mutant.integrated.sex, label = TRUE, label.size = 8, repel = FALSE, pt.size = 0.5, dims = c(2,1), reduction = "DIM_UMAP") + 
+  coord_fixed() +
+  theme(legend.position="bottom", 
+        axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank()) + 
+  guides(colour=guide_legend(nrow = 3, byrow = TRUE, override.aes = list(size=5)))
 
 ## print
-print(dot_plot_identity)
+umap_cluster
 ```
 
-# 4. Slingshot and SCMAP {.tabset}
+13 is the common sex branch so we will interrogate that branch
 
-We can then use Slingshot to plot a Pseudotime and extract mutually exclusive parts of the trajectory (Male and Female) as well as the common stalk of both trajectories.
-
-### Slingshot
-
-packages
 ```{r}
-library(slingshot)
-library(scater)
-```
+## subset cluster 13 cells
+cells_thirteen <- rownames(tenx.mutant.integrated.sex@meta.data[tenx.mutant.integrated.sex@meta.data$seurat_clusters == 13, ])
 
-Data In
-```{r}
-## extract the data from the objects and save to export to Arthur
-integrated_sex_counts <- tenx.mutant.integrated.sex@assays$integrated@data
-integrated_sex_pheno <- tenx.mutant.integrated.sex@meta.data
-#saveRDS(integrated_sex_counts, file="~/data_to_export/integrated_sex_counts.RDS")
-#saveRDS(integrated_sex_pheno, file="~/data_to_export/integrated_sex_pheno.RDS")
-#sexcount<-readRDS("/Users/talman/Google\ Drive/ActiveSanger/sexpaper/integrated_sex_counts.RDS")
-#sexpheno<-readRDS("/Users/talman/Google\ Drive/ActiveSanger/sexpaper/integrated_sex_pheno.RDS")
-sexcount <- integrated_sex_counts
-sexpheno <- integrated_sex_pheno
+## subset cluster 13
+seurat_thirteen <- subset(tenx.mutant.integrated.sex, cells = cells_thirteen)
 
-## technically this is a shortcut but it didn't work
-##https://satijalab.org/seurat/v3.1/conversion_vignette.html
-#convert Seurat to SCE object:
-#pbmc.sce <- as.SingleCellExperiment(tenx.mutant.integrated.sex), assay = "integrated")
-```
+## re-PCA
+seurat_thirteen <- RunPCA(seurat_thirteen, npcs = 30, verbose = FALSE)
+ElbowPlot(seurat_thirteen, ndims = 30, reduction = "pca")
 
-#### slingshot on PCA
-Preprocess
-```{r}
-## make a single cell experiment object, which is the input for Slingshot
-sexbranch <- SingleCellExperiment(assays = list(
-  counts = as.matrix(sexcount),
-  logcounts = as.matrix(sexcount)
-), colData = sexpheno)
+## recluster
+seurat_thirteen <- FindNeighbors(seurat_thirteen, dims = 1:15)
+seurat_thirteen <- FindClusters(seurat_thirteen, resolution = 1, random.seed = 42, algorithm = 2)
 
-## subset wild-type cells
-sexbranchWT<- sexbranch[, colData(sexbranch)$genotype == "WT"|colData(sexbranch)$experiment == "tenx_5k"]
-
-## calculate the QC metrics
-sexbranchWT<-calculateQCMetrics(sexbranchWT)
-
-## set up the colour pal
-nb.cols <- 18 
-mycolors <- colorRampPalette(brewer.pal(9, "Set1"))(nb.cols)
-```
-
-Calculate the PCS
-```{r}
-## calculate PCA
-pca <- prcomp(t(assays(sexbranchWT)$counts), scale. = FALSE)
-
-## subset coordinates
-rd1 <- pca$x[,1:2]
-
+## plot cluster resolution = 1
 ## plot
-plot(rd1, col = rgb(0,0,0,.5), pch=16, asp = 2)
-
-## cluster using kmeans
-## you need to set a seed here to ensure the results are reproducible
-set.seed(42)
-cl2 <- kmeans(rd1, centers = 13)$cluster
-
-## plot
-plot(rd1, col = mycolors[cl2], asp = 3, pch = 16)
-
-## make a nicer plot so we can interpret the clusters
-df_plotting <- as.data.frame(cbind(rd1, cl2))
-## change to character to make it discrete
-df_plotting$cl2 <- as.character(df_plotting$cl2)
-## plot
-ggplot(df_plotting, aes(x = PC1, y = PC2, colour = cl2)) + 
-  geom_point() + 
-  scale_colour_manual(values = rainbow(13)) + 
-  theme_classic()
-```
-
-```{r}
-## initialise plot to prevent error
-plot.new()
-
-## slingshot to get lineages
-lin1 <- getLineages(rd1, cl2,start.clus = '8')
-
-## make a curve through lineage 
-crv1 <- getCurves(lin1)
-
-## join points with line segments and plot
-plot(rd1, col = mycolors[cl2], asp = 3, pch = 16)
-lines(crv1, lwd = 3, col = 'black')
-
-## add PCA coordinates to SCE object
-reducedDims(sexbranchWT) <- SimpleList(PCA = rd1)
-
-## add clusters to SCE object
-sexbranchWT$GMM<-cl2
-
-## Add pseudotimes to SCE object
-sexbranchWT$PT_LineageFemale<-as.data.frame(slingPseudotime(crv1))$curve1
-sexbranchWT$PT_LineageMale<-as.data.frame(slingPseudotime(crv1))$curve2
-
-## add designation to SCE object
-sexbranchWT$male<-is.na(sexbranchWT$PT_LineageFemale)
-sexbranchWT$female<-is.na(sexbranchWT$PT_LineageMale)
-vec <- vector()
-for (i in 1:length(sexbranchWT$male)) {
-if (sexbranchWT$male[i] == sexbranchWT$female[i]) {vec<-c(vec,"pre-det")}
-  if (sexbranchWT$male[i] == TRUE) {vec<-c(vec,"male")}
-  if (sexbranchWT$female[i] == TRUE) {vec<-c(vec,"female")}  
-}
-
-sexbranchWT$sex<-vec
-
-## plot coloured by NEK3 (PBANKA_0600600)
-plotPCA(sexbranchWT,shape_by="sex",colour_by="PBANKA-0600600")
-```
-
-#### slingshot on UMAP
-
-```{r}
-## extracts only 10x cells 
-wt_cells <- rownames(tenx.mutant.integrated.sex@meta.data[which(tenx.mutant.integrated.sex@meta.data$identity_combined == "WT_10X"),])
-
-## make a new Seurat of this
-seurat.object <-SubsetData(tenx.mutant.integrated.sex, cells = wt_cells)
-
-## get UMAP coordinates
-umap_coords <- seurat.object@reductions$umapoptimised_post_repca@cell.embeddings
-
-## get clusters
-#clusters <- as.list(seurat.object@meta.data$integrated_snn_res.4)
-#names(clusters) <- rownames(seurat.object@meta.data)
-#clusters <- as.list(clusters)
-## cluster using kmeans
-## you need to set a seed here to ensure the results are reproducible
-set.seed(42)
-clusters <- kmeans(umap_coords, centers = 13)$cluster
-
-## plot
-## make a nicer plot so we can interpret the clusters
-df_plotting <- as.data.frame(cbind(umap_coords, clusters))
-## change to character to make it discrete
-df_plotting$clusters <- as.character(df_plotting$clusters)
-## plot
-ggplot(df_plotting, aes(x = umapoptimised_1, y = umapoptimised_2, colour = clusters)) + 
-  geom_point() + 
-  scale_colour_manual(values = rainbow(15)) + 
-  theme_classic()
-
-
-## initialise plot to prevent error
-plot.new()
-
-## slingshot to get lineages
-lineage_uamp <- getLineages(umap_coords, clusters, start.clus = '6', end.clus = c('1', '12'))
-
-## make a curve through lineage 
-crv1 <- getCurves(lineage_uamp)
-
-## join points with line segments and plot
-plot(umap_coords, col = mycolors[clusters], asp = 3, pch = 16)
-lines(crv1, lwd = 3, col = 'black')
-```
-
-Add data to Seurat:
-```{r}
-## extract data to add to Seurat
-## extract clusters
-meta_data_to_add_from_slingshot <- data.frame(clusters_k_means_UMAP = clusters)
-## Add pseudotimes
-# check the length of each branch to see which curve is which using: sum(is.na(as.data.frame(slingPseudotime(crv1))$curve1))
-# then inspect using the ggplot2 above to where males are - 
-# tail(as.data.frame(slingPseudotime(crv1)), 100)
-# tail(meta_data_to_add_from_slingshot, 100)
-meta_data_to_add_from_slingshot$PT_Female_UMAP <- as.data.frame(slingPseudotime(crv1))$curve1
-meta_data_to_add_from_slingshot$PT_Male_UMAP <- as.data.frame(slingPseudotime(crv1))$curve2
-## add designation to SCE object
-meta_data_to_add_from_slingshot$sex_UMAP <- "pre-det"
-meta_data_to_add_from_slingshot$sex_UMAP[which(is.na(meta_data_to_add_from_slingshot$PT_Female_UMAP))] <- "male"
-meta_data_to_add_from_slingshot$sex_UMAP[which(is.na(meta_data_to_add_from_slingshot$PT_Male_UMAP))] <- "female"
-
-## if there are 3 curves in slingPseudotime(crv1):
-#meta_data_to_add_from_slingshot$sex_UMAP[which(is.na(meta_data_to_add_from_slingshot$PT_Female_UMAP) & is.na(as.data.frame(slingPseudotime(crv1))$curve3))] <- "male"
-#meta_data_to_add_from_slingshot$sex_UMAP[which(is.na(meta_data_to_add_from_slingshot$PT_Male_UMAP) & is.na(as.data.frame(slingPseudotime(crv1))$curve3))] <- "female"
-
-## add clusters to SCE object
-tenx.mutant.integrated.sex <- AddMetaData(tenx.mutant.integrated.sex, meta_data_to_add_from_slingshot)
-```
-
-```{r, fig.height = 5, fig.width = 10}
-## plot
-FeaturePlot(tenx.mutant.integrated.sex, label.size = 5, pt.size = 0.5, features = c("PT_Female_UMAP", "PT_Male_UMAP")) +
-  theme_void() +
-  theme(legend.position = "bottom") +
-  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
-```
-
-
-
-plot sex designations
-```{r, fig.height = 7, fig.width = 7}
-DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "sex_UMAP", na.value = "white") +
+DimPlot(seurat_thirteen, reduction = "DIM_UMAP",  dims = c(2,1), label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "integrated_snn_res.1") +
   coord_fixed() +
   theme_void() +
   theme(legend.position = "bottom") +
   guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
 ```
 
-### SCMAP
+2 and 1 are superimposed on the branch, lets find markers for each cluster
 
-Load package
 ```{r}
-library(scmap)
-```
+## find markers
+seurat_thirteen_markers <- FindAllMarkers(seurat_thirteen, only.pos = FALSE, min.pct = 0.25, logfc.threshold = 0.25)
 
-Set up Index
-```{r}
-#the reference dataset is: sexbranchWT
-## set up a feature symbol column in the SCE object
-rowData(sexbranchWT)$feature_symbol <- rownames(sexbranchWT)
+## inspect result
+markers_subset <- seurat_thirteen_markers %>% group_by(cluster) %>% top_n(n = 50, wt = avg_logFC) %>% filter(p_val_adj < 0.05)
+markers_subset
 
-## make an is_expr assay which only counts values with more than 0
-assay(sexbranchWT, "is_expr") <- counts(sexbranchWT) > 0
-
-## Select the top 500 most important genes
-sexbranchWT <- selectFeatures(sexbranchWT, suppress_plot = FALSE, n_features = 500)
-
-## inspect features selected
-table(rowData(sexbranchWT)$scmap_features)
-
-## create reference index
-sexbranchWT <- indexCell(sexbranchWT)
-
-## inspect results
-names(metadata(sexbranchWT)$scmap_cell_index)
-length(metadata(sexbranchWT)$scmap_cell_index$subcentroids)
-dim(metadata(sexbranchWT)$scmap_cell_index$subcentroids[[1]])
-```
-
-Query dataset
-```{r}
-#query data set is called: sexbranch
-z <- sexbranch
-
-## add feature symbol to SCE object
-rowData(z)$feature_symbol <- rownames(z)
-
-## map cells
-scmapCell_results <- scmapCell(z, list(yan = metadata(sexbranchWT)$scmap_cell_index))
-
-## copy over PCA coordinate
-colData(sexbranchWT)$PC1<-as.data.frame(reducedDim(sexbranchWT))$PC1
-colData(sexbranchWT)$PC2<-as.data.frame(reducedDim(sexbranchWT))$PC2
-
-## Get nearest cell - which is located in the first row and make a list
-getcells <- scmapCell_results$yan$cells[1, ]
-## Extract meta data for these cells
-cdsce <- colData(sexbranchWT)[getcells, ]
-## Get similarity scores
-topsim <- scmapCell_results$yan$similarities[1, ]
-
-## add meta data to query dataset
-# add nearest cell
-z$top_pbcell <- getcells
-## add PCA coordinates
-z$PC1 <- cdsce$PC1
-z$PC2 <- cdsce$PC2
-## add assigned sex
-z$sex<- cdsce$sex
-## add pt
-z$PT_LineageFemale<- cdsce$PT_LineageFemale
-z$PT_LineageMale<- cdsce$PT_LineageMale
-## add similarity score
-z$topsim <- topsim
-
-## inspect similarity scores
-hist(z$topsim)
-
-## count anything with a similarity score below 0.4 as unassigned
-z$topcell_sp[z$topsim < 0.4] <- "unassigned"
-z$topcell_sp <- as.factor(z$topcell_sp)
-z$yt<-rep("assigned",length(z$topcell_sp))
-z$yt[z$topsim < 0.4] <- "unassigned"
-
-## extract PC scores
-no <- as.data.frame(reducedDim(sexbranchWT)[,1:2])
-## extract meta data
-number2 <- as.data.frame(cdsce)
-## extract top cell
-number2$topcell_sp <- z$yt
+## find markers
+markers_subset_mutant <- markers_subset[which(markers_subset$gene %in% list_of_mutant_genes), ]
+markers_subset_mutant
 
 ## plot
-ggplot(no, aes(PC1, PC2)) +
- geom_point(size = 1,alpha = 1/10) +
- geom_point(aes(x=PC1, y=PC2,shape=factor(topcell_sp)), data=number2, size=2, colour="black") +
- theme_classic() + scale_shape_manual(values=c(1,2))+
- scale_color_manual( values = c("0" = "#1f77b4","1" ="#ff7f0e","2" ="#2ca02c","3,0" ="#d62728","3,1" ="#9467bd","3,2"="#8c564b","3,3"="#e377c2","4"="#bcbd22","5"="#17becf","6"="#aec7e8")) + labs(x="PC1", y="PC2") 
-
-#+
-#  theme(legend.position="none", axis.title=element_text(size=8), legend.text = element_text(size = , legend.title = element_text(size #= 8), axis.text = element_text(size=:sunglasses:, axis.text.x = element_blank(), axis.text.y = element_blank())
-
+VlnPlot(seurat_thirteen, features = c(markers_subset_mutant$gene, "PBANKA-1437500"), assay = "RNA")
 ```
-
-### to skip this section above and just get the data output from Arthur's script where PCA is used as the base dimensionality reduction:
-
-read in Arthur's data
+Specifically look for markers between 1 and 2
 ```{r}
-## read in data
-at_data <- readRDS("~/data/sexbranch")
+cluster_1_2_markers <- FindMarkers(seurat_thirteen, ident.1 = 1, ident.2 = 2, only.pos = FALSE, min.pct = 0.25, logfc.threshold = 0.25)
 
-## extract values of interest
-at_meta_data <- as.data.frame(at_data@colData)
-
-## look at new cols:
-head(table(at_meta_data$top_pbcell))
-head(table(at_meta_data$topsim))
-head(table(at_meta_data$topcell_sp))
-head(table(at_meta_data$yt))
-head(table(at_meta_data$sex))
-#table(at_meta_data$PT_LineageFemale)
-#table(at_meta_data$PT_LineageMale)
+cluster_1_2_markers_subset <- cluster_1_2_markers %>% filter(p_val_adj < 0.05)
+cluster_1_2_markers_subset
 ```
-
-Add meta data to Seurat object
+Just check that mutants aren't interfering  with the analysis i.e. the clusters don't just belong to a certain genotype or mutant cell
 ```{r}
-colnames_to_add_to_meta_data <- c("top_pbcell", "topsim", "topcell_sp", "yt", "sex", "PT_LineageFemale", "PT_LineageMale")
-
-tenx.mutant.integrated.sex <- AddMetaData(tenx.mutant.integrated.sex, metadata = at_meta_data[,which(colnames(at_meta_data) %in% colnames_to_add_to_meta_data)], col.name = c("at_top_pbcell", "at_topsim", "at_topcell_sp", "at_yt", "at_sex", "at_PT_LineageFemale", "at_PT_LineageMale"))
-
-## to remove columns in metadata:
-#tenx.mutant.integrated.sex@meta.data[136:144] <- NULL
-#tenx.mutant.integrated.sex@meta.data[['NAME_OF_COL']] <- NULL
+table(seurat_thirteen$seurat_clusters, seurat_thirteen$identity_combined)
 ```
 
-Plot sexes
-```{r, fig.height = 7, fig.width = 7}
-DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "at_sex") +
+Do the same analysis on cluster 3 quickly
+```{r}
+## subset cluster 13 cells
+cells_three <- rownames(tenx.mutant.integrated.sex@meta.data[tenx.mutant.integrated.sex@meta.data$seurat_clusters == 3, ])
+
+## subset cluster 13
+cells_three <- subset(tenx.mutant.integrated.sex, cells = cells_three)
+
+## re-PCA
+cells_three <- RunPCA(cells_three, npcs = 30, verbose = FALSE)
+ElbowPlot(cells_three, ndims = 30, reduction = "pca")
+
+## recluster
+cells_three <- FindNeighbors(cells_three, dims = 1:5)
+## first do a c(0.5,1,2) for resolution and then pick a sensible cluster number
+cells_three <- FindClusters(cells_three, resolution = 0.5, random.seed = 42, algorithm = 2)
+
+## plot cluster resolution = 1
+## plot
+DimPlot(cells_three, reduction = "DIM_UMAP",  dims = c(2,1), label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "integrated_snn_res.0.5") +
   coord_fixed() +
   theme_void() +
   theme(legend.position = "bottom") +
   guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
 ```
 
-```{r, fig.height = 5, fig.width = 10}
-## the slingshot pt values have NAs for e.g. male cells in the PT_LineageFemale, we can deal with this later, but for now, we will just ignore this as Dimplot will not plot NA values
-#sum(is.na(tenx.mutant.integrated.sex@meta.data$at_PT_LineageMale))
-#sum(is.na(tenx.mutant.integrated.sex@meta.data$at_PT_LineageFemale))
+```{r}
+## find markers
+cells_three_markers <- FindAllMarkers(cells_three, only.pos = FALSE, min.pct = 0.25, logfc.threshold = 0.25)
+
+## inspect result
+markers_subset <- cells_three_markers %>% group_by(cluster) %>% top_n(n = 50, wt = avg_logFC) %>% filter(p_val_adj < 0.05)
+markers_subset
+
+## find markers
+markers_subset_mutant <- markers_subset[which(markers_subset$gene %in% list_of_mutant_genes), ]
+markers_subset_mutant
 
 ## plot
-FeaturePlot(tenx.mutant.integrated.sex, label.size = 5, pt.size = 0.5, features = c("at_PT_LineageFemale", "at_PT_LineageMale")) +
-  theme_void() +
-  theme(legend.position = "bottom") +
-  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
-```
-
-
-#### Comparison of cluster way of calling males and females vs. slingshot:
-
-```{r}
-table(tenx.mutant.integrated.sex@meta.data$sex)
-
-male_clusters <- c("13", "5", "11", "25", "1", "17", "10", "24", "14", "27", "19")
-female_clusters <- c("16", "22", "23", "15", "21", "30", "4", "3", "18", "7", "8", "6", "20", "12", "26")
-asex_clusters <- c("0", "9", "28", "2", "29")
-
-tenx.mutant.integrated.sex@meta.data$sex_designation_using_clusters <- NA
-tenx.mutant.integrated.sex@meta.data$sex_designation_using_clusters[which(tenx.mutant.integrated.sex@meta.data$seurat_clusters %in% male_clusters)] <- "Male"
-tenx.mutant.integrated.sex@meta.data$sex_designation_using_clusters[which(tenx.mutant.integrated.sex@meta.data$seurat_clusters %in% female_clusters)] <- "Female"
-tenx.mutant.integrated.sex@meta.data$sex_designation_using_clusters[which(tenx.mutant.integrated.sex@meta.data$seurat_clusters %in% asex_clusters)] <- "Pre-det"
-
-table(tenx.mutant.integrated.sex@meta.data$sex_designation_using_clusters)
+VlnPlot(cells_three, features = c(markers_subset_mutant$gene, "PBANKA-1437500"), assay = "RNA")
 ```
 
 ```{r}
-table(tenx.mutant.integrated.sex@meta.data$sex, tenx.mutant.integrated.sex@meta.data$sex_designation_using_clusters)
+df_plot <- data.frame(t(data.frame(cells_three@assays$RNA[c("PBANKA-1447900", "PBANKA-1437500"), ])))
+
+ggplot(df_plot, aes(PBANKA.1447900, PBANKA.1437500)) + geom_point()
 ```
-
-Plot sexes
-```{r, fig.height = 7, fig.width = 7}
-DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "sex") +
-  coord_fixed() +
-  theme_void() +
-  theme(legend.position = "bottom") +
-  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
-```
-
-Plot sexes
-```{r, fig.height = 7, fig.width = 7}
-DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "sex_designation_using_clusters") +
-  coord_fixed() +
-  theme_void() +
-  theme(legend.position = "bottom") +
-  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
-```
-
-correlation of monocle PT and 
-
-```{r}
-## extract pseudotime values:
-pt_values <- as.data.frame(pseudotime(monocle.object, reduction_method = "UMAP"))
-pt_values$cell_name <- rownames(pt_values)
-meta_data_df <- as.data.frame(monocle.object@colData)
-meta_data_df$cell_name <- rownames(meta_data_df)
-meta_data_df <- merge(meta_data_df, pt_values, by = "cell_name")
-names(meta_data_df)[142]<- "pt"
-
-male_pt_correlation_df <- meta_data_df[which(meta_data_df$cell_name %in% male_cells), ]
-female_pt_correlation_df <- meta_data_df[which(meta_data_df$cell_name %in% female_cells), ]
-
-ggplot(male_pt_correlation_df, aes(x = PT_LineageMale, y = pt, colour = sex)) + 
-  geom_point() +  
-  geom_smooth(method = "lm", se = FALSE) +
-  theme_classic()
-
-ggplot(female_pt_correlation_df, aes(x = PT_LineageFemale, y = pt, colour = sex)) + 
-  geom_point() + 
-  geom_smooth(method = "lm", se = FALSE) +
-  theme_classic()
-```
-
-```{r}
-ggplot(male_pt_correlation_df, aes(x = PT_Female_UMAP, y = pt)) + 
-  geom_point() +  
-  geom_smooth(method = "lm", se = FALSE) +
-  theme_classic()
-```
-
 
 # 6. Monocle on sex cells {.tabset}
 
@@ -949,29 +391,25 @@ ggplot(male_pt_correlation_df, aes(x = PT_Female_UMAP, y = pt)) +
 
 #### Preparation
 ```{r}
-## load package
-#library(monocle3)
-
-## help was obtained from here
-## https://github.com/satijalab/seurat/issues/1658
-
-## extract data
-## this extracts wt only cells
-#wt_cells <- rownames(tenx.mutant.integrated.sex@meta.data[which(tenx.mutant.integrated.sex@meta.data$identity_combined == "WT" | tenx.mutant.integrated.sex@meta.data$identity_combined == "WT_10X"),])
-
-## extracts only 10x cells 
-wt_cells <- rownames(tenx.mutant.integrated.sex@meta.data[which(tenx.mutant.integrated.sex@meta.data$identity_combined == "WT_10X"),])
+## extracts only 10x cells and also remove cluster 0 cells 
+wt_cells <- rownames(tenx.mutant.integrated.sex@meta.data[which(tenx.mutant.integrated.sex@meta.data$identity_combined == "WT_10X" & !tenx.mutant.integrated.sex@meta.data$seurat_clusters == "0"),])
 
 ## make a new Seurat of this
-seurat.object <-SubsetData(tenx.mutant.integrated.sex, cells = wt_cells)
+seurat.object <-subset(tenx.mutant.integrated.sex, cells = wt_cells)
 
-## make new counts and pheno:
+## check that this is the same as the pb_sex_filtered object
+#data_test <- as(as.matrix(GetAssayData(pb_sex_filtered, assay = "RNA", slot = "data")), 'sparseMatrix')
+#is.equal
+#is.identical
+
+## extract counts and pheno:
 ## the reason we use the integrated and then subsetted is because these cells have been normalised whereas the cells in pb_sex_filtered have not been normalised (well they have but with doublets in them)
 data <- as(as.matrix(GetAssayData(seurat.object, assay = "RNA", slot = "data")), 'sparseMatrix')
+## make phenodata
 pd <- data.frame(seurat.object@meta.data)
-
-## keep only the columns that are relevant
+## keep only the columns that are relevant in metadata
 #pData <- pd %>% select(orig.ident, nCount_RNA, nFeature_RNA)
+## make gene metadata
 fData <- data.frame(gene_short_name = row.names(data), row.names = row.names(data))
 
 ## Construct monocle cds
@@ -982,56 +420,79 @@ monocle.object = preprocess_cds(monocle.object, num_dim = 50, norm_method = "non
 ### if using integrated data:
 # norm_method = "none", alignment_group = "~ experiment"
 
-plot_pc_variance_explained(monocle.object)
+## plot jack straw plot
+#plot_pc_variance_explained(monocle.object)
 
-monocle.object = reduce_dimension(monocle.object, reduction_method = "UMAP", preprocess_method = "PCA", umap.metric = "euclidean", umap.n_neighbors = 50, umap.min_dist = 0.5, verbose = FALSE)
+#monocle.object = reduce_dimension(monocle.object, reduction_method = "UMAP", preprocess_method = "PCA", umap.metric = "euclidean", umap.n_neighbors = 50, umap.min_dist = 0.5, verbose = FALSE)
 
-plot_cells(monocle.object, color_cells_by="experiment")
-```
+#plot_cells(monocle.object, color_cells_by="experiment")
 
-#### Graph Learning
-```{r}
+## graph learning
+
 ## add UMAP from Seurat
-monocle.object@int_colData@listData$reducedDims@listData[["UMAP"]] <- seurat.object@reductions[["umap"]]@cell.embeddings
+monocle.object@int_colData@listData$reducedDims@listData[["UMAP"]] <- seurat.object@reductions[["DIM_UMAP"]]@cell.embeddings
 
 ## cluster
+## this is essential to run the learn_graph function later on
 monocle.object = cluster_cells(monocle.object)
 
-## plot
-plot_cells(monocle.object, color_cells_by="cluster", group_cells_by="partition")
+## plot initial clustering by monocle
+#plot_cells(monocle.object, color_cells_by="cluster", group_cells_by="partition", x = 2, y = 1)
 
 ## map pseudotime
-monocle.object = learn_graph(monocle.object, learn_graph_control=list(ncenter=400), use_partition = FALSE)
+monocle.object = learn_graph(monocle.object, learn_graph_control=list(ncenter=500), use_partition = FALSE)
 # learn_graph_control=list(ncenter=500) - play with this parameter
 
 ## Plot cells
-plot_cells(monocle.object, color_cells_by="partition", group_cells_by="partition") 
+plot_cells(monocle.object, color_cells_by="partition", group_cells_by="partition", x = 2, y = 1)
 ```
+
 
 #### Pseudotime Calculation
 ```{r}
-## a helper function to identify the root principal points:
-get_earliest_principal_node <- function(cds, time_bin="0"){
-  cell_ids <- which(colData(cds)[, "seurat_clusters"] == time_bin)
-  closest_vertex <-
-  cds@principal_graph_aux[["UMAP"]]$pr_graph_cell_proj_closest_vertex
-  closest_vertex <- as.matrix(closest_vertex[colnames(cds), ])
-  root_pr_nodes <-
-  igraph::V(principal_graph(cds)[["UMAP"]])$name[as.numeric(names
-  (which.max(table(closest_vertex[cell_ids,]))))]
-  
-  root_pr_nodes
-}
-
-## Order the cells and caclulate pseudotime
-monocle.object = order_cells(monocle.object, root_pr_nodes=get_earliest_principal_node(monocle.object))
+## Order the cells and calculate pseudotime
+monocle.object = order_cells(monocle.object)
 
 ## Plot
-plot_cells(monocle.object, color_cells_by = "pseudotime", label_cell_groups=FALSE, cell_size = 2) +
+umap_pt <- plot_cells(monocle.object, color_cells_by = "pseudotime", label_cell_groups=FALSE, cell_size = 1, x = 2, y = 1, label_branch_points=FALSE, label_leaves=FALSE, label_groups_by_cluster=FALSE, label_roots = FALSE) +
   coord_fixed() +
   theme_void() +
   labs(title = "Pseudotime") +
   theme(plot.title = element_text(hjust = 0.5))
+
+## view
+umap_pt
+```
+save
+```{r}
+ggsave("../images_to_export/GCSKO_sexbranch_umap_pt.png", plot = umap_pt, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+Just check if the 'hook' on the males is a lineage or dead/dying/activated gams, or mutants
+
+```{r}
+FeaturePlot(tenx.mutant.integrated.sex, features = "PBANKA-0416100", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP", pt.size = 1, order = TRUE) + 
+            theme_void() + 
+            labs(title = paste("MG1 (Male)")) + 
+            theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+            scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
+```
+
+It appears MG1 marker expression is decreasing/off in these cells - inspect mutant status
+
+```{r, fig.width = 4, fig.height = 4}
+plot <- DimPlot(tenx.mutant.integrated.sex, label = FALSE, label.size = 8, repel = FALSE, pt.size = 0.05, dims = c(2,1), reduction = "DIM_UMAP", group.by = "identity_updated") + 
+  coord_fixed() +
+  theme(legend.position="bottom", 
+        axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank()) + 
+  guides(colour=guide_legend(nrow = 3, byrow = TRUE, override.aes = list(size=5)))
+
+HoverLocator(plot = plot, information = FetchData(tenx.mutant.integrated.sex, vars = c("ident", "identity_updated", "nFeature_RNA")))
 ```
 
 #### Check how well it correlates with the original pseudotime
@@ -1046,22 +507,24 @@ pt_values_new$cell_name <- rownames(pt_values_new)
 meta_data_df <- as.data.frame(monocle.object@colData)
 meta_data_df$cell_name <- rownames(meta_data_df)
 meta_data_df <- merge(meta_data_df, pt_values_new, by = "cell_name")
-names(meta_data_df)[145]<- "pt"
+names(meta_data_df)[ncol(meta_data_df)]<- "pt"
 
-ggplot(meta_data_df, aes(x = old_pt_values, y = pt, colour = sex_UMAP)) + 
+ggplot(meta_data_df, aes(x = old_pt_values, y = pt, colour = cluster_colours_figure)) + 
   geom_point() +  
   geom_smooth(method = "lm", se = FALSE) +
   theme_classic() + stat_cor(method = "pearson")
 ```
 
+This shows very good correlation, and the females have a slightly different correlation but we can see that the branches fit well on the UMAP.
+
 #### Isolate Branches
 
 ```{r}
 ## access the closest principal graph node vertex for each cell and assign it as a column in your colData table using
-colData(monocle.object)$closest_vertex <- monocle.object@principal_graph_aux[["UMAP"]]$pr_graph_cell_proj_closest_vertex[,1]
+#colData(monocle.object)$closest_vertex <- monocle.object@principal_graph_aux[["UMAP"]]$pr_graph_cell_proj_closest_vertex[,1]
 
 ## plot
-plot_cells(monocle.object, color_cells_by = "closest_vertex", label_cell_groups = FALSE)
+#plot_cells(monocle.object, color_cells_by = "closest_vertex", label_cell_groups = FALSE)
 ```
 
 #### Module Construction
@@ -1070,10 +533,12 @@ plot_cells(monocle.object, color_cells_by = "closest_vertex", label_cell_groups 
 monocle.object_pr_test_res <- graph_test(monocle.object, neighbor_graph="principal_graph", cores=8)
 
 ## find significant genes
-pr_deg_ids <- row.names(subset(monocle.object_pr_test_res, q_value < 0.01))
+## I used 0.05 previously in all cells 
+## 2884 w. p = 0.01, 3260 w. p = 0.05
+pr_deg_ids <- row.names(subset(monocle.object_pr_test_res, q_value < 0.05))
 
 ## collect into modules
-gene_module_df_sex <- find_gene_modules(monocle.object[pr_deg_ids,], resolution=c(10^seq(-6,2)))
+gene_module_df_sex <- find_gene_modules(monocle.object[pr_deg_ids,], resolution=c(10^seq(-6,2)), random_seed = 1234)
 
 ## how many genes in modules?
 dim(gene_module_df_sex)
@@ -1085,7 +550,7 @@ paste("there are", length(levels(gene_module_df_sex$module)), "modules")
 
 ## Plot Modules
 
-#### General Module Characteristics
+#### General Module Composition
 
 Make a dataframe to plot by aggregating clusters vs. modules
 ```{r}
@@ -1109,7 +574,7 @@ Find out which modules our mutant genes reside in
 list_of_mutant_genes <- c("PBANKA-0828000", "PBANKA-1302700", "PBANKA-1447900", "PBANKA-0102400", "PBANKA-0716500", "PBANKA-1435200", "PBANKA-1418100", "PBANKA-1144800", "PBANKA-0902300", "PBANKA-0413400", "PBANKA-1454800")
 
 ## make a dataframe to convert the gene IDs into actual IDs
-df_mutant_ids <- as.data.frame(unique(cbind(tenx.mutant.integrated@meta.data$identity_gene_updated, tenx.mutant.integrated@meta.data$identity_updated)))[-c(1, 4),]
+df_mutant_ids <- as.data.frame(unique(cbind(tenx.mutant.integrated@meta.data$identity_gene_updated, tenx.mutant.integrated@meta.data$identity_updated)))[-c(1, 3),]
 # remove the "820" bit on 10
 df_mutant_ids$V1 <- gsub("_820", "", df_mutant_ids$V1)
 # change the underscore (_) to a dash (-) in gene IDs
@@ -1139,20 +604,103 @@ Which modules do other genes of interest lie in?:
 # AP2 - PBANKA-0909600 - from poran paper
 # AP2G-2 - PBANKA-1034300 
 # ccp2 - "PBANKA-1319500" - female 820
+# p25 - "PBANKA-0515000" - female
+# p28 - "PBANKA-0514900" - female
+# ccp3 - "PBANKA-1035200" - female -  https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5909122/
+# nek4 - "PBANKA-0616700" - female
+# ap2-fg - "PBANKA-1415700" - female 
+# dozi - "PBANKA-1217700" - female
 # MG1 - "PBANKA-0416100" - male 820
+# hap2 - "PBANKA-1212600" - male
+# MAPK2 - "PBANKA-0933700" - male
+# nek1 - "PBANKA-1443000" - male
+# cdpk4 - "PBANKA-0615200" - male
 
 ## create a list of landmark genes
-list_of_landmark_genes <- c("PBANKA-1437500", "PBANKA-0909600","PBANKA-1034300", "PBANKA-1319500", "PBANKA-0416100")
+list_of_landmark_genes <- c("PBANKA-1437500",
+                            "PBANKA-0909600",
+                            "PBANKA-1034300", 
+                            "PBANKA-1319500", 
+                            "PBANKA-0515000",
+                            "PBANKA-0514900",
+                            "PBANKA-1035200",
+                            "PBANKA-0616700",
+                            "PBANKA-1415700",
+                            "PBANKA-1217700",
+                            "PBANKA-0416100", 
+                            "PBANKA-1212600",
+                            "PBANKA-0933700",
+                            "PBANKA-1443000",
+                            "PBANKA-0615200")
+
+name_of_landmark_genes <- c("AP2-G", 
+                            "AP2_poran", 
+                            "AP2-G2", 
+                            "ccp2", 
+                            "p25", 
+                            "p28",
+                            "ccp3",
+                            "nek4",
+                            "ap2-fg",
+                            "DOZI",
+                            "mg1", 
+                            "hap2", 
+                            "mapk2",
+                            "nek1",
+                            "cdpk4")
+
+## make a df
+name_of_landmark_genes <- data.frame("gene_name" = name_of_landmark_genes, "id" = list_of_landmark_genes)
 
 ## make dataframe
 df_landmark_gene_modules <- gene_module_df_sex[which(gene_module_df_sex$id %in% list_of_landmark_genes),]
 
+## merge dataframes
+df_landmark_gene_modules <- merge(df_landmark_gene_modules, name_of_landmark_genes, by = "id")
+
 ## inspect
 df_landmark_gene_modules
 ```
+enrichment of screen hits in modules
+```{r}
+## read in screen hits
+library("readxl")
+screen_hits <- read_excel("../data/Screen/Modules_Clusters_Phenotypes.xlsx")
+
+## get only hits
+screen_hits_selected <- screen_hits[which(screen_hits$`Gam phenotype screen` == "Both" | screen_hits$`Gam phenotype screen` == "Females" | screen_hits$`Gam phenotype screen` == "Males"), ] 
+
+## extract gene IDs
+gene_hits <- screen_hits_selected$`new gene ID`
+## change the underscore to a dash
+gene_hits <- gsub("_", "-", gene_hits)
+
+## find out which modules they are in
+df_hits_gene_modules <- gene_module_df_sex[which(gene_module_df_sex$id %in% gene_hits),]
+print("screen hits by module")
+table(df_hits_gene_modules$module)
+
+## get the number genes screened in that module
+screen_hits_screened <- screen_hits[which(screen_hits$`Gam phenotype screen` == "Both" | screen_hits$`Gam phenotype screen` == "Females" | screen_hits$`Gam phenotype screen` == "Males" | screen_hits$`Gam phenotype screen` == "None" | screen_hits$`Gam phenotype screen` == "male not enough power"), ] 
+## extract gene IDs
+genes_screened <- screen_hits_screened$`new gene ID`
+## change the underscore to a dash
+genes_screened <- gsub("_", "-", genes_screened)
+## find out which modules they are in
+df_screened_gene_modules <- gene_module_df_sex[which(gene_module_df_sex$id %in% genes_screened),]
+print("total genes screened in this module")
+table(df_screened_gene_modules$module)
+
+## make a table with this info
+pc_screened <- data.frame(hits = table(df_hits_gene_modules$module), screened =  table(df_screened_gene_modules$module))[,-3]
+names(pc_screened) <- c("module", "hits", "screened")
+pc_screened$pc <- (pc_screened$hits /pc_screened$screened)*100
+
+```
+
+#### Visualise module expression
 
 plot out modules
-
 ```{r, fig.height = 7, fig.width = 7}
 ## make aggregated df again so you can edit it
 agg_mat <- aggregate_gene_expression(monocle.object, gene_module_df_sex, cell_group_df)
@@ -1164,21 +712,230 @@ module_dendro <- hclust(dist(agg_mat))
 gene_module_df_sex$module <- factor(gene_module_df_sex$module, levels = row.names(agg_mat)[module_dendro$order])
 
 ## plot
-plot_cells(monocle.object, genes=gene_module_df_sex %>% filter(module %in% c(1:20)),
-                          label_cell_groups=FALSE,
-                          scale_to_range = TRUE,
-                          show_trajectory_graph=FALSE,
-                          group_label_size = 8) +
+UMAP_modules <- plot_cells(monocle.object, genes=gene_module_df_sex %>% filter(module %in% c(1:20)),
+           cell_size = 2, 
+           x = 2, y = 1,
+           label_cell_groups=FALSE,
+           scale_to_range = TRUE,
+           show_trajectory_graph=FALSE) +
                           scale_colour_viridis_c(name = "expression", option = "C", alpha = 1) +
                           coord_fixed() +
                           theme_void() +
-                          theme(legend.position = "bottom")
+                          theme(legend.position = "bottom", strip.text.x = element_text(size = 15))
+
+## view
+UMAP_modules
+```
+save
+```{r}
+ggsave("../images_to_export/GCSKO_sexbranch_umap_modules.png", plot = UMAP_modules, device = "png", path = NULL, scale = 1, width = 30, height = 30, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 ```{r}
 ## make a dataframe of genes per module
 genes_per_module <- as.data.frame(table(gene_module_df_sex$module))
+
+## inspect
+genes_per_module
 ```
+
+```{r, fig.height = 8, fig.width = 12}
+## A. Preparation of dataframe
+
+## prepare custom dataframe for all cells by modules:
+agg_mat_no_group <- aggregate_gene_expression(monocle.object, gene_module_df_sex)
+
+## B. annotations
+
+## make an anotation
+## add pt to the monocle object
+monocle.object@colData$pt <- as.data.frame(pseudotime(monocle.object, reduction_method = "UMAP"))
+## make an annotation dataframe
+anno_no_group <- data.frame(monocle.object@colData$cluster_colours_figure, monocle.object@colData$pt, as.factor(monocle.object@colData$Prediction.Spearman._Kasia), row.names = rownames(monocle.object@colData))
+names(anno_no_group) <- c("Sex", "Pseudotime", "Real_time_prediction")
+
+## make annotation colours
+annotation_colours <- list(Sex = c(Male="#016c00", Female="#a52b1e", Bipotential = "#ffe400", Asexual = "#0052c5"),
+                           Pseudotime = plasma(12, direction = 1),
+                           Real_time_prediction = c("0" = viridis(8, direction = 1)[1] ,"1" =  viridis(8, direction = 1)[2] ,"4" = viridis(8, direction = 1)[3] ,"6" = viridis(8, direction = 1)[4] ,"8" = viridis(8, direction = 1)[5]  ,"12"  = viridis(8, direction = 1)[6]  ,"18" = viridis(8, direction = 1)[7]  ,"24" = viridis(8, direction = 1)[8]))
+
+## change the order of the cols (cells) in data frame
+col.order <- rownames(anno_no_group[with(anno_no_group, order(Sex, Pseudotime)), ])
+agg_mat_no_group <- agg_mat_no_group[,col.order]
+
+## reorder the rows (gene modules) in the data frame so they are in pt order
+## define the order visually and using the clusters originally produced
+row.order <- c("7", "8", "6", "3", "12","4", "16", "15", "10", "1", "13", "17", "2", "18", "11", "14", "9", "5")
+## reorder using new order
+agg_mat_no_group <- agg_mat_no_group[row.order, ]
+
+## for cuts in columns - used later to count number of cells in each cat
+df_meta <- as.data.frame(monocle.object@colData)
+female_cells <- rownames(df_meta[which(df_meta$cluster_colours_figure == "Female"), ])
+male_cells <- rownames(df_meta[which(df_meta$cluster_colours_figure == "Male"), ])
+bi_cells <- rownames(df_meta[which(df_meta$cluster_colours_figure == "Bipotential"), ])
+asex_cells <- rownames(df_meta[which(df_meta$cluster_colours_figure == "Asexual"), ])
+rm(df_meta)
+
+## add module and the number of cells to the row
+## change names for row names to include "module " at the begining of them
+labels.row <- stringr::str_c("Module ", row.names(agg_mat_no_group))
+## reorder frequency so that it is matching our matrix
+genes_per_module_ordered <- genes_per_module[match(row.names(agg_mat_no_group), genes_per_module$Var1), ]
+## add number of cells to the rownames for the module
+for(i in seq_along(genes_per_module_ordered$Freq)){
+  labels.row[i] <- stringr::str_c(labels.row[i]," (n = " ,genes_per_module_ordered$Freq[i], ")")
+}
+
+## C. Plotting
+
+## plot
+heatmap_main <- pheatmap::pheatmap(agg_mat_no_group, 
+                   #scale="row",
+                   cluster_cols = FALSE,
+                   cluster_rows = FALSE,
+                   ## others: ward.D2,
+                   #clustering_method="complete",
+                   show_colnames = FALSE,
+                   labels_row = labels.row,
+                   fontsize_row = 15,
+                   fontsize = 15,
+                   gaps_col = c(length(asex_cells), length(c(asex_cells,bi_cells)), length(c(asex_cells,bi_cells,female_cells))),
+                   annotation_col = anno_no_group, 
+                   annotation_colors = annotation_colours, 
+                   cutree_rows = 6)
+
+## view
+heatmap_main
+```
+save
+```{r}
+ggsave("../images_to_export/GCSKO_sexbranch_heatmap.png", plot = heatmap_main, device = "png", path = NULL, scale = 1, width = 27, height = 20, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+#### Visualise the expression of select genes over pseudotime
+
+```{r, fig.height = 8, fig.width = 10}
+## landmark genes (genes of interest)
+# AP2G - PBANKA-1437500
+# AP2 - PBANKA-0909600 - from poran paper
+# AP2G-2 - PBANKA-1034300 
+#list_of_mutant_genes <- c("PBANKA-0828000", "PBANKA-1302700", "PBANKA-1447900", "PBANKA-0102400", "PBANKA-0716500", "PBANKA-1435200", "PBANKA-1418100", "PBANKA-1144800", "PBANKA-0902300", "PBANKA-0413400", "PBANKA-1454800")
+
+## define genes to plot
+list_of_genes_of_interest <- c("PBANKA-0102400", "PBANKA-0413400", "PBANKA-0716500", "PBANKA-0828000", "PBANKA-0902300", "PBANKA-1144800", "PBANKA-1302700", "PBANKA-1418100", "PBANKA-1435200", "PBANKA-1447900", "PBANKA-1454800", "PBANKA-1437500", "PBANKA-1319500", "PBANKA-0416100")
+## add names
+names_of_genes_of_interest <- c("GCSKO-2", "GCSKO-10", "GCSKO-19", "GCSKO-3", "GCSKO-13", "GCSKO-28", "GCSKO-oom", "GCSKO-17", "GCSKO-20", "GCSKO-29", "GCSKO-21", "AP2-G", "CCP2", "MG1")
+
+##make df for genes of interest
+genes_of_interest <- data.frame(gene = list_of_genes_of_interest, group = c(1:length(list_of_genes_of_interest)), name = names_of_genes_of_interest)
+## reorder
+#genes_of_interest <- genes_of_interest[match(c("AP2-G", "CCP2", "GCSKO-21", "GCSKO-17", "GCSKO-2", "MG1", "GCSKO-20", "GCSKO-3", "GCSKO-oom", "GCSKO-29", "GCSKO-10", "GCSKO-28", "GCSKO-19", "GCSKO-13"), genes_of_interest$name), ]
+
+## prepare custom dataframe for all cells by modules:
+agg_mat_genes_of_interest <- aggregate_gene_expression(monocle.object, genes_of_interest[,1:2])
+
+## reorder using new order
+agg_mat_genes_of_interest <- agg_mat_genes_of_interest[,col.order]
+
+## plot
+heatmap_plot <- pheatmap::pheatmap(agg_mat_genes_of_interest, 
+                   #scale="row",
+                   cluster_cols = FALSE,
+                   cluster_rows = TRUE,
+                   clustering_method="ward.D2",
+                   show_colnames = FALSE,
+                   labels_row = as.character(genes_of_interest[,3]),
+                   gaps_col = c(length(asex_cells), length(c(asex_cells,bi_cells)), length(c(asex_cells,bi_cells,female_cells))),
+                   #gaps_row = c(1, 6),
+                   cutree_rows = 2,
+                   ## trying to fix legend issue here
+                   #fontsize_row = 10,
+                   #fontsize_col = 3,
+                   #cellheight=3, 
+                   #cellwidth = 3,
+                   legend = TRUE,
+                   annotation_legend = FALSE,
+                   annotation_col = anno_no_group, 
+                   annotation_colors = annotation_colours
+                   )
+
+heatmap_plot
+```
+
+look at some of the "module" genes now too
+
+```{r, fig.height = 8, fig.width = 10}
+## landmark genes (genes of interest)
+# AP2G - PBANKA-1437500
+# AP2 - PBANKA-0909600 - from poran paper
+# AP2G-2 - PBANKA-1034300 
+#list_of_mutant_genes <- c("PBANKA-0828000", "PBANKA-1302700", "PBANKA-1447900", "PBANKA-0102400", "PBANKA-0716500", "PBANKA-1435200", "PBANKA-1418100", "PBANKA-1144800", "PBANKA-0902300", "PBANKA-0413400", "PBANKA-1454800")
+
+## define genes to plot
+list_of_genes_of_interest <- c("PBANKA-1454000", "PBANKA-1354000")
+## add names
+names_of_genes_of_interest <- c("GyrB", "DBR1")
+
+##make df for genes of interest
+genes_of_interest <- data.frame(gene = list_of_genes_of_interest, group = c(1:length(list_of_genes_of_interest)), name = names_of_genes_of_interest)
+## reorder
+#genes_of_interest <- genes_of_interest[match(c("AP2-G", "CCP2", "GCSKO-21", "GCSKO-17", "GCSKO-2", "MG1", "GCSKO-20", "GCSKO-3", "GCSKO-oom", "GCSKO-29", "GCSKO-10", "GCSKO-28", "GCSKO-19", "GCSKO-13"), genes_of_interest$name), ]
+
+## prepare custom dataframe for all cells by modules:
+agg_mat_genes_of_interest <- aggregate_gene_expression(monocle.object, genes_of_interest[,1:2])
+
+## reorder using new order
+agg_mat_genes_of_interest <- agg_mat_genes_of_interest[,col.order]
+
+## plot
+heatmap_plot <- pheatmap::pheatmap(agg_mat_genes_of_interest, 
+                   #scale="row",
+                   cluster_cols = FALSE,
+                   cluster_rows = TRUE,
+                   clustering_method="ward.D2",
+                   show_colnames = FALSE,
+                   labels_row = as.character(genes_of_interest[,3]),
+                   gaps_col = c(length(asex_cells), length(c(asex_cells,bi_cells)), length(c(asex_cells,bi_cells,female_cells))),
+                   #gaps_row = c(1, 6),
+                   cutree_rows = 2,
+                   ## trying to fix legend issue here
+                   #fontsize_row = 10,
+                   #fontsize_col = 3,
+                   #cellheight=3, 
+                   #cellwidth = 3,
+                   legend = TRUE,
+                   annotation_legend = FALSE,
+                   annotation_col = anno_no_group, 
+                   annotation_colors = annotation_colours
+                   )
+
+heatmap_plot
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 Make annotations to add to the heatmap
 ```{r}
@@ -1285,132 +1042,11 @@ pheatmap::pheatmap(agg_mat_df,
 
 All Cells
 
-Pheatmap version
 
-```{r, fig.height = 8, fig.width = 12}
-## prepare custom dataframe for all cells by modules:
-agg_mat_no_group <- aggregate_gene_expression(monocle.object, gene_module_df_sex)
-
-## make an anotation
-anno_no_group <- data.frame(monocle.object@colData$sex_UMAP, monocle.object@colData$old_pt_values, row.names = rownames(monocle.object@colData))
-names(anno_no_group) <- c("sex", "Pseudotime")
-
-## make annotation colours
-annotation_colours <- list(sex = c(male="#016c00", female="#a52b1e", 'pre-det' = "#0052c5"),
-                           Pseudotime = magma(12, direction = 1))
-
-## change the order of the data frame
-col.order <- rownames(anno_no_group[with(anno_no_group, order(sex, Pseudotime)), ])
-agg_mat_no_group <- agg_mat_no_group[,col.order]
-
-## plot
-pheatmap::pheatmap(agg_mat_no_group, 
-                   #scale="row",
-                   cluster_cols = FALSE,
-                   clustering_method="ward.D2",
-                   show_colnames = FALSE,
-                   annotation_col = anno_no_group, 
-                   annotation_colors = annotation_colours, 
-                   cutree_rows = 12)
-```
-
-Now rearrange the cols so that it is in a better order
-
-```{r}
-## extract each group of cells in the correct order for plotting
-## order the annotation data frame
-ordered_cells <- anno_no_group[with(anno_no_group, order(sex, Pseudotime)), ]
-## extract the cells in their new order
-female_ordered_cells <- rownames(ordered_cells[which(ordered_cells$sex == "female"), ])
-male_ordered_cells <- rownames(ordered_cells[which(ordered_cells$sex == "male"), ])
-pre_det_ordered_cells <- rownames(ordered_cells[which(ordered_cells$sex == "pre-det"), ])
-col.order <- c(pre_det_ordered_cells, female_ordered_cells, male_ordered_cells)
-##check
-#length(col.order)
-#dim(agg_mat_no_group)
-
-## reorder using new order
-agg_mat_no_group <- agg_mat_no_group[,col.order]
-
-## reorder the rows
-## define the order visually and using the clusters originally produced
-row.order <- c("5", "4", "13", "11", "6", "2", "7", "3", "8", "17", "9", "16", "14", "12", "15", "1", "10")
-
-## reorder using new order
-agg_mat_no_group <- agg_mat_no_group[row.order, ]
-
-## add module and the number of cells to the row
-## change names for row names to include "module " at the begining of them
-labels.row <- stringr::str_c("Module ", row.names(agg_mat_no_group))
-## reorder frequency so that it is matching our matrix
-genes_per_module_ordered <- genes_per_module[match(row.names(agg_mat_no_group), genes_per_module$Var1), ]
-## add number of cells to the rownames for the module
-for(i in seq_along(genes_per_module_ordered$Freq)){
-  labels.row[i] <- stringr::str_c(labels.row[i]," (n = " ,genes_per_module_ordered$Freq[i], ")")
-}
-
-## plot
-heatmap_main <- pheatmap::pheatmap(agg_mat_no_group, 
-                   #scale="row",
-                   cluster_cols = FALSE,
-                   cluster_rows = FALSE,
-                   clustering_method="ward.D2",
-                   show_colnames = FALSE,
-                   labels_row = labels.row,
-                   gaps_col = c(length(pre_det_ordered_cells), length(pre_det_ordered_cells) + length(female_ordered_cells)),
-                   annotation_col = anno_no_group, 
-                   annotation_colors = annotation_colours, 
-                   cutree_rows = 12)
-
-heatmap_main
-```
 
 ### Plot specific genes of interest
 
-```{r, fig.height = 8, fig.width = 10}
-## landmark genes (genes of interest)
-# AP2G - PBANKA-1437500
-# AP2 - PBANKA-0909600 - from poran paper
-# AP2G-2 - PBANKA-1034300 
-#list_of_mutant_genes <- c("PBANKA-0828000", "PBANKA-1302700", "PBANKA-1447900", "PBANKA-0102400", "PBANKA-0716500", "PBANKA-1435200", "PBANKA-1418100", "PBANKA-1144800", "PBANKA-0902300", "PBANKA-0413400", "PBANKA-1454800")
 
-list_of_genes_of_interest <- c("PBANKA-0102400", "PBANKA-0413400", "PBANKA-0716500", "PBANKA-0828000", "PBANKA-0902300", "PBANKA-1144800", "PBANKA-1302700", "PBANKA-1418100", "PBANKA-1435200", "PBANKA-1447900", "PBANKA-1454800", "PBANKA-1437500", "PBANKA-1319500", "PBANKA-0416100")
-names_of_genes_of_interest <- c("GCSKO-2", "GCSKO-10", "GCSKO-19", "GCSKO-3", "GCSKO-13", "GCSKO-28", "GCSKO-oom", "GCSKO-17", "GCSKO-20", "GCSKO-29", "GCSKO-21", "AP2-G", "CCP2", "MG1")
-##make df for genes of interest
-genes_of_interest <- data.frame(gene = list_of_genes_of_interest, group = c(1:length(list_of_genes_of_interest)), name = names_of_genes_of_interest)
-## reorder
-#genes_of_interest <- genes_of_interest[match(c("AP2-G", "CCP2", "GCSKO-21", "GCSKO-17", "GCSKO-2", "MG1", "GCSKO-20", "GCSKO-3", "GCSKO-oom", "GCSKO-29", "GCSKO-10", "GCSKO-28", "GCSKO-19", "GCSKO-13"), genes_of_interest$name), ]
-
-## prepare custom dataframe for all cells by modules:
-agg_mat_genes_of_interest <- aggregate_gene_expression(monocle.object, genes_of_interest[,1:2])
-
-## reorder using new order
-agg_mat_genes_of_interest <- agg_mat_genes_of_interest[,col.order]
-
-## plot
-heatmap_plot <- pheatmap::pheatmap(agg_mat_genes_of_interest, 
-                   #scale="row",
-                   cluster_cols = FALSE,
-                   cluster_rows = TRUE,
-                   clustering_method="ward.D2",
-                   show_colnames = FALSE,
-                   labels_row = as.character(genes_of_interest[,3]),
-                   gaps_col = c(length(pre_det_ordered_cells), length(pre_det_ordered_cells) + length(female_ordered_cells)),
-                   #gaps_row = c(1, 6),
-                   cutree_rows = 2,
-                   ## trying to fix legend issue here
-                   #fontsize_row = 10,
-                   #fontsize_col = 3,
-                   #cellheight=3, 
-                   #cellwidth = 3,
-                   legend = TRUE,
-                   annotation_legend = FALSE,
-                   annotation_col = anno_no_group, 
-                   annotation_colors = annotation_colours
-                   )
-
-heatmap_plot
-```
 
 Side plots
 
@@ -1616,6 +1252,10 @@ heatmap_module_12 <- pheatmap::pheatmap(agg_mat_module_12,
                    annotation_colors = annotation_colours,
                    fontsize_row = 7,
                    cutree_rows = 12)
+
+
+
+
 ```
 
 AP2 Expression
@@ -2505,20 +2145,750 @@ early_wt_cells <- row.names(tenx.mutant.integrated.sex@meta.data[which(tenx.muta
 FindMarkers(tenx.mutant.integrated.sex, cells.1 = , cells.2 = )
 ```
 
+### Generate New Clusters
+
+We must now recalculate the clusters to gain a better understanding of the heterogeneity of the subset. Since using the previous clusters, the asexual cells obscured some of the variation. 
+
+```{r}
+## copy old clusters
+tenx.mutant.integrated.sex <- AddMetaData(tenx.mutant.integrated.sex, tenx.mutant.integrated.sex@meta.data$seurat_clusters, col.name = "pre_sex_clusters")
+```
+
+```{r}
+## generate new clusters at various resolutions
+tenx.mutant.integrated.sex <- FindNeighbors(tenx.mutant.integrated.sex, dims = 1:15)
+tenx.mutant.integrated.sex <- FindClusters(tenx.mutant.integrated.sex, resolution = c(2,3,4,5,6), random.seed = 42, algorithm = 2)
+```
+
+### Visualise
+
+#### Choose Cluster Resolution
+
+View the clusters at different resolutions to chose the appropraite resolution
+```{r}
+## plot
+DimPlot(tenx.mutant.integrated.sex, reduction = "umapoptimised_post_repca", label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "integrated_snn_res.2") +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+
+DimPlot(tenx.mutant.integrated.sex, reduction = "umapoptimised_post_repca", label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "integrated_snn_res.3") +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+
+DimPlot(tenx.mutant.integrated.sex, reduction = "umapoptimised_post_repca", label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "integrated_snn_res.4") +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+
+DimPlot(tenx.mutant.integrated.sex, reduction = "umapoptimised_post_repca", label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "integrated_snn_res.5") +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+
+DimPlot(tenx.mutant.integrated.sex, reduction = "umapoptimised_post_repca", label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "integrated_snn_res.6") +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+```
+
+Go with 4 clusters
+```{r}
+tenx.mutant.integrated.sex <- FindClusters(tenx.mutant.integrated.sex, resolution = 4, random.seed = 42, algorithm = 2)
+
+DimPlot(tenx.mutant.integrated.sex, reduction = "umapoptimised_post_repca", label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5) +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+```
+
+#### Original UMAP
+
+You can also use the original UMAP projection
+```{r, fig.height = 7, fig.width = 7}
+DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5) +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+```
+
+#### Representation
+
+look at cluster representation
+```{r, echo = FALSE}
+## for loop which takes each cluster and makes a list of cells and then plots a highlighted plot and adds it to a list
+
+## make a df of the number of 
+n_per_cluster <- as.data.frame(table(tenx.mutant.integrated.sex@meta.data$seurat_clusters))
+rownames(n_per_cluster) <- n_per_cluster$Var1
+n_per_cluster <- n_per_cluster[,2]
+
+## make a blank list
+list_UMAPs_by_cluster <- vector(mode = "list", length = length(levels(tenx.mutant.integrated.sex@meta.data$seurat_clusters)))
+
+## for loop
+for(i in seq_along(levels(tenx.mutant.integrated.sex@meta.data$seurat_clusters))){
+  ## make a list of cells
+  list_of_cells <- rownames(tenx.mutant.integrated.sex@meta.data[which(tenx.mutant.integrated.sex@meta.data$seurat_clusters == levels(tenx.mutant.integrated.sex@meta.data$seurat_clusters)[i]), ])
+  umap_plot <- DimPlot(tenx.mutant.integrated.sex, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = list_of_cells, reduction = "umapoptimised_post_repca") + 
+  coord_fixed() + 
+  scale_color_manual(values=c("#000000", "#f54e1e")) + 
+  theme_void() + 
+  labs(title = paste("cluster", levels(tenx.mutant.integrated.sex@meta.data$seurat_clusters)[i], "\n", "(n = ", n_per_cluster[i],")")) + 
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
+  ## add to the list
+  list_UMAPs_by_cluster[[i]] <- umap_plot
+}
+```
+
+plot
+```{r}
+## this function writes the next bit of code for you
+ploty <- c()
+for(i in seq_along(levels(tenx.mutant.integrated.sex@meta.data$seurat_clusters))){
+  ploty <- paste0(ploty, "list_UMAPs_by_cluster[[", i, "]]", " + ")
+}
+```
+
+```{r, fig.height = 15, fig.width = 20}
+## plot
+library(gridExtra)
+grid.arrange(list_UMAPs_by_cluster[[1]] , list_UMAPs_by_cluster[[2]] , list_UMAPs_by_cluster[[3]] , list_UMAPs_by_cluster[[4]] , list_UMAPs_by_cluster[[5]] , list_UMAPs_by_cluster[[6]] , list_UMAPs_by_cluster[[7]] , list_UMAPs_by_cluster[[8]] , list_UMAPs_by_cluster[[9]] , list_UMAPs_by_cluster[[10]] , list_UMAPs_by_cluster[[11]] , list_UMAPs_by_cluster[[12]] , list_UMAPs_by_cluster[[13]] , list_UMAPs_by_cluster[[14]] , list_UMAPs_by_cluster[[15]] , list_UMAPs_by_cluster[[16]] , list_UMAPs_by_cluster[[17]] , list_UMAPs_by_cluster[[18]] , list_UMAPs_by_cluster[[19]] , list_UMAPs_by_cluster[[20]] , list_UMAPs_by_cluster[[21]] , list_UMAPs_by_cluster[[22]] , list_UMAPs_by_cluster[[23]] , list_UMAPs_by_cluster[[24]] , list_UMAPs_by_cluster[[25]] , list_UMAPs_by_cluster[[26]] , list_UMAPs_by_cluster[[27]] , list_UMAPs_by_cluster[[28]] , list_UMAPs_by_cluster[[29]] , list_UMAPs_by_cluster[[30]] , list_UMAPs_by_cluster[[31]], ncol = 5)
+```
+
+
+```{r}
+## for loop which takes each cluster and makes a list of cells and then plots a highlighted plot and adds it to a list
+
+## make a df of the number of 
+n_per_cluster <- as.data.frame(table(tenx.mutant.integrated.sex@meta.data$seurat_clusters))
+rownames(n_per_cluster) <- n_per_cluster$Var1
+n_per_cluster <- n_per_cluster[,2]
+
+## make a blank list
+list_UMAPs_by_cluster <- vector(mode = "list", length = length(levels(tenx.mutant.integrated.sex@meta.data$seurat_clusters)))
+
+## for loop
+for(i in seq_along(levels(tenx.mutant.integrated.sex@meta.data$seurat_clusters))){
+  ## make a list of cells
+  list_of_cells <- rownames(tenx.mutant.integrated.sex@meta.data[which(tenx.mutant.integrated.sex@meta.data$seurat_clusters == levels(tenx.mutant.integrated.sex@meta.data$seurat_clusters)[i]), ])
+  umap_plot <- DimPlot(tenx.mutant.integrated.sex,  reduction = "umap", label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = list_of_cells) + 
+  coord_fixed() + 
+  scale_color_manual(values=c("#000000", "#f54e1e")) + 
+  theme_void() + 
+  labs(title = paste("cluster", levels(tenx.mutant.integrated.sex@meta.data$seurat_clusters)[i], "\n", "(n = ", n_per_cluster[i],")")) + 
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
+  ## add to the list
+  list_UMAPs_by_cluster[[i]] <- umap_plot
+}
+```
+
+```{r, fig.height = 15, fig.width = 20}
+## plot
+grid.arrange(list_UMAPs_by_cluster[[1]] , list_UMAPs_by_cluster[[2]] , list_UMAPs_by_cluster[[3]] , list_UMAPs_by_cluster[[4]] , list_UMAPs_by_cluster[[5]] , list_UMAPs_by_cluster[[6]] , list_UMAPs_by_cluster[[7]] , list_UMAPs_by_cluster[[8]] , list_UMAPs_by_cluster[[9]] , list_UMAPs_by_cluster[[10]] , list_UMAPs_by_cluster[[11]] , list_UMAPs_by_cluster[[12]] , list_UMAPs_by_cluster[[13]] , list_UMAPs_by_cluster[[14]] , list_UMAPs_by_cluster[[15]] , list_UMAPs_by_cluster[[16]] , list_UMAPs_by_cluster[[17]] , list_UMAPs_by_cluster[[18]] , list_UMAPs_by_cluster[[19]] , list_UMAPs_by_cluster[[20]] , list_UMAPs_by_cluster[[21]] , list_UMAPs_by_cluster[[22]] , list_UMAPs_by_cluster[[23]] , list_UMAPs_by_cluster[[24]] , list_UMAPs_by_cluster[[25]] , list_UMAPs_by_cluster[[26]] , list_UMAPs_by_cluster[[27]] , list_UMAPs_by_cluster[[28]] , list_UMAPs_by_cluster[[29]] , list_UMAPs_by_cluster[[30]] , list_UMAPs_by_cluster[[31]], ncol = 5)
+```
+
+#### Show correspondance with old clusters (Alluvium plot, Sankey diagram)
+
+```{r}
+##This is the set up for this:
+## two clusters that differ
+table(tenx.mutant.integrated.sex@meta.data$seurat_clusters, tenx.mutant.integrated.sex@meta.data$pre_sex_clusters)
+```
+
+```{r}
+## hemberg uses gvisSankey in https://github.com/hemberg-lab/scmap/blob/3aa2bb487a80a946469393857cea6a6effc618fb/R/Utils.R code - so maybe update with this?
+
+## make a dataframe that is the meta data
+df_meta_data <- as.data.frame(tenx.mutant.integrated.sex@meta.data)
+
+df_alluvial <- melt(table(data.frame(full_clusters = df_meta_data$pre_sex_clusters, sex_clusters = df_meta_data$seurat_clusters)))
+
+## load required package
+#library(ggalluvial)
+
+## plot
+ggplot(df_alluvial, aes(y = value, axis1 = full_clusters, axis2 = sex_clusters)) +
+  geom_alluvium(aes(fill = sex_clusters),
+                width = 0, knot.pos = 0, reverse = FALSE) +
+  guides(fill = FALSE) +
+  geom_stratum(width = 1/8, reverse = FALSE) +
+  geom_text(stat = "stratum", infer.label = TRUE, reverse = FALSE) +
+  scale_x_continuous(breaks = 1:2, labels = c("original cluster", "Sex Cluster")) +
+  coord_flip() +
+  ggtitle("Cluster Identiity in full dataset vs. sex only") +
+    theme_classic()
+```
+
+#### Show representation of genotypes per cluster
+
+prep for dotplot
+```{r}
+## make a dataframe that is the meta data
+df_meta_data <- as.data.frame(tenx.mutant.integrated.sex@meta.data)
+
+## define order for plotting 
+my_levels_sex <- c("0", "9", "28", "2", "29", "16", "22", "23", "15", "21", "30", "4", "3", "18", "7", "8", "6", "20", "12", "26", "13", "5", "11", "25", "1", "17", "10", "24", "14", "27", "19")
+
+## redefine order of clusters:
+df_meta_data$seurat_clusters <- factor(x = df_meta_data$seurat_clusters, levels = my_levels_sex)
+
+## make a new df of CLUSTER and IDENTITY
+dot_plot_df <- as.data.frame.matrix(table(df_meta_data$seurat_clusters, df_meta_data$identity_combined))
+dot_plot_df$cluster <- rownames(dot_plot_df)
+
+## calculate percentage of cells for each genotype
+dot_plot_df_pc <- (as.data.frame.matrix(prop.table(table(df_meta_data$seurat_clusters, df_meta_data$identity_combined), margin = 2)) * 100)
+
+## make a column for cluster names
+dot_plot_df_pc$cluster <- rownames(dot_plot_df_pc)
+
+## melt dataframe for plotting
+library(reshape2)
+dot_plot_df_pc_melted <- melt(dot_plot_df_pc, variable.name = "cluster")
+colnames(dot_plot_df_pc_melted)[2] <- "identity"
+
+## melt the raw number too
+dot_plot_df_melted <- melt(dot_plot_df, variable.name = "cluster")
+colnames(dot_plot_df_melted)[2] <- "identity"
+colnames(dot_plot_df_melted)[3] <- "raw_number"
+
+## merge together
+identical(dot_plot_df_melted$cluster, dot_plot_df_pc_melted$cluster)
+dot_plot_merged <- cbind(dot_plot_df_melted, dot_plot_df_pc_melted)
+dot_plot_merged <- dot_plot_merged[,c(1,2,3,6)]
+
+## redefine order of clusters
+dot_plot_merged$cluster <- factor(x = dot_plot_merged$cluster, levels = my_levels_sex)
+
+## where values are zero, add NA
+## find wells where it's zero
+zero_values <- dot_plot_merged$value == 0
+dot_plot_merged$value[zero_values] <- NA
+
+## also do for raw number
+zero_values <- dot_plot_merged$raw_number == 0
+dot_plot_merged$raw_number[zero_values] <- NA
+
+## reorder x axis:
+my_levels_genotype <- c("GCSKO-oom", "GCSKO-29", "GCSKO-2", "GCSKO-19", "GCSKO-3", "GCSKO-21", "GCSKO-13", "GCSKO-28", "GCSKO-10_820", "GCSKO-17", "GCSKO-20", "WT", "WT_10X")
+
+dot_plot_merged$identity <- factor(x = dot_plot_merged$identity, levels = my_levels_genotype)
+```
+
+plot
+```{r, fig.width = 6, fig.height= 7}
+## plot
+dot_plot_identity <- ggplot(dot_plot_merged, aes(y = factor(cluster), x = factor(identity))) +
+      ## make into a dot plot
+      geom_point(aes(colour=value, size=raw_number)) + 
+      scale_color_gradient(low="blue", high="red", limits=c( 0, max(dot_plot_df_pc_melted$value)), na.value="white") +
+      #change the colours
+      scale_colour_viridis(option = "inferno", guide = "colourbar", na.value="white") +
+      theme_classic() +
+      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(), text=element_text(size=16,  family="Arial")) +
+      ylab("Cluster") +
+      xlab("Identity") +
+      theme(axis.text.x=element_text(size=12, angle=45, hjust=1, vjust=1), axis.text.y=element_text(size=12,), legend.position = "bottom", plot.margin = unit(c(1,3,1,3), "lines")) +
+    ## annotate males
+    geom_hline(aes(yintercept = 5.5)) +
+    ## annotate females
+    geom_hline(aes(yintercept = 20.5)) +
+    ## annotate pheno 1
+    geom_vline(aes(xintercept = 4.5)) +
+    ## annotate pheno 2
+    geom_vline(aes(xintercept = 5.5)) +    
+    ## annotate pheno 3
+    geom_vline(aes(xintercept = 7.5)) +
+    ## annotate pheno 4
+    geom_vline(aes(xintercept = 11.5))
+
+## print
+print(dot_plot_identity)
+```
+
+# 4. Slingshot and SCMAP {.tabset}
+
+We can then use Slingshot to plot a Pseudotime and extract mutually exclusive parts of the trajectory (Male and Female) as well as the common stalk of both trajectories.
+
+### Slingshot
+
+packages
+```{r}
+library(slingshot)
+library(scater)
+```
+
+Data In
+```{r}
+## extract the data from the objects and save to export to Arthur
+integrated_sex_counts <- tenx.mutant.integrated.sex@assays$integrated@data
+integrated_sex_pheno <- tenx.mutant.integrated.sex@meta.data
+#saveRDS(integrated_sex_counts, file="~/data_to_export/integrated_sex_counts.RDS")
+#saveRDS(integrated_sex_pheno, file="~/data_to_export/integrated_sex_pheno.RDS")
+#sexcount<-readRDS("/Users/talman/Google\ Drive/ActiveSanger/sexpaper/integrated_sex_counts.RDS")
+#sexpheno<-readRDS("/Users/talman/Google\ Drive/ActiveSanger/sexpaper/integrated_sex_pheno.RDS")
+sexcount <- integrated_sex_counts
+sexpheno <- integrated_sex_pheno
+
+## technically this is a shortcut but it didn't work
+##https://satijalab.org/seurat/v3.1/conversion_vignette.html
+#convert Seurat to SCE object:
+#pbmc.sce <- as.SingleCellExperiment(tenx.mutant.integrated.sex), assay = "integrated")
+```
+
+#### slingshot on PCA
+Preprocess
+```{r}
+## make a single cell experiment object, which is the input for Slingshot
+sexbranch <- SingleCellExperiment(assays = list(
+  counts = as.matrix(sexcount),
+  logcounts = as.matrix(sexcount)
+), colData = sexpheno)
+
+## subset wild-type cells
+sexbranchWT<- sexbranch[, colData(sexbranch)$genotype == "WT"|colData(sexbranch)$experiment == "tenx_5k"]
+
+## calculate the QC metrics
+sexbranchWT<-calculateQCMetrics(sexbranchWT)
+
+## set up the colour pal
+nb.cols <- 18 
+mycolors <- colorRampPalette(brewer.pal(9, "Set1"))(nb.cols)
+```
+
+Calculate the PCS
+```{r}
+## calculate PCA
+pca <- prcomp(t(assays(sexbranchWT)$counts), scale. = FALSE)
+
+## subset coordinates
+rd1 <- pca$x[,1:2]
+
+## plot
+plot(rd1, col = rgb(0,0,0,.5), pch=16, asp = 2)
+
+## cluster using kmeans
+## you need to set a seed here to ensure the results are reproducible
+set.seed(42)
+cl2 <- kmeans(rd1, centers = 13)$cluster
+
+## plot
+plot(rd1, col = mycolors[cl2], asp = 3, pch = 16)
+
+## make a nicer plot so we can interpret the clusters
+df_plotting <- as.data.frame(cbind(rd1, cl2))
+## change to character to make it discrete
+df_plotting$cl2 <- as.character(df_plotting$cl2)
+## plot
+ggplot(df_plotting, aes(x = PC1, y = PC2, colour = cl2)) + 
+  geom_point() + 
+  scale_colour_manual(values = rainbow(13)) + 
+  theme_classic()
+```
+
+```{r}
+## initialise plot to prevent error
+plot.new()
+
+## slingshot to get lineages
+lin1 <- getLineages(rd1, cl2,start.clus = '8')
+
+## make a curve through lineage 
+crv1 <- getCurves(lin1)
+
+## join points with line segments and plot
+plot(rd1, col = mycolors[cl2], asp = 3, pch = 16)
+lines(crv1, lwd = 3, col = 'black')
+
+## add PCA coordinates to SCE object
+reducedDims(sexbranchWT) <- SimpleList(PCA = rd1)
+
+## add clusters to SCE object
+sexbranchWT$GMM<-cl2
+
+## Add pseudotimes to SCE object
+sexbranchWT$PT_LineageFemale<-as.data.frame(slingPseudotime(crv1))$curve1
+sexbranchWT$PT_LineageMale<-as.data.frame(slingPseudotime(crv1))$curve2
+
+## add designation to SCE object
+sexbranchWT$male<-is.na(sexbranchWT$PT_LineageFemale)
+sexbranchWT$female<-is.na(sexbranchWT$PT_LineageMale)
+vec <- vector()
+for (i in 1:length(sexbranchWT$male)) {
+if (sexbranchWT$male[i] == sexbranchWT$female[i]) {vec<-c(vec,"pre-det")}
+  if (sexbranchWT$male[i] == TRUE) {vec<-c(vec,"male")}
+  if (sexbranchWT$female[i] == TRUE) {vec<-c(vec,"female")}  
+}
+
+sexbranchWT$sex<-vec
+
+## plot coloured by NEK3 (PBANKA_0600600)
+plotPCA(sexbranchWT,shape_by="sex",colour_by="PBANKA-0600600")
+```
+
+#### slingshot on UMAP
+
+```{r}
+## extracts only 10x cells 
+wt_cells <- rownames(tenx.mutant.integrated.sex@meta.data[which(tenx.mutant.integrated.sex@meta.data$identity_combined == "WT_10X"),])
+
+## make a new Seurat of this
+seurat.object <-SubsetData(tenx.mutant.integrated.sex, cells = wt_cells)
+
+## get UMAP coordinates
+umap_coords <- seurat.object@reductions$umapoptimised_post_repca@cell.embeddings
+
+## get clusters
+#clusters <- as.list(seurat.object@meta.data$integrated_snn_res.4)
+#names(clusters) <- rownames(seurat.object@meta.data)
+#clusters <- as.list(clusters)
+## cluster using kmeans
+## you need to set a seed here to ensure the results are reproducible
+set.seed(42)
+clusters <- kmeans(umap_coords, centers = 13)$cluster
+
+## plot
+## make a nicer plot so we can interpret the clusters
+df_plotting <- as.data.frame(cbind(umap_coords, clusters))
+## change to character to make it discrete
+df_plotting$clusters <- as.character(df_plotting$clusters)
+## plot
+ggplot(df_plotting, aes(x = umapoptimised_1, y = umapoptimised_2, colour = clusters)) + 
+  geom_point() + 
+  scale_colour_manual(values = rainbow(15)) + 
+  theme_classic()
+
+
+## initialise plot to prevent error
+plot.new()
+
+## slingshot to get lineages
+lineage_uamp <- getLineages(umap_coords, clusters, start.clus = '6', end.clus = c('1', '12'))
+
+## make a curve through lineage 
+crv1 <- getCurves(lineage_uamp)
+
+## join points with line segments and plot
+plot(umap_coords, col = mycolors[clusters], asp = 3, pch = 16)
+lines(crv1, lwd = 3, col = 'black')
+```
+
+Add data to Seurat:
+```{r}
+## extract data to add to Seurat
+## extract clusters
+meta_data_to_add_from_slingshot <- data.frame(clusters_k_means_UMAP = clusters)
+## Add pseudotimes
+# check the length of each branch to see which curve is which using: sum(is.na(as.data.frame(slingPseudotime(crv1))$curve1))
+# then inspect using the ggplot2 above to where males are - 
+# tail(as.data.frame(slingPseudotime(crv1)), 100)
+# tail(meta_data_to_add_from_slingshot, 100)
+meta_data_to_add_from_slingshot$PT_Female_UMAP <- as.data.frame(slingPseudotime(crv1))$curve1
+meta_data_to_add_from_slingshot$PT_Male_UMAP <- as.data.frame(slingPseudotime(crv1))$curve2
+## add designation to SCE object
+meta_data_to_add_from_slingshot$sex_UMAP <- "pre-det"
+meta_data_to_add_from_slingshot$sex_UMAP[which(is.na(meta_data_to_add_from_slingshot$PT_Female_UMAP))] <- "male"
+meta_data_to_add_from_slingshot$sex_UMAP[which(is.na(meta_data_to_add_from_slingshot$PT_Male_UMAP))] <- "female"
+
+## if there are 3 curves in slingPseudotime(crv1):
+#meta_data_to_add_from_slingshot$sex_UMAP[which(is.na(meta_data_to_add_from_slingshot$PT_Female_UMAP) & is.na(as.data.frame(slingPseudotime(crv1))$curve3))] <- "male"
+#meta_data_to_add_from_slingshot$sex_UMAP[which(is.na(meta_data_to_add_from_slingshot$PT_Male_UMAP) & is.na(as.data.frame(slingPseudotime(crv1))$curve3))] <- "female"
+
+## add clusters to SCE object
+tenx.mutant.integrated.sex <- AddMetaData(tenx.mutant.integrated.sex, meta_data_to_add_from_slingshot)
+```
+
+```{r, fig.height = 5, fig.width = 10}
+## plot
+FeaturePlot(tenx.mutant.integrated.sex, label.size = 5, pt.size = 0.5, features = c("PT_Female_UMAP", "PT_Male_UMAP")) +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+```
+
+
+
+plot sex designations
+```{r, fig.height = 7, fig.width = 7}
+DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "sex_UMAP", na.value = "white") +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+```
+
+### SCMAP
+
+Load package
+```{r}
+library(scmap)
+```
+
+Set up Index
+```{r}
+#the reference dataset is: sexbranchWT
+## set up a feature symbol column in the SCE object
+rowData(sexbranchWT)$feature_symbol <- rownames(sexbranchWT)
+
+## make an is_expr assay which only counts values with more than 0
+assay(sexbranchWT, "is_expr") <- counts(sexbranchWT) > 0
+
+## Select the top 500 most important genes
+sexbranchWT <- selectFeatures(sexbranchWT, suppress_plot = FALSE, n_features = 500)
+
+## inspect features selected
+table(rowData(sexbranchWT)$scmap_features)
+
+## create reference index
+sexbranchWT <- indexCell(sexbranchWT)
+
+## inspect results
+names(metadata(sexbranchWT)$scmap_cell_index)
+length(metadata(sexbranchWT)$scmap_cell_index$subcentroids)
+dim(metadata(sexbranchWT)$scmap_cell_index$subcentroids[[1]])
+```
+
+Query dataset
+```{r}
+#query data set is called: sexbranch
+z <- sexbranch
+
+## add feature symbol to SCE object
+rowData(z)$feature_symbol <- rownames(z)
+
+## map cells
+scmapCell_results <- scmapCell(z, list(yan = metadata(sexbranchWT)$scmap_cell_index))
+
+## copy over PCA coordinate
+colData(sexbranchWT)$PC1<-as.data.frame(reducedDim(sexbranchWT))$PC1
+colData(sexbranchWT)$PC2<-as.data.frame(reducedDim(sexbranchWT))$PC2
+
+## Get nearest cell - which is located in the first row and make a list
+getcells <- scmapCell_results$yan$cells[1, ]
+## Extract meta data for these cells
+cdsce <- colData(sexbranchWT)[getcells, ]
+## Get similarity scores
+topsim <- scmapCell_results$yan$similarities[1, ]
+
+## add meta data to query dataset
+# add nearest cell
+z$top_pbcell <- getcells
+## add PCA coordinates
+z$PC1 <- cdsce$PC1
+z$PC2 <- cdsce$PC2
+## add assigned sex
+z$sex<- cdsce$sex
+## add pt
+z$PT_LineageFemale<- cdsce$PT_LineageFemale
+z$PT_LineageMale<- cdsce$PT_LineageMale
+## add similarity score
+z$topsim <- topsim
+
+## inspect similarity scores
+hist(z$topsim)
+
+## count anything with a similarity score below 0.4 as unassigned
+z$topcell_sp[z$topsim < 0.4] <- "unassigned"
+z$topcell_sp <- as.factor(z$topcell_sp)
+z$yt<-rep("assigned",length(z$topcell_sp))
+z$yt[z$topsim < 0.4] <- "unassigned"
+
+## extract PC scores
+no <- as.data.frame(reducedDim(sexbranchWT)[,1:2])
+## extract meta data
+number2 <- as.data.frame(cdsce)
+## extract top cell
+number2$topcell_sp <- z$yt
+
+## plot
+ggplot(no, aes(PC1, PC2)) +
+ geom_point(size = 1,alpha = 1/10) +
+ geom_point(aes(x=PC1, y=PC2,shape=factor(topcell_sp)), data=number2, size=2, colour="black") +
+ theme_classic() + scale_shape_manual(values=c(1,2))+
+ scale_color_manual( values = c("0" = "#1f77b4","1" ="#ff7f0e","2" ="#2ca02c","3,0" ="#d62728","3,1" ="#9467bd","3,2"="#8c564b","3,3"="#e377c2","4"="#bcbd22","5"="#17becf","6"="#aec7e8")) + labs(x="PC1", y="PC2") 
+
+#+
+#  theme(legend.position="none", axis.title=element_text(size=8), legend.text = element_text(size = , legend.title = element_text(size #= 8), axis.text = element_text(size=:sunglasses:, axis.text.x = element_blank(), axis.text.y = element_blank())
+
+```
+
+### to skip this section above and just get the data output from Arthur's script where PCA is used as the base dimensionality reduction:
+
+read in Arthur's data
+```{r}
+## read in data
+at_data <- readRDS("~/data/sexbranch")
+
+## extract values of interest
+at_meta_data <- as.data.frame(at_data@colData)
+
+## look at new cols:
+head(table(at_meta_data$top_pbcell))
+head(table(at_meta_data$topsim))
+head(table(at_meta_data$topcell_sp))
+head(table(at_meta_data$yt))
+head(table(at_meta_data$sex))
+#table(at_meta_data$PT_LineageFemale)
+#table(at_meta_data$PT_LineageMale)
+```
+
+Add meta data to Seurat object
+```{r}
+colnames_to_add_to_meta_data <- c("top_pbcell", "topsim", "topcell_sp", "yt", "sex", "PT_LineageFemale", "PT_LineageMale")
+
+tenx.mutant.integrated.sex <- AddMetaData(tenx.mutant.integrated.sex, metadata = at_meta_data[,which(colnames(at_meta_data) %in% colnames_to_add_to_meta_data)], col.name = c("at_top_pbcell", "at_topsim", "at_topcell_sp", "at_yt", "at_sex", "at_PT_LineageFemale", "at_PT_LineageMale"))
+
+## to remove columns in metadata:
+#tenx.mutant.integrated.sex@meta.data[136:144] <- NULL
+#tenx.mutant.integrated.sex@meta.data[['NAME_OF_COL']] <- NULL
+```
+
+Plot sexes
+```{r, fig.height = 7, fig.width = 7}
+DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "at_sex") +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+```
+
+```{r, fig.height = 5, fig.width = 10}
+## the slingshot pt values have NAs for e.g. male cells in the PT_LineageFemale, we can deal with this later, but for now, we will just ignore this as Dimplot will not plot NA values
+#sum(is.na(tenx.mutant.integrated.sex@meta.data$at_PT_LineageMale))
+#sum(is.na(tenx.mutant.integrated.sex@meta.data$at_PT_LineageFemale))
+
+## plot
+FeaturePlot(tenx.mutant.integrated.sex, label.size = 5, pt.size = 0.5, features = c("at_PT_LineageFemale", "at_PT_LineageMale")) +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+```
+
+
+#### Comparison of cluster way of calling males and females vs. slingshot:
+
+```{r}
+table(tenx.mutant.integrated.sex@meta.data$sex)
+
+male_clusters <- c("13", "5", "11", "25", "1", "17", "10", "24", "14", "27", "19")
+female_clusters <- c("16", "22", "23", "15", "21", "30", "4", "3", "18", "7", "8", "6", "20", "12", "26")
+asex_clusters <- c("0", "9", "28", "2", "29")
+
+tenx.mutant.integrated.sex@meta.data$sex_designation_using_clusters <- NA
+tenx.mutant.integrated.sex@meta.data$sex_designation_using_clusters[which(tenx.mutant.integrated.sex@meta.data$seurat_clusters %in% male_clusters)] <- "Male"
+tenx.mutant.integrated.sex@meta.data$sex_designation_using_clusters[which(tenx.mutant.integrated.sex@meta.data$seurat_clusters %in% female_clusters)] <- "Female"
+tenx.mutant.integrated.sex@meta.data$sex_designation_using_clusters[which(tenx.mutant.integrated.sex@meta.data$seurat_clusters %in% asex_clusters)] <- "Pre-det"
+
+table(tenx.mutant.integrated.sex@meta.data$sex_designation_using_clusters)
+```
+
+```{r}
+table(tenx.mutant.integrated.sex@meta.data$sex, tenx.mutant.integrated.sex@meta.data$sex_designation_using_clusters)
+```
+
+Plot sexes
+```{r, fig.height = 7, fig.width = 7}
+DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "sex") +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+```
+
+Plot sexes
+```{r, fig.height = 7, fig.width = 7}
+DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "sex_designation_using_clusters") +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+```
+
+correlation of monocle PT and 
+
+```{r}
+## extract pseudotime values:
+pt_values <- as.data.frame(pseudotime(monocle.object, reduction_method = "UMAP"))
+pt_values$cell_name <- rownames(pt_values)
+meta_data_df <- as.data.frame(monocle.object@colData)
+meta_data_df$cell_name <- rownames(meta_data_df)
+meta_data_df <- merge(meta_data_df, pt_values, by = "cell_name")
+names(meta_data_df)[142]<- "pt"
+
+male_pt_correlation_df <- meta_data_df[which(meta_data_df$cell_name %in% male_cells), ]
+female_pt_correlation_df <- meta_data_df[which(meta_data_df$cell_name %in% female_cells), ]
+
+ggplot(male_pt_correlation_df, aes(x = PT_LineageMale, y = pt, colour = sex)) + 
+  geom_point() +  
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_classic()
+
+ggplot(female_pt_correlation_df, aes(x = PT_LineageFemale, y = pt, colour = sex)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_classic()
+```
+
+```{r}
+ggplot(male_pt_correlation_df, aes(x = PT_Female_UMAP, y = pt)) + 
+  geom_point() +  
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_classic()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # Save and Export {.tabset}
 
-This saves everything in the global environment for easy recall later
+save environment
 ```{r}
-save.image(file = "GCSKO_Sex_Branch_Analysis.RData")
+## This saves everything in the global environment for easy recall later
+#save.image(file = "GCSKO_Sex_Branch_Analysis.RData")
 #load(file = "GCSKO_Sex_Branch_Analysis.RData")
 ```
 
+save modules
 ```{r}
 #gene_module_df_sex
-write.csv(gene_module_df_sex, file = "gene_module_df_sex.csv")
+write.csv(gene_module_df_sex, file = "../data_to_export/gene_module_df_sex.csv")
 #save(pb_30k_sex_filtered, pb_sex_filtered, file = "Part_2_input.Rdata")
+```
+
+Save object(s)
+```{r}
+## save integrated object to file
+#saveRDS(tenx.mutant.integrated.sex, file = "../data_to_export/tenx.mutant.integrated.sex.processed.RDS") 
+## restore the object
+#tenx.mutant.integrated <- readRDS("../data_to_export/tenx.mutant.integrated.sex.processed.RDS")
 ```
 
 # Appendix {.tabset}
@@ -2564,4 +2934,45 @@ rd2 <- as.data.frame(cbind(DC1 = dm$DC1, DC2 = dm$DC2, identity = as.factor(as.c
 ggplot(rd2, aes(x = DC1, y = DC2, colour = as.character(identity))) + geom_point(size = 1) + 
   theme(axis.ticks.y = element_blank()) + 
   theme_classic()
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r, fig.width = 10, fig.height = 3}
+## make a density plot for real time correlations using kasia data
+## make an annotation dataframe
+anno_real_time <- data.frame(monocle.object@colData$cluster_colours_figure, monocle.object@colData$pt, monocle.object@colData$Prediction.Spearman._Kasia, row.names = rownames(monocle.object@colData))
+names(anno_real_time) <- c("sex", "Pseudotime", "real_time")
+
+## change the order of the cols (cells) in data frame
+col.order <- rownames(anno_real_time[with(anno_real_time, order(sex, Pseudotime)), ])
+anno_real_time <- anno_real_time[col.order,]
+
+## add an "order" col to the dataframe to assist in plotting
+anno_real_time$order <- c(1:nrow(anno_real_time))
+
+#### plot density plot x
+dens1 <- ggplot(anno_real_time, aes(x = order, fill = as.factor(real_time))) + 
+                geom_density(alpha = 0.2) +
+                #theme_void() + 
+                #theme(legend.position = "none")
+                ## add annotations for sex
+      geom_rect(data = cluster_anno, mapping=aes(xmin=x1, xmax=x2, ymin=y1, ymax=y2, fill=Median_Pseudotime_of_Cluster), inherit.aes = FALSE) +
+    scale_fill_viridis_c(option = "plasma") +
+  ## flip coordinates 
+  ## geoms below will use another color scale
+    new_scale_fill() +
+    geom_rect(data = cluster_anno, mapping=aes(xmin=Bx1, xmax=Bx2, ymin=By1, ymax=By2, fill=Identity), inherit.aes = FALSE) +
+    scale_fill_manual(values = c("Male" ="#016c00", "Female"="#a52b1e", "Asexual"= "#0052c5", "Committed" = "#f2eb23"))
+
+dens1
+
 ```
