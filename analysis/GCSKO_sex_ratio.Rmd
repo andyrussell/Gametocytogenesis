@@ -20,6 +20,55 @@ output:
 In this script we will calculate sex ratios from the cells present in the sex branch for each genotype.
 
 
+# 2. load 
+
+```{r}
+# so you can plot the fraction in the sex ratio plot
+install.packages("latex2exp")
+library(latex2exp)
+```
+
+
+
+
+# 3. Differential expression of mutants and wild-type
+
+Read in MCA core genes data
+
+```{r}
+## read in data
+df_mca_core_genes <- as.data.frame(read.csv("../data/Reference/mca_core_genes.csv",header = TRUE))
+
+## subset male core genes
+mca_male_core_genes <- df_mca_core_genes[which(df_mca_core_genes$Unique_Core == "Male"), ]$feature_symbol
+
+## subset female core genes
+mca_female_core_genes <- df_mca_core_genes[which(df_mca_core_genes$Unique_Core == "Female"), ]$feature_symbol
+```
+
+Male plot
+
+```{r}
+## subset male cells 
+
+
+## 
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # 3. Sex ratio calculation {.tabset}
 

@@ -247,6 +247,24 @@ plots[[4]] # Get just the key
 CombinePlots(plots[3:4], legend = 'none', ncol =2, nrow = 1, rel_widths = c(2, 1), rel_heights = c(4,1)) # Stitch the co-expression and key plots together
 ```
 
+inspect mutants in 13 that are in between sexes
+```{r}
+## get mutant cells
+mutant_sex_cells <- rownames(tenx.mutant.integrated.sex[which(tenx.mutant.integrated.sex$genotype_combined == "Mutant"),])
+                                                        
+## subset object
+mutant_only_seurat <- subset(tenx.mutant.integrated.sex, cells = mutant_sex_cells)
+
+## plot
+ <- DimPlot(mutant_only_seurat, reduction = "umapoptimised_post_repca", label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5) +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+```
+
+
+
 # 4. Clustering {.tabset}
 
 ### Investigate sub clustering of pre-branch clusters
@@ -696,7 +714,29 @@ pc_screened <- data.frame(hits = table(df_hits_gene_modules$module), screened = 
 names(pc_screened) <- c("module", "hits", "screened")
 pc_screened$pc <- (pc_screened$hits /pc_screened$screened)*100
 
+## view
+pc_screened
 ```
+
+DOZI-regulated genes
+
+Find out how many of the genes in each module has a DOZI-regulated gene
+
+```{r}
+DOZI_regulated_genes <-
+read.csv(file = "../data/Reference/DOZI_regulated_genes.csv", header = TRUE)
+
+## extract gene IDs
+dozi_genes <- DOZI_regulated_genes[DOZI_regulated_genes$DOZI_regulated. == "YES", ]$Gene_ID_PB
+## change the underscore to a dash
+dozi_genes <- gsub("_", "-", dozi_genes)
+
+## find out which modules they are in
+df_dozi_gene_modules <- gene_module_df_sex[which(gene_module_df_sex$id %in% dozi_genes),]
+print("dozi genes by module")
+table(df_dozi_gene_modules$module)
+```
+
 
 #### Visualise module expression
 
@@ -823,9 +863,9 @@ ggsave("../images_to_export/GCSKO_sexbranch_heatmap.png", plot = heatmap_main, d
 #list_of_mutant_genes <- c("PBANKA-0828000", "PBANKA-1302700", "PBANKA-1447900", "PBANKA-0102400", "PBANKA-0716500", "PBANKA-1435200", "PBANKA-1418100", "PBANKA-1144800", "PBANKA-0902300", "PBANKA-0413400", "PBANKA-1454800")
 
 ## define genes to plot
-list_of_genes_of_interest <- c("PBANKA-0102400", "PBANKA-0413400", "PBANKA-0716500", "PBANKA-0828000", "PBANKA-0902300", "PBANKA-1144800", "PBANKA-1302700", "PBANKA-1418100", "PBANKA-1435200", "PBANKA-1447900", "PBANKA-1454800", "PBANKA-1437500", "PBANKA-1319500", "PBANKA-0416100")
+list_of_genes_of_interest <- c("PBANKA-0102400", "PBANKA-0413400", "PBANKA-0716500", "PBANKA-0828000", "PBANKA-0902300", "PBANKA-1144800", "PBANKA-1302700", "PBANKA-1418100", "PBANKA-1435200", "PBANKA-1447900", "PBANKA-1454800", "PBANKA-1437500", "PBANKA-1319500", "PBANKA-0416100", "PBANKA-1034300")
 ## add names
-names_of_genes_of_interest <- c("GCSKO-2", "GCSKO-10", "GCSKO-19", "GCSKO-3", "GCSKO-13", "GCSKO-28", "GCSKO-oom", "GCSKO-17", "GCSKO-20", "GCSKO-29", "GCSKO-21", "AP2-G", "CCP2", "MG1")
+names_of_genes_of_interest <- c("GCSKO-2", "GCSKO-10", "GCSKO-19", "GCSKO-3", "GCSKO-13", "GCSKO-28", "GCSKO-oom", "GCSKO-17", "GCSKO-20", "GCSKO-29", "GCSKO-21", "AP2-G", "CCP2", "MG1", "AP2-G2")
 
 ##make df for genes of interest
 genes_of_interest <- data.frame(gene = list_of_genes_of_interest, group = c(1:length(list_of_genes_of_interest)), name = names_of_genes_of_interest)
