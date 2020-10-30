@@ -1,0 +1,785 @@
+---
+subtitle: 'Gametocyte Development in <i>Plasmodium berghei</i>'
+title: |
+  ![](../GCSKO_logo.jpg){width=300px}  
+  Genotyping Coverage Plots
+author: "[Andrew Russell](https://ajcrussell.wixsite.com/mysite/about)"
+institute: Wellcome Sanger Institute
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output:
+  html_notebook:
+    theme: cosmo
+    toc: yes
+    toc_depth: 3
+    #toc_float: yes
+    df_print: paged
+---
+
+TO DO
+> Move any library() instances to the top and add special code
+> Add gitignore before pushing
+
+***
+# 1. Introduction and Aims {.tabset}
+
+Here, we generate coverage plots of the region that has been knocked out in each mutant. This confirms the genotype.
+
+Reading in the data in this script takes a long time so please scroll to the end of section 2 where you can load in the data.
+
+# 2. Read in the data  {.tabset}
+
+### Load the required packages
+
+```{r}
+library(gridExtra)
+```
+
+### Load required functions
+
+```{r}
+## as described here: https://bookdown.org/yihui/rmarkdown-cookbook/time-chunk.html
+## times code chunks
+knitr::knit_hooks$set(time_it = local({
+  now <- NULL
+  function(before, options) {
+    if (before) {
+      # record the current time before each chunk
+      now <<- Sys.time()
+    } else {
+      # calculate the time difference after a chunk
+      res <- difftime(Sys.time(), now)
+      # return a character string to show the time
+      paste("Time for this code chunk to run:", res)
+    }
+  }
+}))
+```
+
+### Import Pheno file
+
+12 mutant numbers - 13 plasmoGEM vectors - were profiled by single-cell (10-820, 28, 29, oom, and glasgow was done in the 820 line)
+```{r, echo = FALSE}
+## read in pheno
+pheno <- read.delim("../data/Smartseq2/pheno_2020.csv", sep = ",", stringsAsFactors = FALSE)
+
+## look at all genotypes profiled
+unique(pheno[, c("identity_updated", "identity_gene_updated")])
+```
+
+### Import GTF file
+
+This will be helpful later on. This contains annotations for each gene:
+```{r import GTF}
+##Import gtf file:
+gtf <- read.table("../data/Reference/Pberghei.gtf", sep="\t", header = FALSE)
+
+## inspect
+head(gtf)
+```
+*N.B.This was the .gtf file used for feature counting the data
+
+### Import bed file
+
+The following bed files were used for profiling each region:
+```{r, echo = FALSE}
+## import bed file:
+bed <- read.table("../data/Genotyping/GCSKO_5kb_genotyping_regions.bed", sep="\t", header = FALSE)
+
+## inspect
+bed
+```
+
+### Read in the coverage plot data
+
+```{r}
+## read in list of mutants profiled
+genotypes <- c(read.table("../data/Genotyping/BAM_LIST_FILES_FOR_R", stringsAsFactors = FALSE)$V1)
+
+## make a blank list to store files
+list_of_list_of_coverage_plots <- vector(mode = "list", length = length(genotypes))
+
+## read in the files to the list you just created
+for(j in seq_along(genotypes)){
+  ## change working directory
+  setwd(paste0("/Users/ar19/volumes/sshfs_mnt/lustre_malaria/GCSKO/genotyping/depth_", genotypes[j]))
+  
+  ## first, we read in the list of files created for our mutant
+  filenames <- list.files(pattern="depth_split_bed.*\\.gz")
+  
+  ##Create list of data frame names without the ".csv" part 
+  filenames <- substr(filenames,1,22)
+  
+  ###Load all files
+  for(i in seq_along(filenames)){
+    filepath <- file.path(paste("/Users/ar19/volumes/sshfs_mnt/lustre_malaria/GCSKO/genotyping/depth_", genotypes[j],"/", filenames[i],"tsv.gz",sep=""))
+    ## add it to a list
+    list_of_list_of_coverage_plots[[j]][[i]] <- read.delim(filepath, sep = "\t", header = FALSE)
+  }
+}
+
+## reference:
+## https://stackoverflow.com/questions/31561238/lapply-function-loops-on-list-of-lists-r
+```
+
+check data was read in correctly
+```{r}
+## make a blank dataframe to store results from for loop
+df <- data.frame()
+
+## for loop looks at length of each list
+for(j in seq_along(genotypes)){
+  for(i in seq_along(filenames)){
+    step1 <- length(list_of_list_of_coverage_plots[[j]][[i]])
+    df <- rbind(df, step1)
+  }
+}
+
+## inspect
+head(df)
+expected_length <- 30*17
+expected_length
+nrow(df)
+```
+
+Save the session data so you don't have to do this again as the loading in takes a long time
+```{r}
+save.image(file = "../data/Genotyping/Coverage_plots.RData")
+#load(file = "../data/Genotyping/Coverage_plots.RData")
+```
+
+# 3. Restructure in the data for plotting {.tabset}
+
+### I. Coverage data
+
+There are 30 bam lists profiled, each one with a list_of_coverage_plots (because the coverage has been tested for all 17 regions listed in the bed file)
+```{r, echo=FALSE}
+## read in list of bams profiled and make into a list of list of bams
+filenames_bam_lists <- read.table("../data/Genotyping/BAM_LIST_FILES_SAMTOOLS")
+
+## inspect
+#str(filenames_bam_lists)
+
+## change so that it's just file names (remove: "./bam_lists_samtools/")
+filenames_bam_lists <- substr(filenames_bam_lists[,1], 22, 60)
+
+## check
+str(filenames_bam_lists)
+```
+
+for loop to get a list of list of bams
+```{r, echo=FALSE}
+## create a blank list
+list_of_list_of_bams <- vector(mode = "list", length = length(filenames_bam_lists))
+
+## for loop
+for(i in seq_along(filenames_bam_lists)){
+list_of_list_of_bams[[i]] <- as.list(read.table(paste0("../data/Genotyping/bam_lists_samtools/", filenames_bam_lists[i])))
+}
+```
+
+restructure so that the tag number is extracted
+```{r}
+## load required package
+library(stringr)
+
+## for loop
+## the first str_sub takes out the beginning of the string, then the gsub removes anything before _
+## the next line replaces the actual '_'
+for(i in seq_along(filenames_bam_lists)){
+  list_of_list_of_bams[[i]]$V1 <- gsub(".+_", "", str_sub(list_of_list_of_bams[[i]]$V1, -14, -12))
+  list_of_list_of_bams[[i]]$V1 <- gsub("_", "", list_of_list_of_bams[[i]]$V1)
+}
+
+## inspect result
+head(list_of_list_of_bams[[1]]$V1)
+```
+
+rename the columns in the coverage dataframes so they are named by the GENOTYPE_RUN_LANE and the tag numbers profiled are the colnames
+```{r, echo=FALSE}
+##rename the dataframe cols so that they are the tag numbers of the bams:
+for(i in seq_along(list_of_list_of_bams)){
+  #make a list of colnames
+  col_names <- c("chr", "coordinate", list_of_list_of_bams[[i]]$V1)
+  #then apply this to the dataframes:
+  list_of_list_of_coverage_plots[[i]] <- lapply(list_of_list_of_coverage_plots[[i]], setNames, nm = col_names)
+}
+
+## also name the list objects ( list_of_list_of_coverage_plots[[j]] ) based on the genotype they are profiling
+for(j in seq_along(genotypes)){
+  for(i in seq_along(bed$V4)){
+    ## add a gene column which will be helpful for plotting later
+    list_of_list_of_coverage_plots[[j]][[i]]$gene <- bed$V4[[i]]
+  }
+  ## name the main object - could have done this in initial read in for loop
+  names(list_of_list_of_coverage_plots)[[j]] <- genotypes[j]
+}
+
+for(j in seq_along(genotypes)){
+  for(i in seq_along(bed$V4)){
+    ## add a gene column which will be helpful for plotting later
+    list_of_list_of_coverage_plots[[j]][[i]]$gene <- bed$V4[[i]]
+  }
+}
+
+```
+
+allow plotting of same RUN IDs together
+```{r}
+## make a genotype table:
+df_genotypes <- data.frame(genotype = sub("_[^_]+$", "",sub("_[^_]+$", "", genotypes)), run = sub("^[^_]*_", "", genotypes), stringsAsFactors = FALSE)
+df_genotypes[1:20,2] <- sub("^[^_]*_", "", df_genotypes[1:20,2])
+df_genotypes[4,2] <- sub("^[^_]*_", "", df_genotypes[4,2])
+df_genotypes$index <- rownames(df_genotypes)
+##https://stackoverflow.com/questions/44687333/remove-characters-after-the-last-occurrence-of-a-specific-character
+head(df_genotypes)
+
+## as we know, there are 12 unique runs:
+length(unique(df_genotypes$run))
+```
+
+### II. GTF 
+
+for this, you only need to extract the regions for each bed file, you don't need to do a for loop including genotype as each of the 30 genotypes (set of BAMs) is queried against the same 17 BED files.
+```{r}
+##take only the rows corresponding to the correct region and chromosome
+gtf_list <- list()
+for(i in 1:17){
+  gtf_list[[i]] <- subset(gtf, (V4 > as.numeric(bed[i, "V2"]) & V5 < as.numeric(bed[i, "V3"]) & V1 == as.character(bed[i, "V1"]) & !V3 == "CDS"))
+  ## this first asks if the coordinates are bigger than the start coordinate in the bed file, then it asks if it is smaller than the end coordinate, and then it asks if it is the same chromosome. Finally, it gets any rows that are called anything EXCEPT for CDS
+}
+
+##then with this list, rewrite the gene names and also find centre of gene - this is used for plotting later
+for(i in 1:17){
+  ## use substr to extract the full gene names:
+  gtf_list[[i]]$V9 <- substr(gtf_list[[i]]$V9, 9, 22)
+  ## get centre of gene:
+  gtf_list[[i]]$gene_centre <- ((gtf_list[[i]]$V5 - gtf_list[[i]]$V4)/2)+ gtf_list[[i]]$V4
+  }
+
+## Extract the same regions of interest as above but ONLY CDS
+gtf_list_CDS <- list()
+for(i in 1:17){
+  gtf_list_CDS[[i]] <- subset(gtf, (V4 > as.numeric(bed[i, "V2"]) & V5 < as.numeric(bed[i, "V3"]) & V1 == as.character(bed[i, "V1"]) & V3 == "CDS"))
+}
+```
+
+### III. Summmary
+summarise the objects so far:
+```{r}
+# list_of_data_frames
+##contains all the dataframes we need to use to plot
+# gtf_list
+##contains all the GTF information for the region profiled - no CDS
+# gtf_list_CDS
+##contains all of the GTF information for the gene segments profiled - only CDS
+```
+
+# 3. Plot {.tabset}
+
+### I. Single Cells Plotted for each 'genotype'
+
+make one plot to make sure the aesthetics are correct:
+```{r}
+## load required packages
+library(reshape2)
+library(ggplot2)
+
+## make blank list to save the plots to
+coverage_plot_list <- c()
+
+## for loop through ggplots
+for(i in 1:length(list_of_list_of_coverage_plots[[1]])){
+  
+  ## melt the coverage:
+  melted_coverage <- melt(list_of_list_of_coverage_plots[[1]][[i]], id = c("chr", "coordinate", "gene"))
+  
+  ## plot plot:
+  coverage_plot <- ggplot(data = melted_coverage, mapping = aes(x = coordinate, y = value, color = variable)) +
+    # make into a line plot and remove legend
+    geom_line(show.legend = FALSE) +
+    facet_wrap(~gene, ncol=1) +
+    #remove legend & change the size of the axis label
+    theme(legend.position = "none", axis.text.x = element_text(size = 7), 
+        axis.title.x = element_text(size = 10, vjust=0)) +
+    #make the theme a bit 'nicer'
+    theme_classic() 
+  
+  ## set coords for plotting below
+  coord_y <- -(layer_scales(coverage_plot)$y$range$range[2]/4)
+  coord_y_name <- -((layer_scales(coverage_plot)$y$range$range[2]*3)/8)
+    
+  ## then for loop through annotations for genes
+  for (j in 1:nrow(gtf_list_CDS[[i]])) {
+    coverage_plot <- coverage_plot + annotate("segment", x = gtf_list_CDS[[i]]$V4[[j]], xend = gtf_list_CDS[[i]]$V5[[j]], y = coord_y, yend = coord_y, size = 2, colour = "blue")
+}
+  ##Add lines inbetween genes
+  for (k in 1:nrow(gtf_list[[i]])) {
+    if(nrow(gtf_list[[i]]) == 0) next # skip any rows with no non-CDS iteration and go to next iteration
+    coverage_plot <- coverage_plot + annotate("segment", x = gtf_list[[i]]$V4[[k]], xend = gtf_list[[i]]$V5[[k]], y = coord_y, yend = coord_y, size = 0.5, colour = "blue")
+  }
+
+  ##Add names
+  for (l in 1:nrow(gtf_list[[i]])) {
+    if(nrow(gtf_list[[i]]) == 0) next # skip any rows with no non-CDS iteration and go to next iteration
+    coverage_plot <- coverage_plot + annotate("text", x=gtf_list[[i]]$gene_centre[[l]], y = coord_y_name, label=gtf_list[[i]]$V9[[l]], size = 2, colour = "blue")
+  }
+
+  ##make pretty
+  coverage_plot +
+  #this actually makes the genes go onto the plot:
+  coord_cartesian(clip = 'off')
+
+  ## print plots to screen
+  #print(coverage_plot)
+
+  ## put plots in a list so they can be recalled later
+  coverage_plot_list[[i]] <- coverage_plot
+    
+}
+
+## print a plot to look at it
+print(coverage_plot_list[[1]])
+```
+
+generate the plots
+
+This next step takes a while (~ 30 mins?) so 
+
+```{r, time_it = TRUE}
+## load required packages
+library(reshape2)
+library(ggplot2)
+
+## make a blank list
+coverage_plot_list_of_lists <- vector(mode = "list", length = length(genotypes))
+
+for(j in seq_along(genotypes)){
+  for(i in 1:length(list_of_list_of_coverage_plots[[1]])){
+      
+    ## melt the coverage:
+    melted_coverage <- melt(list_of_list_of_coverage_plots[[j]][[i]], id = c("chr", "coordinate", "gene"))
+    
+  ## plot plot:
+  coverage_plot <- ggplot(data = melted_coverage, mapping = aes(x = coordinate, y = value, color = variable)) +
+    # make into a line plot and remove legend
+    geom_line(show.legend = FALSE) +
+    facet_wrap(~gene, ncol=1) +
+    #remove legend & change the size of the axis label
+    theme(legend.position = "none", axis.text.x = element_text(size = 7), 
+        axis.title.x = element_text(size = 10, vjust=0)) +
+    #make the theme a bit 'nicer'
+    theme_classic() 
+  
+  ## set coords for plotting below
+  coord_y <- -(layer_scales(coverage_plot)$y$range$range[2]/4)
+  coord_y_name <- -((layer_scales(coverage_plot)$y$range$range[2]*3)/8)
+    
+  ## then for loop through annotations for genes
+  for (k in 1:nrow(gtf_list_CDS[[i]])) {
+    coverage_plot <- coverage_plot + annotate("segment", x = gtf_list_CDS[[i]]$V4[[k]], xend = gtf_list_CDS[[i]]$V5[[k]], y = coord_y, yend = coord_y, size = 2, colour = "blue")
+}
+  ##Add lines inbetween genes
+  for (l in 1:nrow(gtf_list[[i]])) {
+    if(nrow(gtf_list[[i]]) == 0) next # skip any rows with no non-CDS iteration and go to next iteration
+    coverage_plot <- coverage_plot + annotate("segment", x = gtf_list[[i]]$V4[[l]], xend = gtf_list[[i]]$V5[[l]], y = coord_y, yend = coord_y, size = 0.5, colour = "blue")
+  }
+
+  ##Add names
+  for (m in 1:nrow(gtf_list[[i]])) {
+    if(nrow(gtf_list[[i]]) == 0) next # skip any rows with no non-CDS iteration and go to next iteration
+    coverage_plot <- coverage_plot + annotate("text", x=gtf_list[[i]]$gene_centre[[m]], y = coord_y_name, label=gtf_list[[i]]$V9[[m]], size = 2, colour = "blue")
+  }
+
+  ##make pretty
+  coverage_plot +
+  #this actually makes the genes go onto the plot:
+  coord_cartesian(clip = 'off')
+
+  ## print plots to screen
+  #print(coverage_plot)
+
+  ## put plots in a list so they can be recalled later
+  coverage_plot_list_of_lists[[j]][[i]] <- coverage_plot
+    
+  }
+}
+
+```
+
+This has generated plots for all cells of each genotype:
+```{r}
+print(coverage_plot_list_of_lists[[1]][[1]])
+```
+
+plot all together
+```{r, fig.height = 30, fig.width = 21}
+## load required package(s)
+library(gridExtra) # needed to plot multiple ggplot2 together
+
+## get_legend function
+#get_legend<-function(myggplot){
+#  tmp <- ggplot_gtable(ggplot_build(myggplot))
+#  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+#  legend <- tmp$grobs[[leg]]
+#  return(legend)
+#}
+
+## store legend
+#legend <- get_legend(plot_for_legend)
+
+## remove the legend from each plot
+#for(i in 1:length(plot_list)){
+#  plot_list[[i]] <- plot_list[[i]] + theme(legend.position="none")
+#}
+
+## add the legend to the list of plots
+#test <- plot_list[1:47]
+#test[[48]] <- legend
+
+## make a blank list
+coverage_plot_all_list <- vector(mode = "list", length = length(genotypes))
+
+## plot all
+for(j in seq_along(genotypes)){
+coverage_plot_all_list[[j]] <- grid.arrange(grobs = coverage_plot_list_of_lists[[j]][1:17], top = paste0(genotypes[j]), ncol = 4, nrow = 5, layout_matrix = rbind(c(1:4), c(5:8), c(9:12), c(13:16), 17))
+}
+#print(plot_collated)
+```
+
+### II. WT vs. mutant for each genotype
+
+Here, rather than generating plots with the expression in each single cell, we will look at WT vs. mutant for each condition at each locus.
+
+First, define what we are going to plot
+```{r}
+## I exported df_genotypes and then edited it to plot into sets
+## read in plotting index
+plotting_index <- read.delim("../data/Genotyping/plotting_index.txt", stringsAsFactors = FALSE) 
+
+## get rid of NAs
+plotting_index <- plotting_index[-c(3,15), ]
+
+## information is stored in the df_genotypes dataframe made above
+#length(unique(df_genotypes$genotype))
+## there are 13 genotypes (not including WT as this will be plotted with each genotype)
+
+#pheno_reduced <- (unique(pheno[, c("identity_updated", "identity_gene_updated", "sequencing_run")]))
+#pheno_reduced[order(pheno_reduced$sequencing_run),]
+```
+
+This next command takes a lot of time and vector space. You may get an error saying 'Error: vector memory exhausted (limit reached?)'. This can be solved by changing your .Renviron file as described here: https://stackoverflow.com/questions/51295402/r-on-macos-error-vector-memory-exhausted-limit-reached 
+
+```{r, time_it = TRUE}
+## load required packages
+library(reshape2)
+library(ggplot2)
+
+number_of_plotting_sets <- length(unique(plotting_index$set))
+
+## make a blank list
+coverage_plot_wt_mutant_list <- vector(mode = "list", length = number_of_plotting_sets)
+
+for(j in 1:number_of_plotting_sets){
+  for(i in 1:length(list_of_list_of_coverage_plots[[1]])){  
+  
+    ## get the coverage plots for the set
+  step_1 <- plotting_index[plotting_index$set == j,]
+  
+  ##for loop that loops through step_1$index and then combines the melted dataframes
+  melted_coverage <- data.frame()
+    for(n in 1:nrow(step_1)){
+      index <- step_1$index[n]
+      ## melt the coverage:
+      melted_cov <- melt(list_of_list_of_coverage_plots[[index]][[i]], id = c("chr", "coordinate", "gene"))
+      ## add genotype for plotting
+      melted_cov$mutant <- step_1$class[n]
+      ## combine melted coverage
+      melted_coverage <- rbind(melted_coverage, melted_cov)
+    }
+      ## plot plot:
+      coverage_plot <- ggplot(data = melted_coverage, mapping = aes(x = coordinate, y = value, color = mutant, alpha = 0.2)) +
+      # make into a line plot and remove legend
+      geom_line(show.legend = TRUE, alpha = 0.2, aes(colour = mutant)) +
+      # adds gene name to top of plot 
+      facet_wrap(~gene, ncol=1) +
+      #remove legend & change the size of the axis label
+      theme(legend.position = "bottom", axis.text.x = element_text(size = 1), 
+        axis.title.x = element_text(size = 10, vjust=0)) +
+      # change legend label
+      labs(colour = "genotype") +
+      #make the theme a bit 'nicer'
+      theme_classic() 
+  
+    ## set coords for plotting below
+    coord_y <- -(layer_scales(coverage_plot)$y$range$range[2]/4)
+    coord_y_name <- -((layer_scales(coverage_plot)$y$range$range[2]*3)/8)
+    
+    ## then for loop through annotations for genes
+    for (k in 1:nrow(gtf_list_CDS[[i]])) {
+      coverage_plot <- coverage_plot + annotate("segment", x = gtf_list_CDS[[i]]$V4[[k]], xend = gtf_list_CDS[[i]]$V5[[k]], y = coord_y, yend = coord_y, size = 2, colour = "blue")
+    }
+    ##Add lines inbetween genes
+    for (l in 1:nrow(gtf_list[[i]])) {
+      if(nrow(gtf_list[[i]]) == 0) next # skip any rows with no non-CDS iteration and go to next iteration
+      coverage_plot <- coverage_plot + annotate("segment", x = gtf_list[[i]]$V4[[l]], xend = gtf_list[[i]]$V5[[l]], y = coord_y, yend = coord_y, size = 0.5, colour = "blue")
+    }
+
+  ##Add names
+  for (m in 1:nrow(gtf_list[[i]])) {
+    if(nrow(gtf_list[[i]]) == 0) next # skip any rows with no non-CDS iteration and go to next iteration
+    coverage_plot <- coverage_plot + annotate("text", x=gtf_list[[i]]$gene_centre[[m]], y = coord_y_name, label=gtf_list[[i]]$V9[[m]], size = 1, colour = "blue")
+  }
+
+  ##make pretty
+  coverage_plot +
+  #this actually makes the genes go onto the plot:
+  coord_cartesian(clip = 'off')
+
+  ## put plots in a list so they can be recalled later
+  coverage_plot_wt_mutant_list[[j]][[i]] <- coverage_plot
+    
+  }
+}
+```
+
+### Make plots
+
+this first set of code will produce all old designations for the genotypes and the correct new ones side by side (where this is relevant)
+
+I think this was just the stupid way of doing this - picking plots by hand rather than with the index file
+```{r}
+## make lists of plots to be compiled
+plist_test <- list(coverage_plot_wt_mutant_list[[1]][[1]], coverage_plot_wt_mutant_list[[2]][[3]], coverage_plot_wt_mutant_list[[3]][[15]], coverage_plot_wt_mutant_list[[4]][[3]], coverage_plot_wt_mutant_list[[6]][[7]], coverage_plot_wt_mutant_list[[7]][[8]], coverage_plot_wt_mutant_list[[10]][[13]], coverage_plot_wt_mutant_list[[11]][[14]], coverage_plot_wt_mutant_list[[13]][[17]])
+
+plist_test_2 <- list(coverage_plot_wt_mutant_list[[5]][[4]]+ facet_wrap(~mutant, ncol=1), coverage_plot_wt_mutant_list[[5]][[6]]+ facet_wrap(~mutant, ncol=1), coverage_plot_wt_mutant_list[[8]][[10]]+ facet_wrap(~mutant, ncol=1), coverage_plot_wt_mutant_list[[8]][[9]]+ facet_wrap(~mutant, ncol=1), coverage_plot_wt_mutant_list[[9]][[12]]+ facet_wrap(~mutant, ncol=1), coverage_plot_wt_mutant_list[[9]][[11]]+ facet_wrap(~mutant, ncol=1), coverage_plot_wt_mutant_list[[12]][[5]]+ facet_wrap(~mutant, ncol=1), coverage_plot_wt_mutant_list[[12]][[16]]+ facet_wrap(~mutant, ncol=1))
+
+## visualise
+plot_1 <- grid.arrange(grobs = plist_test, top = "plot_set_one", ncol = 2, nrow = 5, layout_matrix = rbind(c(1:2), c(3:4), c(5:6), c(7:8), c(9:10)))
+
+plot_2 <- grid.arrange(grobs = plist_test_2, top = "plot_set_two", ncol = 2, nrow = 5, layout_matrix = rbind(c(1:2), c(3:4), c(5:6), c(7:8), c(9:10)))
+
+```
+save
+```{r}
+ggsave(paste0("genotyping_set_one", ".png"), plot = plot_1, device = "png", height = 29.7, width = 21, units = "cm", path = "../images_to_export")
+
+ggsave(paste0("genotyping_set_two", ".png"), plot = plot_2, device = "png", height = 29.7, width = 21, units = "cm", path = "../images_to_export")
+
+## more help on save here: https://stackoverflow.com/questions/17059099/saving-grid-arrange-plot-to-file - says that you should use arrange.grob
+```
+
+## Now make final figure
+
+This produces genotype plots for all successful mutants.
+
+```{r}
+## get_legend function
+get_legend<-function(myggplot){
+  tmp <- ggplot_gtable(ggplot_build(myggplot))
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  legend <- tmp$grobs[[leg]]
+  return(legend)
+}
+
+## store legend
+legend <- get_legend(coverage_plot_wt_mutant_list[[1]][[1]])
+
+
+final_fig <- list(coverage_plot_wt_mutant_list[[1]][[1]] + facet_wrap(~mutant, ncol=1) + ggtitle("PBANKA_0102400 (GCSKO 2) md3") + theme(plot.title = element_text(hjust = 0.5), legend.position = "none") + scale_y_continuous(name="Coverage"),
+                  coverage_plot_wt_mutant_list[[3]][[15]] + facet_wrap(~mutant, ncol=1) + ggtitle("PBANKA_1435200 (GCSKO 20) fd4") + theme(plot.title = element_text(hjust = 0.5), legend.position = "none") + scale_y_continuous(name="Coverage"), 
+                  coverage_plot_wt_mutant_list[[4]][[3]] + facet_wrap(~mutant, ncol=1) + ggtitle("PBANKA_0413400 (GCSKo 10) md5") + theme(plot.title = element_text(hjust = 0.5), legend.position = "none") + scale_y_continuous(name="Coverage"), 
+                  coverage_plot_wt_mutant_list[[6]][[7]] + facet_wrap(~mutant, ncol=1) + ggtitle("BANKA_0716500 (GCSKO 19) md4") + theme(plot.title = element_text(hjust = 0.5), legend.position = "none") + scale_y_continuous(name="Coverage"), 
+                  coverage_plot_wt_mutant_list[[7]][[8]] + facet_wrap(~mutant, ncol=1) + ggtitle("PBANKA_0828000 (GCSKO 3) gd1") + theme(plot.title = element_text(hjust = 0.5), legend.position = "none") + scale_y_continuous(name="Coverage"), 
+                  coverage_plot_wt_mutant_list[[10]][[13]] + facet_wrap(~mutant, ncol=1) + ggtitle("PBANKA_1302700 (GCSKO oom) md1") + theme(plot.title = element_text(hjust = 0.5), legend.position = "none") + scale_y_continuous(name="Coverage"), 
+                  coverage_plot_wt_mutant_list[[11]][[14]] + facet_wrap(~mutant, ncol=1) + ggtitle("PBANKA_1418100 (GCSKO 17) fd3") + theme(plot.title = element_text(hjust = 0.5), legend.position = "none") + scale_y_continuous(name="Coverage"), 
+                  coverage_plot_wt_mutant_list[[13]][[17]] + facet_wrap(~mutant, ncol=1) + ggtitle("PBANKA_1454800 (GCSKO 21/glasgow) fd1") + theme(plot.title = element_text(hjust = 0.5), legend.position = "none") + scale_y_continuous(name="Coverage"), 
+                  coverage_plot_wt_mutant_list[[8]][[9]]+ facet_wrap(~mutant, ncol=1) + ggtitle("PBANKA_0902300 (GCSKO 13) fd2") + theme(plot.title = element_text(hjust = 0.5), legend.position = "none") + scale_y_continuous(name="Coverage"),  
+                  coverage_plot_wt_mutant_list[[9]][[11]]+ facet_wrap(~mutant, ncol=1) + ggtitle("PBANKA_1144800 (GCSKO 28) fd5") + theme(plot.title = element_text(hjust = 0.5), legend.position = "none") + scale_y_continuous(name="Coverage"),  
+                  coverage_plot_wt_mutant_list[[12]][[16]]+ facet_wrap(~mutant, ncol=1) + ggtitle("PBANKA_1447900 (GCSKO 29) md2") + theme(plot.title = element_text(hjust = 0.5), legend.position = "none") + scale_y_continuous(name="Coverage"),
+                  legend)
+
+## visualise
+plot_final <- grid.arrange(grobs = final_fig, top = "plot_set_one", ncol = 2, nrow = 6, layout_matrix = rbind(c(1:2), c(3:4), c(5:6), c(7:8), c(9:10), c(11:12)))
+
+ggsave(paste0("genotyping_final", ".png"), plot = plot_final, device = "png", height = 29.7, width = 21, units = "cm", path = "../images_to_export")
+```
+
+Save the session data so you don't have to do this again as the loading in takes a long time
+```{r}
+save.image(file = "../data/Genotyping/Coverage_plots.RData")
+#load(file = "../data/Genotyping/Coverage_plots.RData")
+```
+
+
+
+### N.B.
+
+The initial command to get all the run_number and cell numbers for each mutant, meant that 10 and 20 were grepped twice - this isn't an issue, but it just means there's an extra two lines in the genotypes file which are essentially duplicated.
+
+# Save  {.tabset}
+
+```{r}
+## PDF 
+ggsave("plot_collated_test.pdf", plot = plot_collated, device = "pdf", height = 29.7, width = 21, units = "cm", path = "/Users/ar19/Desktop/GCSKO_paper/Genotyping")
+
+## PNG
+## for googledocs which doesn't like pdf:
+for(j in seq_along(genotypes)){
+ggsave(paste0("test_", j, ".png"), plot = coverage_plot_all_list[[j]], device = "png", height = 29.7, width = 21, units = "cm", path = "/Users/ar19/Desktop/GCSKO_paper/Genotyping")
+}
+```
+
+
+# Appendix {.tabset}
+
+## session info
+```{r}
+sessionInfo()
+```
+
+## Extra code
+
+
+
+plot all together
+```{r, fig.height = 30, fig.width = 21}
+## load required package(s)
+library(gridExtra) # needed to plot multiple ggplot2 together
+
+## get_legend function
+get_legend<-function(myggplot){
+  tmp <- ggplot_gtable(ggplot_build(myggplot))
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  legend <- tmp$grobs[[leg]]
+  return(legend)
+}
+
+## store legend
+legend <- get_legend(plot_for_legend)
+
+## remove the legend from each plot
+#for(i in 1:length(plot_list)){
+#  plot_list[[i]] <- plot_list[[i]] + theme(legend.position="none")
+#}
+
+## add the legend to the list of plots
+#test <- plot_list[1:47]
+#test[[48]] <- legend
+
+## make a blank list
+coverage_plot_mt_wt_all_list <- vector(mode = "list", length = length(genotypes))
+
+## plot all
+for(j in 1:number_of_plotting_sets){
+  step_1 <- plotting_index[plotting_index$set == j,]
+  title <- (step_1[step_1$class == "mutant",])$genotype[1]
+  coverage_plot_mt_wt_all_list[[j]] <- grid.arrange(grobs = coverage_plot_wt_mutant_list[[j]][1:17], top = paste0(title), ncol = 4, nrow = 5, layout_matrix = rbind(c(1:4), c(5:8), c(9:12), c(13:16), 17))
+  ## save
+ggsave(paste0("coverage_plot_", title,".png"), plot = coverage_plot_mt_wt_all_list[[j]], device = "png", height = 29.7, width = 21, units = "cm", path = "../images_to_export/")
+}
+#print(plot_collated)
+```
+
+save
+```{r}
+## save
+for(j in 1:number_of_plotting_sets){
+ggsave(paste0("test_ALL", ".png"), plot = coverage_plot_mt_wt_all_list[[j]], device = "png", height = 29.7, width = 21, units = "cm", path = "/Users/ar19/Desktop/GCSKO_paper/Genotyping")
+}
+```
+
+
+
+test:
+```{r}
+#number_of_plotting_sets <- length(unique(plotting_index$set))-1
+
+## make a blank list
+coverage_plot_wt_mutant_list <- vector(mode = "list", length = 1)
+
+j <- 1
+  for(i in 1){  
+  
+    ## get the coverage plots for the set
+  step_1 <- plotting_index[plotting_index$set == j,]
+  
+  ##for loop that loops through step_1$index and then combines the melted dataframes
+  melted_coverage <- data.frame()
+    for(n in 1:nrow(step_1)){
+      index <- step_1$index[n]
+      ## melt the coverage:
+      melted_cov <- melt(list_of_list_of_coverage_plots[[index]][[i]], id = c("chr", "coordinate", "gene"))
+      ## add genotype for plotting
+      melted_cov$mutant <- step_1$class[n]
+      ## combine melted coverage
+      melted_coverage <- rbind(melted_coverage, melted_cov)
+    }
+      ## plot plot:
+      coverage_plot <- ggplot(data = melted_coverage, mapping = aes(x = coordinate, y = value, color = mutant, alpha = 0.2)) +
+      # make into a line plot and remove legend
+      geom_line(show.legend = TRUE, alpha = 0.2, aes(colour = mutant)) +
+      # adds gene name to top of plot 
+      facet_wrap(~gene, ncol=1) +
+      #remove legend & change the size of the axis label
+      theme(legend.position = "bottom", axis.text.x = element_text(size = 1), 
+        axis.title.x = element_text(size = 10, vjust=0)) +
+      # change legend label
+      labs(colour = "genotype") +
+      #make the theme a bit 'nicer'
+      theme_classic() 
+  
+    ## set coords for plotting below
+    coord_y <- -(layer_scales(coverage_plot)$y$range$range[2]/4)
+    coord_y_name <- -((layer_scales(coverage_plot)$y$range$range[2]*3)/8)
+    
+    ## then for loop through annotations for genes
+    for (k in 1:nrow(gtf_list_CDS[[i]])) {
+      coverage_plot <- coverage_plot + annotate("segment", x = gtf_list_CDS[[i]]$V4[[k]], xend = gtf_list_CDS[[i]]$V5[[k]], y = coord_y, yend = coord_y, size = 2, colour = "blue")
+    }
+    ##Add lines inbetween genes
+    for (l in 1:nrow(gtf_list[[i]])) {
+      if(nrow(gtf_list[[i]]) == 0) next # skip any rows with no non-CDS iteration and go to next iteration
+      coverage_plot <- coverage_plot + annotate("segment", x = gtf_list[[i]]$V4[[l]], xend = gtf_list[[i]]$V5[[l]], y = coord_y, yend = coord_y, size = 0.5, colour = "blue")
+    }
+
+  ##Add names
+  for (m in 1:nrow(gtf_list[[i]])) {
+    if(nrow(gtf_list[[i]]) == 0) next # skip any rows with no non-CDS iteration and go to next iteration
+    coverage_plot <- coverage_plot + annotate("text", x=gtf_list[[i]]$gene_centre[[m]], y = coord_y_name, label=gtf_list[[i]]$V9[[m]], size = 2, colour = "blue")
+  }
+
+  ##make pretty
+  coverage_plot +
+  #this actually makes the genes go onto the plot:
+  coord_cartesian(clip = 'off')
+
+  ## put plots in a list so they can be recalled later
+  coverage_plot_wt_mutant_list[[j]][[i]] <- coverage_plot
+    
+  }
+print(coverage_plot_wt_mutant_list[[1]][[1]])
+
+
+
+ggplot(data = melted_coverage[1:30000,], mapping = aes(x = coordinate, y = value, colour = mutant, alpha = 0.2)) +
+      # make into a line plot and remove legend
+      geom_line(show.legend = TRUE, alpha = 0.2, aes(colour = mutant)) +
+      # adds gene name to top of plot 
+      facet_wrap(~gene, ncol=1) +
+      #remove legend & change the size of the axis label
+      theme(legend.position="bottom", axis.text.x = element_text(size = 1), 
+        axis.title.x = element_text(size = 10, vjust=0)) +
+      labs(colour = "genotype") +
+      #make the theme a bit 'nicer'
+      theme_classic() 
+```
+
+```{r}
+## plot all
+test_plot <- grid.arrange(grobs = coverage_plot_wt_mutant_list[[1]][1:17], ncol = 4, nrow = 5, layout_matrix = rbind(c(1:4), c(5:8), c(9:12), c(13:16), 17))
+
+## save
+ggsave(paste0("test_ALL", ".png"), plot = test_plot, device = "png", height = 29.7, width = 21, units = "cm", path = "../images_to_export/")
+```
+
+
