@@ -2518,6 +2518,10 @@ plot_final &lt;- grid.arrange(grobs = final_fig, top = &quot;plot_set_one&quot;,
 <p>Save the session data so you don’t have to do this again as the loading in takes a long time</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuc2F2ZS5pbWFnZShmaWxlID0gXCIuLi9kYXRhL0dlbm90eXBpbmcvQ292ZXJhZ2VfcGxvdHMuUkRhdGFcIilcbiNsb2FkKGZpbGUgPSBcIi4uL2RhdGEvR2Vub3R5cGluZy9Db3ZlcmFnZV9wbG90cy5SRGF0YVwiKVxuYGBgIn0= -->
+<pre class="r"><code>save.image(file = &quot;../data/Genotyping/Coverage_plots.RData&quot;)
+#load(file = &quot;../data/Genotyping/Coverage_plots.RData&quot;)</code></pre>
+<!-- rnb-source-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 <div id="n.b." class="section level3">
@@ -2552,25 +2556,6 @@ ggsave(paste0(&quot;test_&quot;, j, &quot;.png&quot;), plot = coverage_plot_all_
 <!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuc2Vzc2lvbkluZm8oKVxuYGBgIn0= -->
 <pre class="r"><code>sessionInfo()</code></pre>
 <!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiUiB2ZXJzaW9uIDQuMC4zICgyMDIwLTEwLTEwKVxuUGxhdGZvcm06IHg4Nl82NC1hcHBsZS1kYXJ3aW4xNy4wICg2NC1iaXQpXG5SdW5uaW5nIHVuZGVyOiBtYWNPUyBDYXRhbGluYSAxMC4xNS43XG5cbk1hdHJpeCBwcm9kdWN0czogZGVmYXVsdFxuQkxBUzogICAvU3lzdGVtL0xpYnJhcnkvRnJhbWV3b3Jrcy9BY2NlbGVyYXRlLmZyYW1ld29yay9WZXJzaW9ucy9BL0ZyYW1ld29ya3MvdmVjTGliLmZyYW1ld29yay9WZXJzaW9ucy9BL2xpYkJMQVMuZHlsaWJcbkxBUEFDSzogL0xpYnJhcnkvRnJhbWV3b3Jrcy9SLmZyYW1ld29yay9WZXJzaW9ucy80LjAvUmVzb3VyY2VzL2xpYi9saWJSbGFwYWNrLmR5bGliXG5cbmxvY2FsZTpcblsxXSBlbl9HQi5VVEYtOC9lbl9HQi5VVEYtOC9lbl9HQi5VVEYtOC9DL2VuX0dCLlVURi04L2VuX0dCLlVURi04XG5cbmF0dGFjaGVkIGJhc2UgcGFja2FnZXM6XG5bMV0gc3RhdHMgICAgIGdyYXBoaWNzICBnckRldmljZXMgdXRpbHMgICAgIGRhdGFzZXRzICBtZXRob2RzICAgYmFzZSAgICAgXG5cbmxvYWRlZCB2aWEgYSBuYW1lc3BhY2UgKGFuZCBub3QgYXR0YWNoZWQpOlxuIFsxXSBjb21waWxlcl80LjAuMyAgbWFncml0dHJfMS41ICAgIGh0bWx0b29sc18wLjUuMCB0b29sc180LjAuMyAgICAgeWFtbF8yLjIuMSAgICAgIHN0cmluZ2lfMS41LjMgICBybWFya2Rvd25fMi41ICAga25pdHJfMS4zMCAgICAgXG4gWzldIGpzb25saXRlXzEuNy4xICBzdHJpbmdyXzEuNC4wICAgeGZ1bl8wLjE4ICAgICAgIGRpZ2VzdF8wLjYuMjcgICBybGFuZ18wLjQuOCAgICAgZXZhbHVhdGVfMC4xNCAgXG4ifQ== -->
-<pre><code>R version 4.0.3 (2020-10-10)
-Platform: x86_64-apple-darwin17.0 (64-bit)
-Running under: macOS Catalina 10.15.7
-
-Matrix products: default
-BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib
-LAPACK: /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRlapack.dylib
-
-locale:
-[1] en_GB.UTF-8/en_GB.UTF-8/en_GB.UTF-8/C/en_GB.UTF-8/en_GB.UTF-8
-
-attached base packages:
-[1] stats     graphics  grDevices utils     datasets  methods   base     
-
-loaded via a namespace (and not attached):
- [1] compiler_4.0.3  magrittr_1.5    htmltools_0.5.0 tools_4.0.3     yaml_2.2.1      stringi_1.5.3   rmarkdown_2.5   knitr_1.30     
- [9] jsonlite_1.7.1  stringr_1.4.0   xfun_0.18       digest_0.6.27   rlang_0.4.8     evaluate_0.14  </code></pre>
-<!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 </div>
