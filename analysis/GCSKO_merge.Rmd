@@ -922,7 +922,7 @@ umap_cluster <- DimPlot(tenx.mutant.integrated, label = TRUE, label.size = 8, re
         axis.ticks=element_blank(),
         axis.title.x=element_blank(),
         axis.title.y=element_blank()) + 
-  guides(colour=guide_legend(nrow = 3, byrow = TRUE, override.aes = list(size=5)))
+  guides(colour=guide_legend(nrow = 3, byrow = TRUE, override.aes = list(size=10)))
 
 ## print
 umap_cluster
@@ -1340,7 +1340,7 @@ mutant_cell_locations
 
 save
 ```{r}
-ggsave("/Users/Andy/GCSKO/GCSKO_analysis_git/images_to_export/merge_umap_mutant_cell_locations.png", plot = mutant_cell_locations, device = "png", path = NULL, scale = 1, width = 30, height = 30, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("../images_to_export/merge_umap_mutant_cell_locations.png", plot = mutant_cell_locations, device = "png", path = NULL, scale = 1, width = 30, height = 30, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 ### Figure. Sup. Dot Plot Figures

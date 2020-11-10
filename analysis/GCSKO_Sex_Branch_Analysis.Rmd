@@ -250,20 +250,109 @@ CombinePlots(plots[3:4], legend = 'none', ncol =2, nrow = 1, rel_widths = c(2, 1
 inspect mutants in 13 that are in between sexes
 ```{r}
 ## get mutant cells
-mutant_sex_cells <- rownames(tenx.mutant.integrated.sex[which(tenx.mutant.integrated.sex$genotype_combined == "Mutant"),])
+mutant_sex_cells <- rownames(tenx.mutant.integrated.sex@meta.data[which(tenx.mutant.integrated.sex@meta.data$genotype_combined == "Mutant"),])
                                                         
 ## subset object
 mutant_only_seurat <- subset(tenx.mutant.integrated.sex, cells = mutant_sex_cells)
 
 ## plot
- <- DimPlot(mutant_only_seurat, reduction = "umapoptimised_post_repca", label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5) +
+umap_mutant <- DimPlot(mutant_only_seurat, reduction = "umapoptimised_post_repca", label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5) +
   coord_fixed() +
   theme_void() +
   theme(legend.position = "bottom") +
   guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+
+## view
+HoverLocator(plot = umap_mutant, information = FetchData(mutant_only_seurat, vars = c("ident", "identity_updated", "nFeature_RNA")))
 ```
 
+```{r}
+DimPlot(mutant_only_seurat, label = TRUE, label.size = 8, repel = FALSE, pt.size = 0.5, dims = c(2,1), reduction = "DIM_UMAP") + 
+     coord_fixed() +
+     theme(legend.position="bottom", 
+           axis.line=element_blank(),
+           axis.text.x=element_blank(),
+           axis.text.y=element_blank(),
+           axis.ticks=element_blank(),
+           axis.title.x=element_blank(),
+           axis.title.y=element_blank()) + 
+     guides(colour=guide_legend(nrow = 3, byrow = TRUE, override.aes = list(size=5)))
+```
 
+```{r, fig.height = 10, fig.width = 10}
+  ## subset males and females
+
+## subset males 
+mutant_male_seurat <- subset(mutant_only_seurat, idents = c(20,17,8,18))
+
+## subset females <- 
+mutant_female_seurat <- subset(mutant_only_seurat, idents = c(23,19,21,5))
+
+  ## mca dataset of core genes
+
+## read in data
+df_mca_core_genes <- as.data.frame(read.csv("../data/Reference/mca_core_genes.csv",header = TRUE))
+
+## subset male core genes
+mca_male_core_genes <- df_mca_core_genes[which(df_mca_core_genes$Unique_Core == "Male"), ]$feature_symbol
+## change underscore to dash
+mca_male_core_genes <- gsub("_", "-", mca_male_core_genes)
+
+## subset female core genes
+mca_female_core_genes <- df_mca_core_genes[which(df_mca_core_genes$Unique_Core == "Female"), ]$feature_symbol
+## change underscore to dash
+mca_female_core_genes <- gsub("_", "-", mca_female_core_genes)
+
+ ## plot
+
+## reorder the levels so you can plot the cluters as you wish
+my_levels_male <- c("GCSKO-3", "GCSKO-2", "GCSKO-19", "GCSKO-10_820", "GCSKO-21", "GCSKO-13", "GCSKO-17", "GCSKO-20", "GCSKO-28")
+my_levels_female <- c("GCSKO-21", "GCSKO-13", "GCSKO-17", "GCSKO-20", "GCSKO-28", "GCSKO-oom", "GCSKO-29", "GCSKO-2", "GCSKO-19", "GCSKO-10_820")
+
+## reorder the levels
+mutant_male_seurat@meta.data$identity_updated <- factor(x = mutant_male_seurat@meta.data$identity_updated, levels = my_levels_male)
+mutant_female_seurat@meta.data$identity_updated <- factor(x = mutant_female_seurat@meta.data$identity_updated, levels = my_levels_female)
+
+## plot male
+dot_plot_male <- DotPlot(mutant_male_seurat, assay = "RNA", features = mca_male_core_genes, group.by = "identity_updated") +
+  theme_classic() +
+  # change appearance and remove axis elements, and make room for arrows
+  theme(axis.text.x = element_text(size=16, angle = 45, hjust=1,vjust=1, family = "Arial"), text=element_text(size=16, family="Arial"), legend.position = "bottom", legend.direction = "horizontal", legend.box = "vertical", plot.title = element_blank(), plot.margin = unit(c(1,3,1,3), "lines")) +
+  #change the colours
+  scale_colour_viridis(option = "inferno", guide = "colourbar", na.value="white", begin = 0, end = 1, direction = 1) +
+  ## change x axis label
+  labs(x = "MCA Core Genes", y = "Genotype", title = "Expression of Male MCA Core Genes in Male Mutant Cells") +
+  ## change label on bottom of plot so we can indicate markers
+  scale_y_discrete(labels = c("gd1", "md3", "md4", "md5", "fd1", "fd2", "fd3", "fd4", "fd5")) +
+  coord_flip()
+
+## view
+print(dot_plot_male)
+
+
+## plot female
+dot_plot_female <- DotPlot(mutant_female_seurat, assay = "RNA", features = mca_female_core_genes, group.by = "identity_updated") +
+  theme_classic() +
+  # change appearance and remove axis elements, and make room for arrows
+  theme(axis.text.x = element_text(size=16, angle = 45, hjust=1,vjust=1, family = "Arial"), text=element_text(size=16, family="Arial"), legend.position = "bottom", legend.direction = "horizontal", legend.box = "vertical", plot.title = element_blank(), plot.margin = unit(c(1,3,1,3), "lines")) +
+  #change the colours
+  scale_colour_viridis(option = "inferno", guide = "colourbar", na.value="white", begin = 0, end = 1, direction = 1) +
+  ## change x axis label
+  labs(x = "MCA Core Genes", y = "Genotype", title = "Expression of Female MCA Core Genes in Feale Mutant Cells") +
+  ## change label on bottom of plot so we can indicate markers
+  scale_y_discrete(labels = c("fd1", "fd2", "fd3", "fd4", "fd5","md1", "md2",  "md3", "md4", "md5")) +
+coord_flip()
+
+## view
+print(dot_plot_female)
+```
+
+save
+```{r}
+ggsave("../images_to_export/GCSKO_sexbranch_dot_male.png", plot = dot_plot_male, device = "png", path = NULL, scale = 1, width = 30, height = 60, units = "cm", dpi = 300, limitsize = TRUE)
+
+ggsave("../images_to_export/GCSKO_sexbranch_dot_female.png", plot = dot_plot_female, device = "png", path = NULL, scale = 1, width = 30, height = 60, units = "cm", dpi = 300, limitsize = TRUE)
+```
 
 # 4. Clustering {.tabset}
 
@@ -717,6 +806,22 @@ pc_screened$pc <- (pc_screened$hits /pc_screened$screened)*100
 ## view
 pc_screened
 ```
+Further investigation of screen hits
+```{r}
+## rename df
+df_screen_hits_selected <- as.data.frame(screen_hits_selected)
+df_screen_hits_selected$'new gene ID' <- gsub("_", "-", df_screen_hits_selected$'new gene ID')
+names(df_screen_hits_selected)[2] <- "id"
+df_gene_module_df_sex <- as.data.frame(gene_module_df_sex)
+
+## merge dfs together
+screen_hits_modules <- merge(df_screen_hits_selected, df_gene_module_df_sex, by = "id")
+
+## view
+screen_hits_modules
+```
+
+
 
 DOZI-regulated genes
 
