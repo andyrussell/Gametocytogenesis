@@ -733,6 +733,52 @@ save
 ggsave("../images_to_export/pt_all_UMAP_pt.png", plot = umap_pt, device = "png", path = NULL, scale = 1, width = 20, height = 20, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
+# gganimnate GIF
+
+```{r}
+#install.packages("gganimate")
+library(gganimate)
+#install.packages("gifski")
+#install.packages("av")
+library(gifski)
+library(av)
+
+## make dataframe for plotting
+## extract data for GGplot version of this
+df_animation <- as.data.frame(monocle.object.all@int_colData@listData$reducedDims@listData[["UMAP"]])
+## add pt to this data frame:
+pt_values <- as.data.frame(pseudotime(monocle.object.all, reduction_method = "UMAP"))
+df_animation <- merge(df_animation, pt_values, by="row.names") 
+rownames(df_animation) <- df_animation$Row.names
+colnames(df_animation)[4] <- "pt"
+
+## make the static plot
+p <- ggplot(df_animation, aes(x = DIMUMAP_2, y = DIMUMAP_1, colour = pt)) +
+  geom_point() +
+  scale_colour_viridis_c(option = "plasma") +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "none")
+## view plot
+plot(p)
+
+## make animated plot
+## make a category for animation
+#df_animation$group <- cut(df_animation$pt, 15)
+
+anim <- p +
+  transition_time(pt) +
+  shadow_mark()
+
+animate(anim, height = 3, width = 3, units = "in", res = 150, bg = 'transparent')
+
+## to change the resolution - https://stackoverflow.com/questions/49058567/define-size-for-gif-created-by-gganimate-change-dimension-resolution 
+```
+Save animation
+```{r}
+anim_save("animated_UMAP_transparent_bg.gif", path = "../images_to_export/")
+```
+
 #### Add original pt values
 
 ```{r}
