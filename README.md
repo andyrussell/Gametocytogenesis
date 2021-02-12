@@ -8,5 +8,5 @@ Please contact ar19@sanger.ac.uk with any questions, or if you would like to col
 
 
 ## Basic steps
-- Run quality control notebooks to generate QCed data files
-- Run analysis notebooks
+- Run `quality_control` notebooks to generate QCed data files
+- Run `analysis` notebooks
