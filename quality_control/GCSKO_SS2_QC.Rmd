@@ -183,7 +183,7 @@ paste("number of columns in counts", dim(pheno)[2], "number of cells in pheno", 
 10 and 27 failed genotyping and so will be removed
 ```{r remove 10 and 27}
 ## find all cells that are labelled as such
-names_of_genotype_fail_cells <- rownames(pheno[(pheno$sub_identity_updated %in% c("GCSKO-10", "WT-10", "GCSKO-27")), ])
+names_of_genotype_fail_cells <- rownames(pheno[(pheno$sub_identity_updated %in% c("GCSKO-10", "WT-10", "GCSKO-27", "GCSKO-28")), ])
 
 ## which gives
 table(colnames(counts) %in% names_of_genotype_fail_cells)
@@ -194,7 +194,7 @@ pheno <- pheno[-(which(rownames(pheno) %in% names_of_genotype_fail_cells)), ]
 
 ## check dimensions
 paste("number of genes in counts", dim(counts)[1], "number of cells in counts", dim(counts)[2])
-paste("number of columns in counts", dim(pheno)[2], "number of cells in pheno", dim(pheno)[1])
+paste("number of columns in pheno", dim(pheno)[2], "number of cells in pheno", dim(pheno)[1])
 ```
 
 ### Filter non-genes out of counts
@@ -372,7 +372,7 @@ ss2_mutants <- PercentageFeatureSet(ss2_mutants, pattern = "^PBANKA-MIT", col.na
 plot percentage mitochondrial
 ```{r}
 ## plot for percentage of mitochondrial reads
-v1 <- VlnPlot(object = ss2_mutants, features = "percent.mt", group.by = "sub_identity_updated", pt.size = 0.01) + 
+v1 <- VlnPlot(object = ss2_mutants, features = "percent.mt", group.by = "sub_name_updated", pt.size = 0.01) + 
   ## add a line where we will filter 
   geom_hline(yintercept=20) +
   ## remove legend
@@ -380,7 +380,9 @@ v1 <- VlnPlot(object = ss2_mutants, features = "percent.mt", group.by = "sub_ide
   ## change labels
   labs(x = "Genotype", y = "% Mitochondrial Reads") +
   ## remove plot title
-  theme(plot.title = element_blank())
+  theme(plot.title = element_blank()) +
+  ## make all violins grey
+  scale_fill_manual(values = rep("grey", 18))
 
 ## plot for percentage of mitochondrial reads
 v2 <- VlnPlot(object = ss2_mutants, features = "percent.mt", group.by = "experiment", pt.size = 0.01) +
@@ -393,7 +395,9 @@ v2 <- VlnPlot(object = ss2_mutants, features = "percent.mt", group.by = "experim
   theme(plot.title = element_blank(), axis.text.y = element_blank(),
         axis.ticks.y = element_blank()) +
   ## change label on bottom of plot
-  scale_x_discrete(labels = "All cells")
+  scale_x_discrete(labels = "All cells") +
+  ## colour grey
+  scale_fill_manual(values = rep("grey", 1))
 
 ## plot together
 QC_mito_violin <- v1 + v2 + plot_layout(ncol = 2, nrow = 1, widths = c(4, 1), heights = c(2, 2))
@@ -407,7 +411,7 @@ ggsave("../images_to_export/QC_SS2_mito_violin.png", plot = QC_mito_violin, devi
 
 make a dataframe for plotting
 ```{r}
-df <- data.frame(nCount = log10(ss2_mutants@meta.data$nCount_RNA), nGenes = ss2_mutants@meta.data$nFeature_RNA, identity = ss2_mutants@meta.data$identity_updated, identity_gene = ss2_mutants@meta.data$identity_gene_updated, percent_mt = ss2_mutants@meta.data$percent.mt)
+df <- data.frame(nCount = log10(ss2_mutants@meta.data$nCount_RNA), nGenes = ss2_mutants@meta.data$nFeature_RNA, identity = ss2_mutants@meta.data$identity_name_updated, identity_gene = ss2_mutants@meta.data$identity_gene_updated, percent_mt = ss2_mutants@meta.data$percent.mt)
 ```
 
 Where do mitchondrial poor cells lie?
@@ -637,7 +641,7 @@ frequency_of_failed_cells$distance_from_edge <- c(0,1,2,3)
 
 ```{r bar graph plot}
 position_qc_fail <- ggplot(frequency_of_failed_cells, aes(x=distance_from_edge, y=percentage_failed)) +
-  geom_bar(stat="identity", fill="black")+
+  geom_bar(stat="identity", fill="grey")+
   theme_classic() +
   theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank(), text = element_text(size=12)) +
   ## change the axis titles
@@ -689,8 +693,8 @@ mapping_rate_plot
 How many cells are recovered per condition?
 ```{r}
 ## extract data
-df_cells_recovered <- as.data.frame(table(ss2_mutants_final@meta.data$sub_identity_updated))
-df_cells_profiled <- as.data.frame(table(pheno$sub_identity_updated))
+df_cells_recovered <- as.data.frame(table(ss2_mutants_final@meta.data$sub_name_updated))
+df_cells_profiled <- as.data.frame(table(pheno$sub_name_updated))
 
 ## make a df of the metrics
 df_cells_recovered <- merge(df_cells_recovered, df_cells_profiled, by = "Var1")
@@ -712,8 +716,9 @@ df_cells_recovered
 
 ```{r}
 ##plot
-QC_by_genotype <- ggplot(df_cells_recovered, aes(x=genotype, y=recovered_pc ,fill=genotype)) + 
-  geom_bar(stat = "identity") +
+## can add ",fill=genotype" to first statement to get colours by genotype
+QC_by_genotype <- ggplot(df_cells_recovered, aes(x=genotype, y=recovered_pc)) + 
+  geom_bar(stat = "identity", fill = "grey") +
   ylim(0, 100) +
   #scale_fill_brewer(palette = "Set1") +
   geom_text(aes(label=recovered_pc_rounded, vjust=0.5, hjust = 1.5)) +
@@ -826,19 +831,21 @@ g_legend<-function(a.gplot){
 mylegend<-g_legend(plot_list[[1]])
 
 ## make a final plot
+## Mutant 20 = fd4
+## Mutant 2 = md3
 QC_failed_plates <- grid.arrange(arrangeGrob(plot_list[[1]] + theme(legend.position="none") + labs(title = paste("Mutant 20", "\n", "plate 1")) + theme(plot.title = element_text(hjust = 0.5)),
-                               plot_list[[2]] + theme(legend.position="none") + labs(title = paste("Mutant 20", "\n", "plate 2")) + theme(plot.title = element_text(hjust = 0.5)),
-                               plot_list[[3]] + theme(legend.position="none") + labs(title = paste("Mutant 20", "\n", "plate 3")) + theme(plot.title = element_text(hjust = 0.5)),
-                               plot_list[[4]] + theme(legend.position="none") + labs(title = paste("Mutant 20", "\n", "plate 4")) + theme(plot.title = element_text(hjust = 0.5)),
-                               plot_list[[5]] + theme(legend.position="none") + labs(title = paste("Mutant 2", "\n", "plate 1")) + theme(plot.title = element_text(hjust = 0.5)),
-                               plot_list[[6]] + theme(legend.position="none") + labs(title = paste("Mutant 2", "\n", "plate 2")) + theme(plot.title = element_text(hjust = 0.5)), nrow=2), 
+                               plot_list[[2]] + theme(legend.position="none") + labs(title = paste("fd4", "\n", "plate 2")) + theme(plot.title = element_text(hjust = 0.5)),
+                               plot_list[[3]] + theme(legend.position="none") + labs(title = paste("fd4", "\n", "plate 3")) + theme(plot.title = element_text(hjust = 0.5)),
+                               plot_list[[4]] + theme(legend.position="none") + labs(title = paste("fd4", "\n", "plate 4")) + theme(plot.title = element_text(hjust = 0.5)),
+                               plot_list[[5]] + theme(legend.position="none") + labs(title = paste("md3", "\n", "plate 1")) + theme(plot.title = element_text(hjust = 0.5)),
+                               plot_list[[6]] + theme(legend.position="none") + labs(title = paste("md3", "\n", "plate 2")) + theme(plot.title = element_text(hjust = 0.5)), nrow=2), 
                               mylegend, nrow=2,heights=c(10,2))
 
 ## plot
 QC_failed_plates
 
 ## save
-ggsave("../images_to_export/QC_failed_plates.png", plot = QC_SS2_failed_plates, device = "png", path = NULL, scale = 1, width = 27, height = 25, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("../images_to_export/QC_failed_plates.png", plot = QC_failed_plates, device = "png", path = NULL, scale = 1, width = 27, height = 25, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 ### Add bulk metadata
@@ -968,7 +975,7 @@ ss2_mutants_final <- RunPCA(ss2_mutants_final, features = VariableFeatures(objec
 
 PCA plot
 ```{r}
-DimPlot(ss2_mutants_final, reduction = "pca", group.by = "sub_identity_updated")
+DimPlot(ss2_mutants_final, reduction = "pca", group.by = "sub_name_updated")
 ```
 
 ```{r}
@@ -990,10 +997,10 @@ Improve UMAP
 ss2_mutants_final <- RunUMAP(ss2_mutants_final, dims = 1:12)
 ```
 
-```{r, fig.height = 2, fig.width = 6}
-p1 <- DimPlot(ss2_mutants_final, group.by = "ident", label = TRUE)
-p2 <- DimPlot(ss2_mutants_final, group.by = "identity_updated")
-p1 + p2
+```{r, fig.height = 4, fig.width = 8}
+clusters_plot <- DimPlot(ss2_mutants_final, group.by = "ident", label = TRUE)
+p2 <- DimPlot(ss2_mutants_final, group.by = "identity_name_updated")
+clusters_plot + p2
 ```
 
 ### Cluster assignment
@@ -1002,7 +1009,7 @@ p1 + p2
 ```{r}
 plot <- FeaturePlot(ss2_mutants_final, features = "nFeature_RNA")   
 
-HoverLocator(plot = plot, information = FetchData(ss2_mutants_final, vars = c("nFeature_RNA", "ident", "identity_updated")))
+HoverLocator(plot = plot, information = FetchData(ss2_mutants_final, vars = c("nFeature_RNA", "ident", "identity_name_updated")))
 ```
 
 #### ngenes, nmito, ncounts visualisation
@@ -1047,7 +1054,7 @@ VlnPlot(object = ss2_mutants_final, features = "percent.mt", pt.size = 0.01) +
 # PBANKA-1437500 - AP2-G - seuxal commitment gene
 # PBANKA-0831000 - MSP1 - late asexual
 # PBANKA-1102200 - MSP8 - early asexual (from Bozdech paper)
-FeaturePlot(ss2_mutants_final, features = c("PBANKA-0515000", "PBANKA-1319500", "PBANKA-1212600","PBANKA-0600600", "PBANKA-1315700", "PBANKA-0416100", "PBANKA-1437500", "PBANKA-0831000", "PBANKA-1102200"), coord.fixed = TRUE)
+FeaturePlot(ss2_mutants_final, features = c("PBANKA-0515000", "PBANKA-1319500", "PBANKA-1212600","PBANKA-0600600", "PBANKA-1315700", "PBANKA-0416100", "PBANKA-1437500", "PBANKA-0831000", "PBANKA-1102200"), coord.fixed = TRUE, order = TRUE)
 ```
 
 ### Dotplot
@@ -1056,9 +1063,9 @@ This essentially allows us to view which genotypes sit in which clusters. Where 
 ```{r, prep for dotplot}
 df_meta_data <- as.data.frame(ss2_mutants_final@meta.data)
 
-dot_plot_df <- as.data.frame.matrix(table(df_meta_data$RNA_snn_res.1, df_meta_data$identity_updated))
+dot_plot_df <- as.data.frame.matrix(table(df_meta_data$RNA_snn_res.1, df_meta_data$identity_name_updated))
 
-dot_plot_df_pc <- (as.data.frame.matrix(prop.table(table(df_meta_data$RNA_snn_res.1, df_meta_data$identity_updated), margin = 2)) * 100)
+dot_plot_df_pc <- (as.data.frame.matrix(prop.table(table(df_meta_data$RNA_snn_res.1, df_meta_data$identity_name_updated), margin = 2)) * 100)
 
 dot_plot_df_pc$cluster <- rownames(dot_plot_df_pc)
 library(dplyr)
@@ -1084,6 +1091,11 @@ library(ggplot2)
       theme(axis.text.y=element_text(size=12, face="italic"))
   print(p)
 ```
+
+```{r}
+clusters_plot + p
+```
+
 
 Mutants 3, 2, and 13 all seem to display this unique phenotype. 
 
@@ -1267,7 +1279,7 @@ save the session objects
 
 ## save final object
 saveRDS(ss2_mutants_final, file = "../data_to_export/ss2_mutants_final.RDS") ## to read this object back in if needed
-ss2_mutants_final <- readRDS("../data_to_export/ss2_mutants_final.RDS")
+#ss2_mutants_final <- readRDS("../data_to_export/ss2_mutants_final.RDS")
 ```
 
 # Appendix {.tabset}
@@ -1275,4 +1287,55 @@ ss2_mutants_final <- readRDS("../data_to_export/ss2_mutants_final.RDS")
 ## Session Info 
 ```{r, echo = FALSE}
 sessionInfo()
+```
+
+## Extra code
+```{r}
+## this was run, and then the resultant pheno was saved and re-read in at the beginning
+# dim(pheno)
+
+## add new column for mutant names
+## make blank col
+# pheno$identity_name_updated <- NA
+# pheno$identity_name_updated[which(pheno$identity_gene_updated == "PBANKA_0102400")] <- "md3"
+# pheno$identity_name_updated[which(pheno$identity_gene_updated == "PBANKA_0413400")] <- "md5"
+# pheno$identity_name_updated[which(pheno$identity_gene_updated == "PBANKA_0413400_820")] <- "md5"
+# pheno$identity_name_updated[which(pheno$identity_gene_updated == "PBANKA_0713500")] <- NA
+# pheno$identity_name_updated[which(pheno$identity_gene_updated == "PBANKA_0716500")] <- "md4"
+# pheno$identity_name_updated[which(pheno$identity_gene_updated == "PBANKA_0828000")] <- "gd1"
+# pheno$identity_name_updated[which(pheno$identity_gene_updated == "PBANKA_0902300")] <- "fd2"
+# pheno$identity_name_updated[which(pheno$identity_gene_updated == "PBANKA_1144800")] <- "fd5"
+# pheno$identity_name_updated[which(pheno$identity_gene_updated == "PBANKA_1302700")] <- "md1"
+# pheno$identity_name_updated[which(pheno$identity_gene_updated == "PBANKA_1418100")] <- "fd3"
+# pheno$identity_name_updated[which(pheno$identity_gene_updated == "PBANKA_1435200")] <- "fd4"
+# pheno$identity_name_updated[which(pheno$identity_gene_updated == "PBANKA_1447900")] <- "md2"
+# pheno$identity_name_updated[which(pheno$identity_gene_updated == "PBANKA_1454800")] <- "fd1"
+# pheno$identity_name_updated[which(pheno$identity_gene_updated == "WT")] <- "wild-type"
+
+## add new column for mutant sub-names
+## make blank col
+# pheno$sub_name_updated <- pheno$sub_identity_updated
+# pheno$sub_name_updated[which(pheno$sub_identity_updated == "GCSKO-10_820")] <- "md5"
+# pheno$sub_name_updated[which(pheno$sub_identity_updated == "GCSKO-13")] <- "fd2"
+# pheno$sub_name_updated[which(pheno$sub_identity_updated == "GCSKO-17")] <- "fd3"
+# pheno$sub_name_updated[which(pheno$sub_identity_updated == "GCSKO-19")] <- "md4"
+# pheno$sub_name_updated[which(pheno$sub_identity_updated == "GCSKO-2")] <- "md3"
+# pheno$sub_name_updated[which(pheno$sub_identity_updated == "GCSKO-20")] <- "fd4"
+# pheno$sub_name_updated[which(pheno$sub_identity_updated == "GCSKO-21")] <- "fd1"
+# pheno$sub_name_updated[which(pheno$sub_identity_updated == "GCSKO-29")] <- "md2"
+# pheno$sub_name_updated[which(pheno$sub_identity_updated == "GCSKO-3")] <- "gd1"
+# pheno$sub_name_updated[which(pheno$sub_identity_updated == "GCSKO-oom")] <- "md1"
+# pheno$sub_name_updated[which(pheno$sub_identity_updated == "WT-13")] <- "WT-fd2"
+# pheno$sub_name_updated[which(pheno$sub_identity_updated == "WT-17")] <- "WT-fd3"
+# pheno$sub_name_updated[which(pheno$sub_identity_updated == "WT-19")] <- "WT-md4"
+# pheno$sub_name_updated[which(pheno$sub_identity_updated == "WT-2")] <- "WT-md3"
+# pheno$sub_name_updated[which(pheno$sub_identity_updated == "WT-20")] <- "WT-fd4"
+# pheno$sub_name_updated[which(pheno$sub_identity_updated == "WT-3")] <- "WT-gd1"
+# pheno$sub_name_updated[which(pheno$sub_identity_updated == "WT-820")] <- "WT-820"
+# pheno$sub_name_updated[which(pheno$sub_identity_updated == "WT-820_3_5")] <- "WT-820_3_5"
+# 
+# dim(pheno)
+# 
+# write.csv(pheno, file = "../data/Smartseq2/pheno_2020_2.csv", 
+# row.names = TRUE)
 ```
