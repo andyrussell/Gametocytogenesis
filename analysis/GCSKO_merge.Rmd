@@ -164,6 +164,13 @@ if(require("Nebulosa")){
     }
 }
 
+## monocle3 to calculate pseudotime:
+if(require("monocle3")){
+    print("monocle3 is loaded correctly")
+} else {
+    print("Please install monocle3 (https://cole-trapnell-lab.github.io/monocle3/docs/installation/)")
+}
+
 ## set the seed for both the mixture models and also for the sample function later on:
 set.seed(-92497)
 ```
@@ -1871,7 +1878,215 @@ copy old clusters over
 tenx.mutant.integrated.sex <- AddMetaData(tenx.mutant.integrated.sex, tenx.mutant.integrated.sex@meta.data$seurat_clusters, col.name = "post_integration_clusters")
 ```
 
-# 9. Save and Export {.tabset}
+# 9. Pseudotime on all cells {.tabset}
+
+### Pseudotime calculation
+
+```{r}
+## extract data from Seurat
+seurat.object.all <- tenx.mutant.integrated
+# counts
+data <- as(as.matrix(GetAssayData(seurat.object.all, assay = "integrated", slot = "data")), 'sparseMatrix')
+# meta data
+pd <- data.frame(seurat.object.all@meta.data)
+
+## keep only the columns that are relevant
+#pData <- pd %>% select(orig.ident, nCount_RNA, nFeature_RNA)
+## add gene short name
+fData <- data.frame(gene_short_name = row.names(data), row.names = row.names(data))
+
+## Construct monocle cds
+monocle.object.all <- new_cell_data_set(expression_data = data, cell_metadata = pd, gene_metadata = fData)
+## preprocess
+monocle.object.all = preprocess_cds(monocle.object.all, num_dim = 100, norm_method = "none")
+## plot variance explained plot
+plot_pc_variance_explained(monocle.object.all)
+## make monocle UMAP
+#monocle.object.all = reduce_dimension(monocle.object.all, reduction_method = "UMAP", preprocess_method = "PCA", umap.metric = "euclidean", umap.n_neighbors = 20, umap.min_dist = 0.5, verbose = FALSE)
+#plot_cells(monocle.object.all)
+
+## add UMAP from Seurat
+monocle.object.all@int_colData@listData$reducedDims@listData[["UMAP"]] <-seurat.object.all@reductions[["DIM_UMAP"]]@cell.embeddings 
+plot_cells(monocle.object.all)
+
+## cluster
+monocle.object.all = cluster_cells(monocle.object.all)
+
+## plot clusters
+plot_cells(monocle.object.all, color_cells_by="partition", group_cells_by="partition",  x = 2, y = 1)
+
+## reduce partitions to 1
+monocle.object.all@clusters$UMAP$partitions[monocle.object.all@clusters$UMAP$partitions == "2"] <- "1"
+
+#map pseudotime
+monocle.object.all = learn_graph(monocle.object.all, learn_graph_control=list(ncenter=500), use_partition = FALSE)
+
+plot_cells(monocle.object.all, color_cells_by="partition", group_cells_by="partition",  x = 2, y = 1)
+
+
+## a helper function to identify the root principal points:
+## make cluster 2 the root
+get_earliest_principal_node <- function(cds, time_bin="7"){
+  cell_ids <- which(colData(cds)[, "seurat_clusters"] == time_bin)
+  closest_vertex <-
+  cds@principal_graph_aux[["UMAP"]]$pr_graph_cell_proj_closest_vertex
+  closest_vertex <- as.matrix(closest_vertex[colnames(cds), ])
+  root_pr_nodes <-
+  igraph::V(principal_graph(cds)[["UMAP"]])$name[as.numeric(names
+  (which.max(table(closest_vertex[cell_ids,]))))]
+  
+  root_pr_nodes
+}
+
+## calculate pseudotime
+#monocle.object.all = order_cells(monocle.object.all, root_pr_nodes=get_earliest_principal_node(monocle.object.all))
+monocle.object.all = order_cells(monocle.object.all)
+## used 5 points at the beginning
+
+
+## plot
+umap_pt <- plot_cells(monocle.object.all, color_cells_by = "pseudotime", label_cell_groups=FALSE, cell_size = 1, x = 2, y = 1, label_branch_points=FALSE, label_leaves=FALSE, label_groups_by_cluster=FALSE, label_roots = FALSE) +
+  coord_fixed() +
+  theme_void() +
+  labs(title = "") +
+  theme(plot.title = element_text(hjust = 0.5, size=20), legend.position="bottom", legend.title=element_text (size=20), legend.text=element_text(size=20)) + 
+  guides(colour = guide_colourbar(barwidth = 10, barheight = 2, title = "Pseudotime"))
+
+## view plot
+umap_pt
+
+## help was obtained from here
+## https://github.com/satijalab/seurat/issues/1658
+```
+
+save
+```{r}
+ggsave("../images_to_export/pt_all_UMAP_pt.png", plot = umap_pt, device = "png", path = NULL, scale = 1, width = 20, height = 20, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+### gganimnate GIF of pseuodtime
+
+```{r}
+#install.packages("gganimate")
+library(gganimate)
+#install.packages("gifski")
+#install.packages("av")
+#library(gifski)
+#library(av)
+
+## make dataframe for plotting
+## extract data for GGplot version of this
+df_animation <- as.data.frame(monocle.object.all@int_colData@listData$reducedDims@listData[["UMAP"]])
+## add pt to this data frame:
+pt_values <- as.data.frame(pseudotime(monocle.object.all, reduction_method = "UMAP"))
+df_animation <- merge(df_animation, pt_values, by="row.names") 
+rownames(df_animation) <- df_animation$Row.names
+colnames(df_animation)[4] <- "pt"
+
+## make the static plot
+p <- ggplot(df_animation, aes(x = DIMUMAP_2, y = DIMUMAP_1, colour = pt)) +
+  geom_point() +
+  scale_colour_viridis_c(option = "plasma") +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "none")
+## view plot
+plot(p)
+
+## make animated plot
+## make a category for animation
+#df_animation$group <- cut(df_animation$pt, 15)
+
+anim <- p +
+  transition_time(pt) +
+  shadow_mark()
+
+animate(anim, height = 3, width = 3, units = "in", res = 150, bg = 'transparent')
+
+## to change the resolution - https://stackoverflow.com/questions/49058567/define-size-for-gif-created-by-gganimate-change-dimension-resolution 
+```
+Save animation
+```{r}
+anim_save("animated_UMAP_transparent_bg.gif", path = "../images_to_export/")
+```
+
+```{r}
+## extract pt values
+pt_values <- as.data.frame(pseudotime(monocle.object.all, reduction_method = "UMAP"))
+
+tenx.mutant.integrated <- AddMetaData(tenx.mutant.integrated, pt_values, "old_pt_values")
+```
+
+make composite pseudotime/ID figure
+
+```{r}
+# 1 = blue - "#0052c5"
+# 2 = red - "#a52b1e"
+# 3 = green - "#016c00"
+# 4 = yellow - "#ffe400"
+#pal_sex <- c("#0052c5","#ffe400", "#a52b1e", "#016c00")
+
+## extract pseodtime numbers and identity of cells to a dataframe
+df_pt_id <- tenx.mutant.integrated@meta.data[,c("old_pt_values", "cluster_colours_figure")]
+
+## inspect possible values
+list_of_sexes <- names(table(df_pt_id$cluster_colours_figure))
+
+## make a new column
+df_pt_id$colour <- NA
+
+## make colour ramps
+asex_ramp <- colorRampPalette(c("#D5E3F5", "#0052c5"))
+male_ramp <- colorRampPalette(c("white", "yellow", "#016c00"))
+female_ramp <- colorRampPalette(c("yellow", "#a52b1e"))
+bipot_ramp <- colorRampPalette(c("white", "#ffe400"))
+
+## re-classify cells removed from sexual branch above:
+df_pt_id[which(rownames(df_pt_id) %in% remove_cells), ]$cluster_colours_figure <- "Asexual"
+
+## assign values to each cluster
+## help here: https://stackoverflow.com/questions/9946630/colour-points-in-a-plot-differently-depending-on-a-vector-of-values 
+df_pt_id[df_pt_id$cluster_colours_figure == "Asexual", ]$colour <- asex_ramp(100)[as.numeric(cut(df_pt_id[df_pt_id$cluster_colours_figure == "Asexual", ]$old_pt_values,breaks = 100))]
+
+df_pt_id[df_pt_id$cluster_colours_figure == "Male", ]$colour <- male_ramp(100)[as.numeric(cut(df_pt_id[df_pt_id$cluster_colours_figure == "Male", ]$old_pt_values,breaks = 100))]
+
+df_pt_id[df_pt_id$cluster_colours_figure == "Female", ]$colour <- female_ramp(100)[as.numeric(cut(df_pt_id[df_pt_id$cluster_colours_figure == "Female", ]$old_pt_values,breaks = 100))]
+
+df_pt_id[df_pt_id$cluster_colours_figure == "Bipotential", ]$colour <- bipot_ramp(100)[as.numeric(cut(df_pt_id[df_pt_id$cluster_colours_figure == "Bipotential", ]$old_pt_values,breaks = 100))]
+
+## check everything has a value
+#table(is.na(df_pt_id$colour))
+
+## make into a df
+#df_pt_id <- df_pt_id[ ,"colour", drop = FALSE]
+
+## add back to seurat object
+#tenx.mutant.integrated <- AddMetaData(tenx.mutant.integrated, df_pt_id, "pt_id_cols")
+
+## plot
+## extract UMAP coords
+df_umap_plot <- tenx.mutant.integrated@reductions[["DIM_UMAP"]]@cell.embeddings
+df_umap_plot <- merge(df_umap_plot, df_pt_id, by=0, all=TRUE)
+
+## make ggplot
+umap_id_pt <- ggplot(df_umap_plot, aes(x = DIMUMAP_2, y = DIMUMAP_1)) + 
+                     geom_point(col = df_umap_plot$colour) +
+                     theme_void() +
+                     coord_fixed()
+
+umap_id_pt
+```
+
+```{r}
+test <- df_umap_plot[which(df_umap_plot$cluster_colours_figure == "Male"), ]
+ggplot(test, aes(x = DIMUMAP_2, y = DIMUMAP_1)) + 
+  geom_point() +
+  theme_void()
+
+```
+
+
+# 10. Save and Export {.tabset}
 
 Save environment
 ```{r}
@@ -1883,7 +2098,7 @@ Save environment
 Save object(s)
 ```{r}
 ## Save an object to a file
-saveRDS(tenx.mutant.integrated.sex, file = "../tenx.mutant.integrated.sex.RDS")
+saveRDS(tenx.mutant.integrated.sex, file = "../data_to_export/tenx.mutant.integrated.sex.RDS")
 ## Restore the object
 #readRDS(file = "../data_to_export/tenx.mutant.integrated.sex.RDS")
 
@@ -1968,10 +2183,72 @@ tenx_cluster_36_pd <- meta_df[which(rownames(meta_df) %in% colnames(tenx_cluster
 write.csv(tenx_cluster_36_pd, file = "~/data_to_export/tenx_cluster_36_pd.csv")
 ```
 
-old code:
+### old code
 
 ```{r}
 ## old thresholds on data with 28
 #remove_cells <- row.names(df_sex_cell_embeddings[which(df_sex_cell_embeddings$DIMUMAP_2 < 0.1 & df_sex_cell_embeddings$DIMUMAP_1 > -1.2), ])
 ```
 
+### Publication Figure
+
+[Cowplot](https://wilkelab.org/cowplot/articles/plot_grid.html)(plot_grid), [patchwork](https://cran.r-project.org/web/packages/patchwork/vignettes/patchwork.html)(wrap_plots), and [ggpubr](http://www.sthda.com/english/articles/24-ggpubr-publication-ready-plots/81-ggplot2-easy-way-to-mix-multiple-graphs-on-the-same-page/) can all allow multiple plots to be plotted together. 
+
+```{r, fig.height = 11.7, fig.width = 8.3}
+## A
+# umap_id_pt
+## B
+# marker gene expression
+## C
+# Mutant gene expression
+## D
+# Modules
+
+#Figure_A <- grid.arrange(arrangeGrob(QC_composite_plot, QC_mito_violin, QC_mito_graph, QC_by_genotype, mapping_rate_plot), nrow=3), nrow=2, heights=c(10,2))
+
+## cowplot method
+## can use this for labels: toupper(letters)[1:10]
+
+## C. Mutant genes
+mutant_genes_figure <- plot_grid(
+  ## marker genes starts
+                              list_of_density_plots[[8]] + coord_fixed() + theme_void() + theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 8), text=element_text(size=7)) + labs(title = paste("Fam-b2 (Ring)")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, barheight = 4.5, title = "")),
+                             list_of_density_plots[[5]] + coord_fixed() + theme_void() + theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 8), text=element_text(size=7)) + labs(title = paste("MSP8 (Asexual)")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, barheight = 4.5, title = "")),
+                             list_of_density_plots[[4]] + coord_fixed() + theme_void() + theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 8), text=element_text(size=7)) + labs(title = paste("MSP1 (Schizont)")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, barheight = 4.5, title = "")),
+                             list_of_density_plots[[3]] + coord_fixed() + theme_void() + theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 8), text=element_text(size=7)) + labs(title = paste("AP2G (Commitment)")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)) )+ guides(colour = guide_colourbar(barwidth = 0.5, barheight = 4.5, title = "")),
+                             list_of_density_plots[[1]] + coord_fixed() + theme_void() + theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 8), text=element_text(size=7)) + 
+  labs(title = paste("CCP2 (Female)")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, barheight = 4.5, title = "")),
+                             list_of_density_plots[[2]] + coord_fixed() + theme_void() + theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 8), text=element_text(size=7)) + labs(title = paste("MG1 (Male)")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, barheight = 4.5, title = "")),
+  ## mutant genes starts
+                            list_of_density_plots_mutant_genes[[1]] + coord_fixed() + theme_void() + theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 8), text=element_text(size=9)) + labs(title = paste("gd1")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, barheight = 4.5, title = "")),
+                             list_of_density_plots_mutant_genes[[2]] + coord_fixed() + theme_void() + theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 8), text=element_text(size=9)) + labs(title = paste("md1")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, barheight = 4.5, title = "")),
+                             list_of_density_plots_mutant_genes[[3]] + coord_fixed() + theme_void() + theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 8), text=element_text(size=9)) + labs(title = paste("md2")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, barheight = 4.5, title = "")),
+                             list_of_density_plots_mutant_genes[[4]] + coord_fixed() + theme_void() + theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 8), text=element_text(size=9)) + labs(title = paste("md3")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)) )+ guides(colour = guide_colourbar(barwidth = 0.5, barheight = 4.5, title = "")),
+                             list_of_density_plots_mutant_genes[[5]] + coord_fixed() + theme_void() + theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 8), text=element_text(size=9)) + labs(title = paste("md4")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, barheight = 4.5, title = "")),
+                             list_of_density_plots_mutant_genes[[6]] + coord_fixed() + theme_void() + theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 8), text=element_text(size=9)) + labs(title = paste("md5")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, barheight = 4.5, title = "")),
+                             list_of_density_plots_mutant_genes[[7]] + coord_fixed() + theme_void() + theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 8), text=element_text(size=9)) + labs(title = paste("fd1")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, barheight = 4.5, title = "")),
+                             list_of_density_plots_mutant_genes[[8]] + coord_fixed() + theme_void() + theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 8), text=element_text(size=9)) + labs(title = paste("fd2")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, barheight = 4.5, title = "")),
+                             list_of_density_plots_mutant_genes[[9]] + coord_fixed() + theme_void() + theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 8), text=element_text(size=9)) + labs(title = paste("fd3")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, barheight = 4.5, title = "")),
+                             list_of_density_plots_mutant_genes[[10]] + coord_fixed() + theme_void()+ theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 8), text=element_text(size=9)) + labs(title = paste("fd4")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, barheight = 4.5, title = "")),
+  labels = c(toupper(letters)[2:17]), 
+  label_size = 12, 
+  nrow = 4)
+
+Figure_publication <- plot_grid(umap_id_pt, 
+                                mutant_genes_figure,
+                                ## add empty plot to give spacing
+                                ggplot() + theme_void(),
+                                labels = c('A'), 
+                                label_size = 12, 
+                                ncol = 2, 
+                                nrow=2, 
+                                rel_heights = c(1, 1, 4), 
+                                rel_widths = c(1, 2, 3))
+
+Figure_publication
+```
+
+save
+```{r}
+ggsave("../images_to_export/Figure_C.png", plot = Figure_publication, device = "png", path = NULL, scale = 1, width = 21, height = 29.7, units = "cm", dpi = 300, limitsize = TRUE)
+```

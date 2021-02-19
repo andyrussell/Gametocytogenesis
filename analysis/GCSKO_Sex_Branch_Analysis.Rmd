@@ -143,6 +143,19 @@ if(require("dplyr")){
     }
 }
 
+## this allows us to use the colorRamp2 function which allows us to plot nice colour gradient pals:
+if(require("circlize")){
+    print("circlize is loaded correctly")
+} else {
+    print("trying to install circlize")
+    install.packages("circlize")
+    if(require(circlize)){
+        print("circlize installed and loaded")
+    } else {
+        stop("could not install circlize")
+    }
+}
+
 ## non-CRAN packages
 
 ## monocle3 to calculate pseudotime:
