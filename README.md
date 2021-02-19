@@ -10,3 +10,9 @@ Please contact ar19@sanger.ac.uk with any questions, or if you would like to col
 ## Basic steps
 - Run `quality_control` notebooks to generate QCed data files
 - Run `analysis` notebooks
+  - A. `merge`
+  - B. `pseudotime_allcells`
+  - C. `coexpression`
+  - D. `Sex_Branch_Analysis`
+  - E. `sex_ratio`
+  - F. `misc_code` 
