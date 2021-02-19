@@ -13,6 +13,6 @@ Please contact ar19@sanger.ac.uk with any questions, or if you would like to col
   - A. `merge`
   - B. `pseudotime_allcells`
   - C. `coexpression`
-  - D. `Sex_Branch_Analysis`
+  - D. `sex_branch_analysis`
   - E. `sex_ratio`
   - F. `misc_code` 
