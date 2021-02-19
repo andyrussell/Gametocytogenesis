@@ -149,6 +149,21 @@ if(require("dplyr")){
     }
 }
 
+## non-CRAN packages
+
+## to make density plots showing gene expression
+if(require("Nebulosa")){
+    print("Nebulosa is loaded correctly")
+} else {
+    print("trying to install Nebulosa")
+    devtools::install_github("powellgenomicslab/Nebulosa")
+    if(require(Nebulosa)){
+        print("Nebulosa installed and loaded")
+    } else {
+        stop("could not install Nebulosa")
+    }
+}
+
 ## set the seed for both the mixture models and also for the sample function later on:
 set.seed(-92497)
 ```
@@ -157,7 +172,7 @@ set.seed(-92497)
 
 screen hits
 ```{r}
-## EDIT - change this to the excel table once we have it finalised for the screen
+## EDIT - change this to the excel table once we have it finalized for the screen
 screen_hits <- c("PBANKA-0516300",
 "PBANKA-1217700",
 "PBANKA-0409100",
@@ -342,7 +357,7 @@ dp1 <- DimPlot(tenx.mutant.integrated, label = TRUE, repel = FALSE, pt.size = 0.
   ## fix the axis
   coord_fixed() + 
   ## reverse the scale
-  scale_x_reverse()
+  scale_y_reverse()
 
 ## view
 dp1
@@ -353,8 +368,8 @@ Now store these reversed embeddings in a new slot
 ## extract the cell embeddings from the UMAP
 mds <- as.data.frame(tenx.mutant.integrated@reductions$umap@cell.embeddings)
 
-## change the coordinates of UMAP 2 so they are reversed
-mds$UMAP_2 <- -mds$UMAP_2
+## change the coordinates of UMAP 1 so they are reversed
+mds$UMAP_1 <- -mds$UMAP_1
 
 ## change names of the cols 
 colnames(mds) <- paste0("DIM_UMAP_", 1:2)
@@ -486,7 +501,7 @@ for(i in seq_along(levels(tenx.mutant.integrated@meta.data$integrated_snn_res.1.
 }
 
 ## check number of clusters
-#length(list_UMAPs_by_cluster)
+length(list_UMAPs_by_cluster)
 ```
 
 plot
@@ -532,12 +547,12 @@ for(i in seq_along(levels(tenx.mutant.integrated@meta.data$integrated_snn_res.1.
 }
 
 ## check number of clusters
-#length(list_UMAPs_by_cluster)
+length(list_UMAPs_by_cluster)
 ```
 
 ```{r, fig.height = 10, fig.width = 10}
 ## 1.5 resolution
-list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[[3]] + list_UMAPs_by_cluster[[4]] + list_UMAPs_by_cluster[[5]] + list_UMAPs_by_cluster[[6]] + list_UMAPs_by_cluster[[7]] + list_UMAPs_by_cluster[[8]] + list_UMAPs_by_cluster[[9]] + list_UMAPs_by_cluster[[10]] + list_UMAPs_by_cluster[[11]] + list_UMAPs_by_cluster[[12]] + list_UMAPs_by_cluster[[13]] + list_UMAPs_by_cluster[[14]] + list_UMAPs_by_cluster[[15]] + list_UMAPs_by_cluster[[16]] + list_UMAPs_by_cluster[[17]] + list_UMAPs_by_cluster[[18]] + list_UMAPs_by_cluster[[19]] + list_UMAPs_by_cluster[[20]] + list_UMAPs_by_cluster[[21]] + list_UMAPs_by_cluster[[22]] + list_UMAPs_by_cluster[[23]] + list_UMAPs_by_cluster[[24]] + list_UMAPs_by_cluster[[25]]
+list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[[3]] + list_UMAPs_by_cluster[[4]] + list_UMAPs_by_cluster[[5]] + list_UMAPs_by_cluster[[6]] + list_UMAPs_by_cluster[[7]] + list_UMAPs_by_cluster[[8]] + list_UMAPs_by_cluster[[9]] + list_UMAPs_by_cluster[[10]] + list_UMAPs_by_cluster[[11]] + list_UMAPs_by_cluster[[12]] + list_UMAPs_by_cluster[[13]] + list_UMAPs_by_cluster[[14]] + list_UMAPs_by_cluster[[15]] + list_UMAPs_by_cluster[[16]] + list_UMAPs_by_cluster[[17]] + list_UMAPs_by_cluster[[18]] + list_UMAPs_by_cluster[[19]] + list_UMAPs_by_cluster[[20]] + list_UMAPs_by_cluster[[21]] + list_UMAPs_by_cluster[[22]] + list_UMAPs_by_cluster[[23]] + list_UMAPs_by_cluster[[24]] #+ list_UMAPs_by_cluster[[25]]
 ```
 
 #### resolution = 2
@@ -571,7 +586,7 @@ for(i in seq_along(levels(tenx.mutant.integrated@meta.data$integrated_snn_res.2)
 }
 
 ## check number of clusters
-#length(list_UMAPs_by_cluster)
+length(list_UMAPs_by_cluster)
 ```
 
 plot
@@ -584,10 +599,10 @@ plot
 #}
 
 ## plot
-list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[[3]] + list_UMAPs_by_cluster[[4]] + list_UMAPs_by_cluster[[5]] + list_UMAPs_by_cluster[[6]] + list_UMAPs_by_cluster[[7]] + list_UMAPs_by_cluster[[8]] + list_UMAPs_by_cluster[[9]] + list_UMAPs_by_cluster[[10]] + list_UMAPs_by_cluster[[11]] + list_UMAPs_by_cluster[[12]] + list_UMAPs_by_cluster[[13]] + list_UMAPs_by_cluster[[14]] + list_UMAPs_by_cluster[[15]] + list_UMAPs_by_cluster[[16]] + list_UMAPs_by_cluster[[17]] + list_UMAPs_by_cluster[[18]] + list_UMAPs_by_cluster[[19]] + list_UMAPs_by_cluster[[20]] + list_UMAPs_by_cluster[[21]] + list_UMAPs_by_cluster[[22]] + list_UMAPs_by_cluster[[23]] + list_UMAPs_by_cluster[[24]] + list_UMAPs_by_cluster[[25]] + list_UMAPs_by_cluster[[26]] + list_UMAPs_by_cluster[[27]] + list_UMAPs_by_cluster[[28]] + list_UMAPs_by_cluster[[29]] + list_UMAPs_by_cluster[[30]] + list_UMAPs_by_cluster[[31]]
+list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[[3]] + list_UMAPs_by_cluster[[4]] + list_UMAPs_by_cluster[[5]] + list_UMAPs_by_cluster[[6]] + list_UMAPs_by_cluster[[7]] + list_UMAPs_by_cluster[[8]] + list_UMAPs_by_cluster[[9]] + list_UMAPs_by_cluster[[10]] + list_UMAPs_by_cluster[[11]] + list_UMAPs_by_cluster[[12]] + list_UMAPs_by_cluster[[13]] + list_UMAPs_by_cluster[[14]] + list_UMAPs_by_cluster[[15]] + list_UMAPs_by_cluster[[16]] + list_UMAPs_by_cluster[[17]] + list_UMAPs_by_cluster[[18]] + list_UMAPs_by_cluster[[19]] + list_UMAPs_by_cluster[[20]] + list_UMAPs_by_cluster[[21]] + list_UMAPs_by_cluster[[22]] + list_UMAPs_by_cluster[[23]] + list_UMAPs_by_cluster[[24]] + list_UMAPs_by_cluster[[25]] + list_UMAPs_by_cluster[[26]] + list_UMAPs_by_cluster[[27]] + list_UMAPs_by_cluster[[28]] + list_UMAPs_by_cluster[[29]]# + list_UMAPs_by_cluster[[30]] + list_UMAPs_by_cluster[[31]]
 ```
 
-3 vs 19 on resolution 2 already looks pretty cool:
+8 vs 11 on resolution 2 already looks pretty cool:
 
 ```{r}
 ## reset the default identity
@@ -598,15 +613,27 @@ tenx.mutant.integrated <- FindClusters(tenx.mutant.integrated, resolution = 2, r
 
 
 ## Find deferentially expressed features between the two clusters
-early.sex.de.markers <- FindMarkers(tenx.mutant.integrated, ident.1 = "5", ident.2 = "3")
-# view results
+early.sex.de.markers <- FindMarkers(tenx.mutant.integrated, ident.1 = "8", ident.2 = "11")
+## order by FC
+early.sex.de.markers <- early.sex.de.markers[rev(order(early.sex.de.markers$avg_logFC)),]
+## view results
 head(early.sex.de.markers)
+# View(early.sex.de.markers)
+```
+
+```{r}
+early.sex.de.markers.screen.hits <- early.sex.de.markers[rownames(early.sex.de.markers) %in% c(screen_hits,"PBANKA-1437500"), ]
+early.sex.de.markers.screen.hits
+
+## PBANKA-1302700 - md1
+## PBANKA-1437500 - Ap2G
+## PBANKA-1214700 - conserved plasmodium protein
 ```
 
 look at them across the dataset
 
 ```{r, fig.height = 6}
-DotPlot(tenx.mutant.integrated, features = c(rownames(early.sex.de.markers[1:10,]), "PBANKA-1302700")) + RotatedAxis()
+DotPlot(tenx.mutant.integrated, features = rownames(early.sex.de.markers[1:10,])) + RotatedAxis()
 ```
 
 ```{r, fig.height = 6}
@@ -655,7 +682,7 @@ for(i in seq_along(levels(tenx.mutant.integrated@meta.data$integrated_snn_res.4)
 }
 
 ## check number of clusters
-#length(list_UMAPs_by_cluster)
+length(list_UMAPs_by_cluster)
 ```
 
 plot
@@ -668,7 +695,7 @@ plot
 #}
 
 ## plot
-list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[[3]] + list_UMAPs_by_cluster[[4]] + list_UMAPs_by_cluster[[5]] + list_UMAPs_by_cluster[[6]] + list_UMAPs_by_cluster[[7]] + list_UMAPs_by_cluster[[8]] + list_UMAPs_by_cluster[[9]] + list_UMAPs_by_cluster[[10]] + list_UMAPs_by_cluster[[11]] + list_UMAPs_by_cluster[[12]] + list_UMAPs_by_cluster[[13]] + list_UMAPs_by_cluster[[14]] + list_UMAPs_by_cluster[[15]] + list_UMAPs_by_cluster[[16]] + list_UMAPs_by_cluster[[17]] + list_UMAPs_by_cluster[[18]] + list_UMAPs_by_cluster[[19]] + list_UMAPs_by_cluster[[20]] + list_UMAPs_by_cluster[[21]] + list_UMAPs_by_cluster[[22]] + list_UMAPs_by_cluster[[23]] + list_UMAPs_by_cluster[[24]] + list_UMAPs_by_cluster[[25]] + list_UMAPs_by_cluster[[26]] + list_UMAPs_by_cluster[[27]] + list_UMAPs_by_cluster[[28]] + list_UMAPs_by_cluster[[29]] + list_UMAPs_by_cluster[[30]] + list_UMAPs_by_cluster[[31]] + list_UMAPs_by_cluster[[32]] + list_UMAPs_by_cluster[[33]] + list_UMAPs_by_cluster[[34]] + list_UMAPs_by_cluster[[35]] + list_UMAPs_by_cluster[[36]] + list_UMAPs_by_cluster[[37]] + list_UMAPs_by_cluster[[38]] + list_UMAPs_by_cluster[[39]] + list_UMAPs_by_cluster[[40]] + list_UMAPs_by_cluster[[41]] + list_UMAPs_by_cluster[[42]] + list_UMAPs_by_cluster[[43]] + list_UMAPs_by_cluster[[44]] + list_UMAPs_by_cluster[[45]]
+list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[[3]] + list_UMAPs_by_cluster[[4]] + list_UMAPs_by_cluster[[5]] + list_UMAPs_by_cluster[[6]] + list_UMAPs_by_cluster[[7]] + list_UMAPs_by_cluster[[8]] + list_UMAPs_by_cluster[[9]] + list_UMAPs_by_cluster[[10]] + list_UMAPs_by_cluster[[11]] + list_UMAPs_by_cluster[[12]] + list_UMAPs_by_cluster[[13]] + list_UMAPs_by_cluster[[14]] + list_UMAPs_by_cluster[[15]] + list_UMAPs_by_cluster[[16]] + list_UMAPs_by_cluster[[17]] + list_UMAPs_by_cluster[[18]] + list_UMAPs_by_cluster[[19]] + list_UMAPs_by_cluster[[20]] + list_UMAPs_by_cluster[[21]] + list_UMAPs_by_cluster[[22]] + list_UMAPs_by_cluster[[23]] + list_UMAPs_by_cluster[[24]] + list_UMAPs_by_cluster[[25]] + list_UMAPs_by_cluster[[26]] + list_UMAPs_by_cluster[[27]] + list_UMAPs_by_cluster[[28]] + list_UMAPs_by_cluster[[29]] + list_UMAPs_by_cluster[[30]] + list_UMAPs_by_cluster[[31]] + list_UMAPs_by_cluster[[32]] + list_UMAPs_by_cluster[[33]] + list_UMAPs_by_cluster[[34]] + list_UMAPs_by_cluster[[35]] + list_UMAPs_by_cluster[[36]] + list_UMAPs_by_cluster[[37]] + list_UMAPs_by_cluster[[38]] + list_UMAPs_by_cluster[[39]] + list_UMAPs_by_cluster[[40]] + list_UMAPs_by_cluster[[41]] + list_UMAPs_by_cluster[[42]] + list_UMAPs_by_cluster[[43]] + list_UMAPs_by_cluster[[44]] + list_UMAPs_by_cluster[[45]] + list_UMAPs_by_cluster[[46]]
 ```
 
 #### UMAP clustering
@@ -725,7 +752,7 @@ list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[
 
 We will look in more detail at cells as they enter the sexual trajecotry later. The PCA clustering will be more appropriate in this high-resolution view. In order to subset these cells, we will use the UMAP clustering. 
 
-```{r, fig.height = 3, fig.width = 5}
+```{r, fig.height = 5, fig.width = 5}
 ## generate final clusters which will be written into the 'seurat.clusters' slot in meta data
 tenx.mutant.integrated <- FindNeighbors(tenx.mutant.integrated, dims = 1:10, reduction = "umap")
 tenx.mutant.integrated <- FindClusters(tenx.mutant.integrated, resolution = 0.5, random.seed = 42, algorithm = 2)
@@ -738,7 +765,7 @@ DimPlot(tenx.mutant.integrated, label = TRUE, repel = TRUE, pt.size = 0.05, grou
 
 We will get some high level insight into these clusters now
 
-```{r, fig.height = 3, fig.width = 5}
+```{r, fig.height = 10, fig.width = 10}
 ## TODO - move this to once clusters are identified
 v1 <- VlnPlot(object = tenx.mutant.integrated, features = "nFeature_RNA", group.by = "seurat_clusters", pt.size = 0.01)
 
@@ -759,7 +786,7 @@ bulk RNA-seq data correlation
 
 #### expression of 820 markers
 
-```{r, fig.height = 3, fig.width = 3}
+```{r, fig.height = 7, fig.width = 7}
 ## make plots 
 plots <- FeaturePlot(tenx.mutant.integrated, features = c("PBANKA-1319500", "PBANKA-0416100"), blend = TRUE, combine = FALSE, coord.fixed = TRUE, dims = c(2,1), reduction = "DIM_UMAP")
     
@@ -777,7 +804,7 @@ plots[[3]] + NoLegend() + plots[[4]]/plot_spacer() + plot_layout(widths = c(2,1)
 #### Known Marker Genes Plots
 
 marker genes plots
-```{r, fig.height = 6, fig.width = 6}
+```{r, fig.height = 15, fig.width = 15}
 ## find a good ring marker, to see if there is a better one than the ones reported
 #markers_ring <- FindMarkers(tenx.mutant.integrated, ident.1 = c("4", "5", "16", "11", "7", "3", "9", "0", "22"))
 #head(markers_ring)
@@ -844,8 +871,79 @@ marker_gene_plot_HSP70 <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA
 # labs(title = paste("(CCP2; Female)","\n", "PBANKA_1319500"))
 
 ## plot
-marker_gene_plot_FAMB + marker_gene_plot_MSP8 + marker_gene_plot_MSP1 + marker_gene_plot_AP2G + marker_gene_plot_CCP2 + marker_gene_plot_MG1 + marker_gene_plot_HSP70
+## cowplot method
+marker_gene_plot_all <- plot_grid(marker_gene_plot_FAMB, marker_gene_plot_MSP8, marker_gene_plot_MSP1, marker_gene_plot_AP2G, marker_gene_plot_CCP2, marker_gene_plot_MG1, marker_gene_plot_HSP70, nrow=3)
+
+marker_gene_plot_all
+
+## patchwork method
+#marker_gene_plot_FAMB + marker_gene_plot_MSP8 + marker_gene_plot_MSP1 + marker_gene_plot_AP2G + marker_gene_plot_CCP2 + marker_gene_plot_MG1 + marker_gene_plot_HSP70
 ```
+
+```{r, fig.height = 15, fig.width = 15}
+# PBANKA-1319500 - CCP2 - female - used in 820 line
+# PBANKA-0416100 - MG1 - dynenin heavy chain - male - used in 820 line
+# PBANKA-1437500 - AP2G - commitment
+# PBANKA-0831000 - MSP1 - late asexual
+# PBANKA-1102200 - MSP8 - early asexual (from Bozdech paper)
+# PBANKA-0711900 - HSP70 - promoter used for GFP and RFP expression in the mutants
+# PBANKA-1400400 - FAMB - ring marker - discovered by looking for marker genes in data
+# PBANKA-0722600 - Fam-b2 - ring marker - https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5113031/ 
+markers_list <- c("PBANKA-1319500", "PBANKA-0416100", "PBANKA-1437500", "PBANKA-0831000", "PBANKA-1102200", "PBANKA-0711900", "PBANKA-1400400", "PBANKA-0722600")
+
+list_of_density_plots <- plot_density(tenx.mutant.integrated, markers_list, joint = FALSE, combine = FALSE, dims = c(2,1), pal = "plasma")
+
+list_of_density_plots[[1]] + coord_fixed() + list_of_density_plots[[2]] + list_of_density_plots[[3]] + list_of_density_plots[[4]] + list_of_density_plots[[5]] + list_of_density_plots[[6]] + list_of_density_plots[[7]] + list_of_density_plots[[8]]
+
+#plot_density(tenx.mutant.integrated, "PBANKA-0416100")
+```
+
+Mutant cells could have aberant expression so we will use only wild-type cells:
+
+make a metadata column where the 10X data is classified as a WT genotype
+```{r}
+## get cells that are filtered out
+cells_10x <- which(tenx.mutant.integrated@meta.data$experiment == "tenx_5k")
+
+## make extra column in plotting df
+tenx.mutant.integrated@meta.data$genotype_combined <- tenx.mutant.integrated@meta.data$genotype
+tenx.mutant.integrated@meta.data$genotype_combined[cells_10x] <- "WT"
+
+## inspect
+table(tenx.mutant.integrated@meta.data$genotype_combined)
+```
+
+
+```{r}
+wild_type_cells <- rownames(tenx.mutant.integrated@meta.data[tenx.mutant.integrated@meta.data$genotype_combined == "WT", ])
+tenx.mutant.integrated.wt <- subset(tenx.mutant.integrated, cells = wild_type_cells)
+#FeaturePlot(tenx.mutant.integrated.wt, features = "PBANKA-1101300", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP", pt.size = 1, order = TRUE)
+
+## Run the standard workflow for visualization and clustering
+#tenx.mutant.integrated.wt <- ScaleData(tenx.mutant.integrated.wt, verbose = FALSE)
+#tenx.mutant.integrated.wt <- RunPCA(tenx.mutant.integrated.wt, npcs = 30, verbose = FALSE)
+
+## inspect PCs
+#ElbowPlot(tenx.mutant.integrated.wt, ndims = 30, reduction = "pca")
+
+## Run optimised UMAP
+#tenx.mutant.integrated.wt <- RunUMAP(tenx.mutant.integrated.wt, reduction = "pca", dims = 1:10, n.neighbors = 150, seed.use = 1234, min.dist = 0.4, repulsion.strength = 0.03, local.connectivity = 150)
+
+## plot
+#dp1 <- DimPlot(tenx.mutant.integrated.wt, label = TRUE, repel = FALSE, pt.size = 0.05, dims = c(2,1), group.by = "experiment") + 
+  ## fix the axis
+  #coord_fixed() + 
+  ## reverse the scale
+  #scale_y_reverse()
+
+## view
+#dp1
+```
+
+```{r, fig.height = 15, fig.width = 15}
+plot_density(tenx.mutant.integrated.wt, markers_list, joint = FALSE, dims = c(2,1), pal = "plasma")
+```
+
 
 Then define each cluster as Male, Female or Asexual:
 ```{r}
@@ -854,13 +952,13 @@ tenx.mutant.integrated@meta.data$cluster_colours_figure <- NA
 
 ## define which clusters will be which identity
 
-male_clusters <- c("20", "17", "8", "18")
+male_clusters <- c("22", "18", "9", "16")
 
-female_clusters <- c("23", "19", "21", "5")
+female_clusters <- c("19","24","20","3")
 
-asex_clusters <- c("6", "4", "9", "2", "1", "7", "0", "3", "12", "16", "10", "11", "24", "14", "15", "22", "25")
+asex_clusters <- c("8","1","0","4","2","6","7","5","12","14","15","10","23","13","17","21","25")
 
-bipotential_clusters <- c("13")
+bipotential_clusters <- c("11")
 
 ## check length of the unique entries in the manualy created list above and the number of clusters in total
 paste("Is the total number of clusters in the list the same as the number of clusters in the slot?", identical(length(unique(c(male_clusters, female_clusters, asex_clusters, bipotential_clusters))), length(levels(tenx.mutant.integrated@meta.data$seurat_clusters))))
@@ -911,7 +1009,7 @@ ggsave("../images_to_export/merge_UMAP_identity.png", plot = UMAP_identity, devi
 
 #### Fig. Sup. UMAP with Clusters
 
-```{r, fig.height = 4, fig.width = 4}
+```{r, fig.height = 7, fig.width = 7}
 ## Plot
 umap_cluster <- DimPlot(tenx.mutant.integrated, label = TRUE, label.size = 8, repel = FALSE, pt.size = 0.5, dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() +
@@ -971,7 +1069,7 @@ ggsave("../images_to_export/merge_umap_bulk_prediction.png", plot = umap_bulk, d
 #### Fig. 3.C. By Experiment
 
 The original method of plotting by experiment does not allow much customisation of the plots. I.e. we cannot easily change the titles of each plot
-```{r, fig.height = 4, fig.width = 4}
+```{r, fig.height = 8, fig.width = 8}
 ## Plot
 DimPlot(tenx.mutant.integrated, label = TRUE, repel = TRUE, pt.size = 0.5, split.by = "experiment", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() +
@@ -982,7 +1080,7 @@ DimPlot(tenx.mutant.integrated, label = TRUE, repel = TRUE, pt.size = 0.5, split
 ```
 
 But, we can use the following code to do this
-```{r, fig.height = 2, fig.width = 4}
+```{r, fig.height = 4, fig.width = 8}
 ## make an extra meta.data column so you can split the object by SS2 mutant, SS2 WT, 10X
 ## make new column in meta.data
 tenx.mutant.integrated@meta.data$sub_genotype <- tenx.mutant.integrated@meta.data$genotype
@@ -1063,8 +1161,40 @@ save
 ggsave("../images_to_export/merge_umap_technology_and_markers.png", plot = UMAP_composite, device = "png", path = NULL, scale = 1, width = 30, height = 30, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
+```{r, fig.height = 10, fig.width = 10}
+# PBANKA-1319500 - CCP2 - female - used in 820 line
+# PBANKA-0416100 - MG1 - dynenin heavy chain - male - used in 820 line
+# PBANKA-1437500 - AP2G - commitment
+# PBANKA-0831000 - MSP1 - late asexual
+# PBANKA-1102200 - MSP8 - early asexual (from Bozdech paper)
+# PBANKA-0711900 - HSP70 - promoter used for GFP and RFP expression in the mutants
+# PBANKA-1400400 - FAMB - ring marker - discovered by looking for marker genes in data
+# PBANKA-0722600 - Fam-b2 - ring marker - https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5113031/ 
+
+#  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+
+markers_list <- c("PBANKA-1319500", "PBANKA-0416100", "PBANKA-1437500", "PBANKA-0831000", "PBANKA-1102200", "PBANKA-0711900", "PBANKA-1400400", "PBANKA-0722600")
+
+list_of_density_plots <- plot_density(tenx.mutant.integrated.wt, markers_list, joint = FALSE, combine = FALSE, dims = c(2,1), pal = "plasma", method = "ks")
+
+## make composite plot
+UMAP_composite <- wrap_plots(list_of_density_plots[[8]] + coord_fixed() + theme_void() + labs(title = paste("Fam-b2 (Ring)")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots[[5]] + coord_fixed() + theme_void() + labs(title = paste("MSP8 (Asexual)")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots[[4]] + coord_fixed() + theme_void() + labs(title = paste("MSP1 (Schizont)")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots[[3]] + coord_fixed() + theme_void() + labs(title = paste("AP2G (Commitment)")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)) )+ guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots[[1]] + coord_fixed() + theme_void() + 
+  labs(title = paste("CCP2 (Female)")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots[[2]] + coord_fixed() + theme_void() + labs(title = paste("MG1 (Male)")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             p1 , 
+                             p2 , 
+                             p3, 
+                             ncol = 3)
+
+UMAP_composite
+```
+
 Specific gene expression of mutants
-```{r}
+```{r, fig.height = 10, fig.width = 10}
 # PBANKA-1418100        GCSKO-17  FD3   
 # PBANKA-0102400         GCSKO-2  MD3 
 # PBANKA-0716500        GCSKO-19  MD4 
@@ -1080,7 +1210,7 @@ Specific gene expression of mutants
 
 marker_gene_plot_17 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-1418100", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
   theme_void() + 
-  labs(title = paste("17")) + 
+  labs(title = paste("fd3")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
   scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
   ## add sex symbols
@@ -1168,20 +1298,11 @@ marker_gene_plot_21 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduct
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_28 <- FeaturePlot(tenx.mutant.integrated, dims = c(2,1), reduction = "DIM_UMAP", features = "PBANKA-1144800", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("28")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
-
 ##original label:
 # labs(title = paste("(CCP2; Female)","\n", "PBANKA_1319500"))
 
 ## make composite plot
-mutant_expression_composite <- wrap_plots(marker_gene_plot_17 , marker_gene_plot_2 , marker_gene_plot_19 , marker_gene_plot_20 , marker_gene_plot_13 , marker_gene_plot_10 , marker_gene_plot_3 , marker_gene_plot_oom , marker_gene_plot_29 , marker_gene_plot_21 , marker_gene_plot_28, ncol = 4)
+mutant_expression_composite <- wrap_plots(marker_gene_plot_17 , marker_gene_plot_2 , marker_gene_plot_19 , marker_gene_plot_20 , marker_gene_plot_13 , marker_gene_plot_10 , marker_gene_plot_3 , marker_gene_plot_oom , marker_gene_plot_29 , marker_gene_plot_21 , ncol = 4)
            
 ## print
 mutant_expression_composite
@@ -1192,15 +1313,70 @@ save
 ggsave("../images_to_export/merge_umap_mutant_gene_expression.png", plot = mutant_expression_composite, device = "png", path = NULL, scale = 1, width = 30, height = 30, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
+Density plot version
+
+```{r, fig.height = 10, fig.width = 10}
+# PBANKA-0828000         GCSKO-3  GD1
+
+# PBANKA-1302700       GCSKO-oom  MD1 
+# PBANKA-1447900        GCSKO-29  MD2
+# PBANKA-0102400         GCSKO-2  MD3 
+# PBANKA-0716500        GCSKO-19  MD4 
+# PBANKA-0413400    GCSKO-10_820  MD5
+
+# PBANKA-1454800        GCSKO-21  FD1
+# PBANKA-0902300        GCSKO-13  FD2
+# PBANKA-1418100        GCSKO-17  FD3   
+# PBANKA-1435200        GCSKO-20  FD4 
+
+markers_list <- c("PBANKA-0828000", "PBANKA-1302700", "PBANKA-1447900", "PBANKA-0102400", "PBANKA-0716500", "PBANKA-0413400", "PBANKA-1454800", "PBANKA-0902300", "PBANKA-1418100", "PBANKA-1435200")
+
+list_of_density_plots_mutant_genes <- plot_density(tenx.mutant.integrated.wt, markers_list, joint = FALSE, combine = FALSE, dims = c(2,1), pal = "plasma", method = "ks")
+
+## make composite plot
+UMAP_composite_mutant_genes <- wrap_plots(list_of_density_plots_mutant_genes[[1]] + coord_fixed() + theme_void() + labs(title = paste("gd1")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[2]] + coord_fixed() + theme_void() + labs(title = paste("md1")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[3]] + coord_fixed() + theme_void() + labs(title = paste("md2")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[4]] + coord_fixed() + theme_void() + labs(title = paste("md3")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)) )+ guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[5]] + coord_fixed() + theme_void() + 
+  labs(title = paste("md4")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[6]] + coord_fixed() + theme_void() + labs(title = paste("md5")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[7]] + coord_fixed() + theme_void() + labs(title = paste("fd1")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[8]] + coord_fixed() + theme_void() + labs(title = paste("fd2")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[9]] + coord_fixed() + theme_void() + labs(title = paste("fd3")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[10]] + coord_fixed() + theme_void() + labs(title = paste("fd4")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             ncol = 4)
+
+UMAP_composite_mutant_genes
+```
+save
+```{r}
+ggsave("../images_to_export/merge_umap_mutant_gene_expression.png", plot = UMAP_composite_mutant_genes, device = "png", path = NULL, scale = 1, width = 30, height = 30, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
 #### Fig. Sup. Look at specific mutants
 
 All the mutant genotypes profiled were:
 ```{r}
 ## make a list of possible genotypes
 unique(tenx.mutant.integrated@meta.data$identity_updated)
+unique(tenx.mutant.integrated@meta.data$identity_name_updated)
 ```
 
-```{r, fig.width = 7, fig.length = 7}
+```{r, fig.width = 10, fig.length = 10}
+# PBANKA-0828000         GCSKO-3  GD1
+
+# PBANKA-1302700       GCSKO-oom  MD1 
+# PBANKA-1447900        GCSKO-29  MD2
+# PBANKA-0102400         GCSKO-2  MD3 
+# PBANKA-0716500        GCSKO-19  MD4 
+# PBANKA-0413400    GCSKO-10_820  MD5
+
+# PBANKA-1454800        GCSKO-21  FD1
+# PBANKA-0902300        GCSKO-13  FD2
+# PBANKA-1418100        GCSKO-17  FD3   
+# PBANKA-1435200        GCSKO-20  FD4 
+
 ## ~ TODO ~ MAKE INTO A FOR LOOP
 
 ## make lists for each genotype
@@ -1214,24 +1390,14 @@ cells_3 <- rownames(tenx.mutant.integrated@meta.data[which(tenx.mutant.integrate
 cells_oom <- rownames(tenx.mutant.integrated@meta.data[which(tenx.mutant.integrated@meta.data$identity_updated == "GCSKO-oom"), ])
 cells_29 <- rownames(tenx.mutant.integrated@meta.data[which(tenx.mutant.integrated@meta.data$identity_updated == "GCSKO-29"), ])
 cells_21 <- rownames(tenx.mutant.integrated@meta.data[which(tenx.mutant.integrated@meta.data$identity_updated == "GCSKO-21"), ])
-cells_28 <- rownames(tenx.mutant.integrated@meta.data[which(tenx.mutant.integrated@meta.data$identity_updated == "GCSKO-28"), ])
 
 ## make plots
-pm1 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_28, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
-  coord_fixed() + 
-  scale_color_manual(values=c("#000000", "#f54e1e")) + 
-  theme_void() + 
-  labs(title = paste("Mutant 28","\n", "(PBANKA_1144800)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
 pm2 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_17, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
-  labs(title = paste("Mutant 17","\n", "(PBANKA_1418100)")) + 
+  labs(title = paste("fd3","\n", "(PBANKA_1418100)")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
@@ -1241,7 +1407,7 @@ pm3 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
-  labs(title = paste("Mutant 2","\n", "(PBANKA_0102400)")) + 
+  labs(title = paste("md3","\n", "(PBANKA_0102400)")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
@@ -1251,7 +1417,7 @@ pm4 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) +
   theme_void() + 
-  labs(title = paste("Mutant 19","\n", "(PBANKA_0716500)")) + 
+  labs(title = paste("md4","\n", "(PBANKA_0716500)")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
@@ -1261,7 +1427,7 @@ pm5 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
-  labs(title = paste("Mutant 20","\n", "(PBANKA_1435200)")) + 
+  labs(title = paste("fd4","\n", "(PBANKA_1435200)")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
@@ -1271,7 +1437,7 @@ pm6 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
-  labs(title = paste("Mutant 13","\n", "PBANKA_0902300")) + 
+  labs(title = paste("fd2","\n", "PBANKA_0902300")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
@@ -1281,7 +1447,7 @@ pm7 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
-  labs(title = paste("Mutant 10","\n", "(PBANKA_0413400)")) + 
+  labs(title = paste("md5","\n", "(PBANKA_0413400)")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
@@ -1291,7 +1457,7 @@ pm8 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
-  labs(title = paste("Mutant 3","\n", "(PBANKA_0828000)")) + 
+  labs(title = paste("gd1","\n", "(PBANKA_0828000)")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
@@ -1301,7 +1467,7 @@ pm9 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
-  labs(title = paste("Mutant oom","\n", "(PBANKA_1302700)")) + 
+  labs(title = paste("md1","\n", "(PBANKA_1302700)")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
@@ -1311,7 +1477,7 @@ pm10 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
-  labs(title = paste("Mutant 29","\n", "(PBANKA_1447900)")) + 
+  labs(title = paste("md2","\n", "(PBANKA_1447900)")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
@@ -1321,7 +1487,7 @@ pm11 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
-  labs(title = paste("Mutant 21","\n", "(PBANKA_1454800)")) + 
+  labs(title = paste("fd1","\n", "(PBANKA_1454800)")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
@@ -1332,7 +1498,7 @@ pm11 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0
 #pm1 + pm2 + pm4 + pm5 + pm11 + pm7 + pm6 + pm8 + pm9 + pm10 + pm3
 
 ## plot composite plot
-mutant_cell_locations <- plot_grid(pm1 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm2 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm4 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm5 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm11 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm7 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm6 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm8 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm9 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm10 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm3+ theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), nrow = 3)
+mutant_cell_locations <- plot_grid(pm2 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm4 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm5 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm11 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm7 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm6 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm8 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm9 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm10 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), pm3+ theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), nrow = 3)
 
 ## print
 mutant_cell_locations
@@ -1357,18 +1523,18 @@ We will use the following marker genes:
 ```
 
 plot expression of these marker genes in each cluster
-```{r, fig.width = 5, fig.height= 7}
+```{r, fig.width = 6, fig.height= 9}
 ## copy the clusters so you don't permanently edit the master
-tenx.mutant.integrated@meta.data$seurat_clusters_plotting <- tenx.mutant.integrated@meta.data$seurat_clusters
+tenx.mutant.integrated.wt@meta.data$seurat_clusters_plotting <- tenx.mutant.integrated.wt@meta.data$seurat_clusters
 
 ## reorder the levels so you can plot the cluters as you wish
 my_levels <- c(asex_clusters, bipotential_clusters, male_clusters, female_clusters)
 
 ## reorder the levels
-tenx.mutant.integrated@meta.data$seurat_clusters_plotting <- factor(x = tenx.mutant.integrated@meta.data$seurat_clusters_plotting, levels = my_levels)
+tenx.mutant.integrated.wt@meta.data$seurat_clusters_plotting <- factor(x = tenx.mutant.integrated.wt@meta.data$seurat_clusters_plotting, levels = my_levels)
 
 ## plot
-dot_plot_markers <- DotPlot(tenx.mutant.integrated, features = c("PBANKA-1319500", "PBANKA-0416100", "PBANKA-1437500", "PBANKA-0831000", "PBANKA-1102200"), group.by = "seurat_clusters_plotting") +
+dot_plot_markers <- DotPlot(tenx.mutant.integrated.wt, features = c("PBANKA-1319500", "PBANKA-0416100", "PBANKA-1437500", "PBANKA-0831000", "PBANKA-1102200"), group.by = "seurat_clusters_plotting") +
   theme_classic() +
   # change appearance and remove axis elements, and make room for arrows
   theme(axis.text.x = element_text(size=16, angle = 45, hjust=1,vjust=1, family = "Arial"), text=element_text(size=16, family="Arial"), legend.position = "bottom", legend.direction = "horizontal", legend.box = "vertical", plot.title = element_blank(), plot.margin = unit(c(1,3,1,3), "lines")) +
@@ -1387,7 +1553,7 @@ dot_plot_markers <- DotPlot(tenx.mutant.integrated, features = c("PBANKA-1319500
   ## annotate sexes
   geom_hline(aes(yintercept = (length(c(asex_clusters, bipotential_clusters, male_clusters))+0.5))) +
   ## change label on bottom of plot so we can indicate markers
-  scale_x_discrete(labels = c(paste("PBANKA-1102200","\n", "(MSP8; early asexual)"), paste("PBANKA-0831000","\n", "(MSP1; late asexual)"), paste("PBANKA-1437500", "\n", "(AP2G; sexual commitment)"), paste("PBANKA-0416100", "\n", "(MG1; male)"), paste("PBANKA-1319500", "\n", "(CCP2; female)")))
+  scale_x_discrete(labels = rev(c(paste("PBANKA-1102200","\n", "(MSP8; early asexual)"), paste("PBANKA-0831000","\n", "(MSP1; late asexual)"), paste("PBANKA-1437500", "\n", "(AP2G; sexual commitment)"), paste("PBANKA-0416100", "\n", "(MG1; male)"), paste("PBANKA-1319500", "\n", "(CCP2; female)"))))
 
 ## view
 print(dot_plot_markers)
@@ -1397,23 +1563,24 @@ print(dot_plot_markers)
 
 gene identities for the mutants profiled
 ```{r}
-# GCSKO-3	PBANKA_0828000
-# GCSKO-oom	PBANKA_1302700
-# GCSKO-29	PBANKA_1447900
-# GCSKO-2	PBANKA_0102400
-# GCSKO-19	PBANKA_0716500
-# GCSKO-20	PBANKA_1435200
-# GCSKO-17	PBANKA_1418100
-# GCSKO-28	PBANKA_1144800
-# GCSKO-13	PBANKA_0902300
-# GCSKO-10_820	PBANKA_0413400_820
-# GCSKO-21	PBANKA_1454800
+# PBANKA-0828000         GCSKO-3  GD1
+
+# PBANKA-1302700       GCSKO-oom  MD1 
+# PBANKA-1447900        GCSKO-29  MD2
+# PBANKA-0102400         GCSKO-2  MD3 
+# PBANKA-0716500        GCSKO-19  MD4 
+# PBANKA-0413400    GCSKO-10_820  MD5
+
+# PBANKA-1454800        GCSKO-21  FD1
+# PBANKA-0902300        GCSKO-13  FD2
+# PBANKA-1418100        GCSKO-17  FD3   
+# PBANKA-1435200        GCSKO-20  FD4 
 ```
 
 plot expression of these mutant genes by cluster
-```{r, fig.width = 5, fig.height= 7}
+```{r, fig.width = 7, fig.height= 9}
 ## plot
-dot_plot_mutant_genes <- DotPlot(tenx.mutant.integrated, features = c("PBANKA-0828000", "PBANKA-1302700", "PBANKA-1447900", "PBANKA-0102400", "PBANKA-0716500", "PBANKA-1435200", "PBANKA-1418100", "PBANKA-1144800", "PBANKA-0902300", "PBANKA-0413400", "PBANKA-1454800"), group.by = "seurat_clusters_plotting") +
+dot_plot_mutant_genes <- DotPlot(tenx.mutant.integrated.wt, features = c("PBANKA-0828000", "PBANKA-1302700", "PBANKA-1447900", "PBANKA-0102400", "PBANKA-0716500","PBANKA-1454800", "PBANKA-1418100", "PBANKA-0902300", "PBANKA-0413400", "PBANKA-1435200"), group.by = "seurat_clusters_plotting") +
   theme_classic() +
   ## change appearance and remove axis elements, and make room for arrows, and also change posoition of legends relative to one another
   theme(axis.text.x = element_text(size=12, angle = 45, hjust=1,vjust=1), legend.position = "bottom", legend.direction = "horizontal", legend.box = "vertical", plot.margin = unit(c(1,3,1,3), "lines"), text=element_text(size=16, family="Arial")) +
@@ -1429,17 +1596,16 @@ dot_plot_mutant_genes <- DotPlot(tenx.mutant.integrated, features = c("PBANKA-08
   ## annotate sexes
   geom_hline(aes(yintercept = (length(c(asex_clusters, bipotential_clusters, male_clusters))+0.5))) +
   ## change label on bottom of plot so we can indicate markers
-  scale_x_discrete(labels = c(paste("PBANKA_1454800","\n", "(GCSKO 21)"),
-                              paste("PBANKA-0413400","\n", "(GCSKO 10)"),
-                              paste("PBANKA-0902300", "\n", "(GCSKO 13)"),
-                              paste("PBANKA-1144800", "\n", "(GCSKO 28)"),
-                              paste("PBANKA-1418100", "\n", "(GCSKO 17)"),
-                              paste("PBANKA-1435200", "\n", "(GCSKO 20)"),
-                              paste("PBANKA-0716500", "\n", "(GCSKO 19)"),
-                              paste("PBANKA-0102400", "\n", "(GCSKO 2)"),
-                              paste("PBANKA-1447900", "\n", "(GCSKO 29)"),
-                              paste("PBANKA-1302700", "\n", "(GCSKO oom)"),
-                              paste("PBANKA-0828000", "\n", "(GCSKO 3)")))
+  scale_x_discrete(labels = rev(c(paste("PBANKA-1435200", "\n", "fd4"),
+                                  paste("PBANKA-0413400","\n", "md5"),
+                                  paste("PBANKA-0902300", "\n", "fd2"),
+                                  paste("PBANKA-1418100", "\n", "fd3"),
+                                  paste("PBANKA_1454800","\n", "fd1"),
+                                  paste("PBANKA-0716500", "\n", "md4"),
+                                  paste("PBANKA-0102400", "\n", "md3"),
+                                  paste("PBANKA-1447900", "\n", "md2"),
+                                  paste("PBANKA-1302700", "\n", "md1"),
+                                  paste("PBANKA-0828000", "\n", "gd1"))))
 
 ## view
 print(dot_plot_mutant_genes)
@@ -1510,7 +1676,7 @@ dot_plot_mutants_experiment <- DotPlot(tenx.mutant.integrated, features = c("PBA
 print(dot_plot_mutants_experiment)
 ```
 
-#### Representation of mutants in markers
+#### Representation of mutants in clusters
 
 Add a meta.data column so that 10X is listed as WT:
 ```{r}
@@ -1587,13 +1753,12 @@ dot_plot_identity <- ggplot(dot_plot_merged, aes(y = factor(cluster), x = factor
       xlab("Identity") +
       labs(colour = "% cells of that genotype represented in that cluster", size = "number of cells of that genotype represented in that cluster") +
       theme(axis.text.x=element_text(size=12, angle=45, hjust=1, vjust=1), axis.text.y=element_text(size=12), legend.position = "bottom", legend.direction = "horizontal", legend.box = "vertical", text=element_text(size=16,  family="Arial")) +
-  ## annotate males
-  geom_hline(aes(yintercept = 28.5)) +
-  ## annotate females
-  geom_hline(aes(yintercept = 24.5)) +
-  ## annotate hermaphrodite
-  geom_hline(aes(yintercept = 23.5)) 
-
+  ## annotate asex
+  geom_hline(aes(yintercept = (length(asex_clusters)+0.5))) +
+  ## annotate bipotential
+  geom_hline(aes(yintercept = (length(c(asex_clusters, bipotential_clusters))+0.5))) +
+  ## annotate sexes
+  geom_hline(aes(yintercept = (length(c(asex_clusters, bipotential_clusters, male_clusters))+0.5)))
 #title = "% genotype population found in each cluster", 
 
 print(dot_plot_identity)
@@ -1616,7 +1781,7 @@ Make a subsetted Seurat object of sexual cells.
 Include the pre-branch too as well as any weird clusters that may have clustered out. 
 
 it's been a while since we looked at the clusters so let's check them out again:
-```{r, fig.height = 4, fig.width = 4}
+```{r, fig.height = 6, fig.width = 6}
 ## Plot
 DimPlot(tenx.mutant.integrated, label = TRUE, repel = TRUE, pt.size = 0.05, group.by = "seurat_clusters", dims = c(2,1), reduction = "DIM_UMAP") + coord_fixed()
 ```
@@ -1625,7 +1790,7 @@ DimPlot(tenx.mutant.integrated, label = TRUE, repel = TRUE, pt.size = 0.05, grou
 ```{r}
 ## define cells
 ## 2 and 0 are at the beginning of the stalk
-sex_clusters <- c(bipotential_clusters, female_clusters, male_clusters, "0", "3")
+sex_clusters <- c(bipotential_clusters, female_clusters, male_clusters, "5", "7")
 
 ## subset cells into new object
 tenx.mutant.integrated.sex <- subset(tenx.mutant.integrated, idents = sex_clusters)
@@ -1645,22 +1810,31 @@ DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, pt.size = 0.1, s
 we want to remove:
 ```{r}
 ## look at original UMAP
-DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, pt.size = 0.1, dims = c(2,1), reduction = "DIM_UMAP") + coord_fixed() + geom_hline(aes(yintercept = -1.2, alpha = 5)) + geom_vline(aes(xintercept = 0.1, alpha = 5))
+plot_sexual_subsetting <- DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, pt.size = 0.1, dims = c(2,1), reduction = "DIM_UMAP") + coord_fixed() + geom_hline(aes(yintercept = -0.80, alpha = 5)) + geom_vline(aes(xintercept = -0.1, alpha = 5))
+
+plot_sexual_subsetting
 ```
+
+Look interactively:
+
+```{r}
+HoverLocator(plot = plot_sexual_subsetting, information = FetchData(object = tenx.mutant.integrated.sex, vars = 'identity_name_updated'))
+```
+
 
 ```{r}
 ## extract cell embeddings
 df_sex_cell_embeddings <- as.data.frame(tenx.mutant.integrated.sex@reductions[["DIM_UMAP"]]@cell.embeddings)
 
-## subset anything lower than -0.75 in UMAP 2 and -7 in UMAP 1
-remove_cells <- row.names(df_sex_cell_embeddings[which(df_sex_cell_embeddings$DIMUMAP_2 < 0.1 & df_sex_cell_embeddings$DIMUMAP_1 > -1.2), ])
+## subset anything lower than -0.8 in UMAP 2 and -0.1 in UMAP 1
+remove_cells <- row.names(df_sex_cell_embeddings[which(df_sex_cell_embeddings$DIMUMAP_2 < -0.1 | df_sex_cell_embeddings$DIMUMAP_1 < -0.8), ])
 
 ## plot these cells
 DimPlot(tenx.mutant.integrated.sex, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = remove_cells, dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
   scale_color_manual(values=c("#000000", "#f54e1e")) + 
   theme_void() + 
-  #labs(title = paste("(Mutant oom)","\n", "PBANKA_1302700")) + 
+  labs(title = paste("cells highlighted will be removed")) + 
   theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
 ```
 
@@ -1793,3 +1967,11 @@ tenx_cluster_36_pd <- meta_df[which(rownames(meta_df) %in% colnames(tenx_cluster
 #write.csv(tenx_cluster_36_matrix_counts, file = "~/data_to_export/tenx_cluster_36_matrix_counts.csv")
 write.csv(tenx_cluster_36_pd, file = "~/data_to_export/tenx_cluster_36_pd.csv")
 ```
+
+old code:
+
+```{r}
+## old thresholds on data with 28
+#remove_cells <- row.names(df_sex_cell_embeddings[which(df_sex_cell_embeddings$DIMUMAP_2 < 0.1 & df_sex_cell_embeddings$DIMUMAP_1 > -1.2), ])
+```
+

@@ -833,7 +833,7 @@ mylegend<-g_legend(plot_list[[1]])
 ## make a final plot
 ## Mutant 20 = fd4
 ## Mutant 2 = md3
-QC_failed_plates <- grid.arrange(arrangeGrob(plot_list[[1]] + theme(legend.position="none") + labs(title = paste("Mutant 20", "\n", "plate 1")) + theme(plot.title = element_text(hjust = 0.5)),
+QC_failed_plates <- grid.arrange(arrangeGrob(plot_list[[1]] + theme(legend.position="none") + labs(title = paste("fd4", "\n", "plate 1")) + theme(plot.title = element_text(hjust = 0.5)),
                                plot_list[[2]] + theme(legend.position="none") + labs(title = paste("fd4", "\n", "plate 2")) + theme(plot.title = element_text(hjust = 0.5)),
                                plot_list[[3]] + theme(legend.position="none") + labs(title = paste("fd4", "\n", "plate 3")) + theme(plot.title = element_text(hjust = 0.5)),
                                plot_list[[4]] + theme(legend.position="none") + labs(title = paste("fd4", "\n", "plate 4")) + theme(plot.title = element_text(hjust = 0.5)),
@@ -1339,3 +1339,35 @@ sessionInfo()
 # write.csv(pheno, file = "../data/Smartseq2/pheno_2020_2.csv", 
 # row.names = TRUE)
 ```
+
+## Publication Figure
+
+[Cowplot](https://wilkelab.org/cowplot/articles/plot_grid.html) , [patchwork](https://cran.r-project.org/web/packages/patchwork/vignettes/patchwork.html), and [ggpubr](http://www.sthda.com/english/articles/24-ggpubr-publication-ready-plots/81-ggplot2-easy-way-to-mix-multiple-graphs-on-the-same-page/) can all allow multiple plots to be plotted together. 
+
+```{r, fig.height = 11.7, fig.width = 8.3}
+## A
+# QC_composite_plot
+## B
+# QC_mito_violin
+## C
+# QC_mito_graph
+## D
+# QC_by_genotype
+## E
+# mapping_rate_plot
+## F
+# sample_map_no_reads
+# platemap_failed_qc
+# position_qc_fail
+## G
+
+#Figure_A <- grid.arrange(arrangeGrob(QC_composite_plot, QC_mito_violin, QC_mito_graph, QC_by_genotype, mapping_rate_plot), nrow=3), nrow=2, heights=c(10,2))
+
+## cowplot method
+right_figures <- plot_grid(QC_mito_violin, QC_mito_graph, labels = c('B', 'C'), label_size = 12, nrow=2)
+F_Figures <- plot_grid(sample_map_no_reads, platemap_failed_qc, position_qc_fail, nrow=1, label_size = 12)
+
+plot_grid(QC_composite_plot, right_figures, QC_by_genotype, mapping_rate_plot, F_Figures, labels = c('A', '', 'D', 'E', 'F'), label_size = 12, ncol = 2, nrow=3, rel_heights = c(2, 1, 1))
+
+```
+
