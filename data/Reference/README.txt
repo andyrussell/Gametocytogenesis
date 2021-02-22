@@ -14,3 +14,9 @@ Downloaded from...
 allcounts4.csv is malaria cell atlas counts data
 \
 allpheno8.2.csv is malaria cell atlas pheno data
+\
+mca_core_genes describes the core genes found in the malaria cell atlas dataset
+\
+DOZI_regulated_genes describes genes that have been found to be associated with DOZI - the RNP complex in female gametocytes. this designation is derived from Kent, Modrzynska et al. (2018) https://dx.doi.org/10.1038%2Fs41564-018-0223-6 . This in turn was derived from an earlier study (Guerreiro A, et al. (2014) Genome Biol. https://www.ncbi.nlm.nih.gov/pubmed/25418785) and DOZI translationally repressed genes were defined as the ones enriched in both DOZI and CITH RIP-ChIP datasets.
+\
+GenesByTaxon_Summary.csv was created from PlasmoDB on 20/02/2021 and contains annotations from PlasmoDB for genes.It includes all transcripts (so can contain multiple transcripts for the same gene). Hence why the number of entries is 5254 rather than the 5245 listed in plasmoddb

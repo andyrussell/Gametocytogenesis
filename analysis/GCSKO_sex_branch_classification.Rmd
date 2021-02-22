@@ -1,0 +1,450 @@
+---
+subtitle: 'Gametocyte Development in <i>Plasmodium berghei</i>'
+title: |
+  ![](../GCSKO_logo.jpg){width=300px}  
+  Sex Branch Classification
+author: "[Andrew Russell](https://ajcrussell.wixsite.com/mysite/about)"
+institute: Wellcome Sanger Institute
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output:
+  html_notebook:
+    theme: cosmo
+    toc: yes
+    toc_depth: 3
+    #toc_float: yes
+    df_print: paged
+---
+***
+# 1. Introduction and Aims {.tabset}
+
+Now that we have subsetted the sexual branch, we will define what is a male and female using the slingshot package.
+
+# 4. Slingshot and SCMAP {.tabset}
+
+We can then use Slingshot to plot a Pseudotime and extract mutually exclusive parts of the trajectory (Male and Female) as well as the common stalk of both trajectories.
+
+### Slingshot
+
+packages
+```{r}
+library(slingshot)
+library(scater)
+```
+
+Data In
+```{r}
+## extract the data from the objects and save to export to Arthur
+integrated_sex_counts <- tenx.mutant.integrated.sex@assays$integrated@data
+integrated_sex_pheno <- tenx.mutant.integrated.sex@meta.data
+#saveRDS(integrated_sex_counts, file="~/data_to_export/integrated_sex_counts.RDS")
+#saveRDS(integrated_sex_pheno, file="~/data_to_export/integrated_sex_pheno.RDS")
+#sexcount<-readRDS("/Users/talman/Google\ Drive/ActiveSanger/sexpaper/integrated_sex_counts.RDS")
+#sexpheno<-readRDS("/Users/talman/Google\ Drive/ActiveSanger/sexpaper/integrated_sex_pheno.RDS")
+sexcount <- integrated_sex_counts
+sexpheno <- integrated_sex_pheno
+
+## technically this is a shortcut but it didn't work
+##https://satijalab.org/seurat/v3.1/conversion_vignette.html
+#convert Seurat to SCE object:
+#pbmc.sce <- as.SingleCellExperiment(tenx.mutant.integrated.sex), assay = "integrated")
+```
+
+#### slingshot on PCA
+Preprocess
+```{r}
+## make a single cell experiment object, which is the input for Slingshot
+sexbranch <- SingleCellExperiment(assays = list(
+  counts = as.matrix(sexcount),
+  logcounts = as.matrix(sexcount)
+), colData = sexpheno)
+
+## subset wild-type cells
+sexbranchWT<- sexbranch[, colData(sexbranch)$genotype == "WT"|colData(sexbranch)$experiment == "tenx_5k"]
+
+## calculate the QC metrics
+sexbranchWT<-calculateQCMetrics(sexbranchWT)
+
+## set up the colour pal
+nb.cols <- 18 
+mycolors <- colorRampPalette(brewer.pal(9, "Set1"))(nb.cols)
+```
+
+Calculate the PCS
+```{r}
+## calculate PCA
+pca <- prcomp(t(assays(sexbranchWT)$counts), scale. = FALSE)
+
+## subset coordinates
+rd1 <- pca$x[,1:2]
+
+## plot
+plot(rd1, col = rgb(0,0,0,.5), pch=16, asp = 2)
+
+## cluster using kmeans
+## you need to set a seed here to ensure the results are reproducible
+set.seed(42)
+cl2 <- kmeans(rd1, centers = 13)$cluster
+
+## plot
+plot(rd1, col = mycolors[cl2], asp = 3, pch = 16)
+
+## make a nicer plot so we can interpret the clusters
+df_plotting <- as.data.frame(cbind(rd1, cl2))
+## change to character to make it discrete
+df_plotting$cl2 <- as.character(df_plotting$cl2)
+## plot
+ggplot(df_plotting, aes(x = PC1, y = PC2, colour = cl2)) + 
+  geom_point() + 
+  scale_colour_manual(values = rainbow(13)) + 
+  theme_classic()
+```
+
+```{r}
+## initialise plot to prevent error
+plot.new()
+
+## slingshot to get lineages
+lin1 <- getLineages(rd1, cl2,start.clus = '8')
+
+## make a curve through lineage 
+crv1 <- getCurves(lin1)
+
+## join points with line segments and plot
+plot(rd1, col = mycolors[cl2], asp = 3, pch = 16)
+lines(crv1, lwd = 3, col = 'black')
+
+## add PCA coordinates to SCE object
+reducedDims(sexbranchWT) <- SimpleList(PCA = rd1)
+
+## add clusters to SCE object
+sexbranchWT$GMM<-cl2
+
+## Add pseudotimes to SCE object
+sexbranchWT$PT_LineageFemale<-as.data.frame(slingPseudotime(crv1))$curve1
+sexbranchWT$PT_LineageMale<-as.data.frame(slingPseudotime(crv1))$curve2
+
+## add designation to SCE object
+sexbranchWT$male<-is.na(sexbranchWT$PT_LineageFemale)
+sexbranchWT$female<-is.na(sexbranchWT$PT_LineageMale)
+vec <- vector()
+for (i in 1:length(sexbranchWT$male)) {
+if (sexbranchWT$male[i] == sexbranchWT$female[i]) {vec<-c(vec,"pre-det")}
+  if (sexbranchWT$male[i] == TRUE) {vec<-c(vec,"male")}
+  if (sexbranchWT$female[i] == TRUE) {vec<-c(vec,"female")}  
+}
+
+sexbranchWT$sex<-vec
+
+## plot coloured by NEK3 (PBANKA_0600600)
+plotPCA(sexbranchWT,shape_by="sex",colour_by="PBANKA-0600600")
+```
+
+#### slingshot on UMAP
+
+```{r}
+## extracts only 10x cells 
+wt_cells <- rownames(tenx.mutant.integrated.sex@meta.data[which(tenx.mutant.integrated.sex@meta.data$identity_combined == "WT_10X"),])
+
+## make a new Seurat of this
+seurat.object <-SubsetData(tenx.mutant.integrated.sex, cells = wt_cells)
+
+## get UMAP coordinates
+umap_coords <- seurat.object@reductions$umapoptimised_post_repca@cell.embeddings
+
+## get clusters
+#clusters <- as.list(seurat.object@meta.data$integrated_snn_res.4)
+#names(clusters) <- rownames(seurat.object@meta.data)
+#clusters <- as.list(clusters)
+## cluster using kmeans
+## you need to set a seed here to ensure the results are reproducible
+set.seed(42)
+clusters <- kmeans(umap_coords, centers = 13)$cluster
+
+## plot
+## make a nicer plot so we can interpret the clusters
+df_plotting <- as.data.frame(cbind(umap_coords, clusters))
+## change to character to make it discrete
+df_plotting$clusters <- as.character(df_plotting$clusters)
+## plot
+ggplot(df_plotting, aes(x = umapoptimised_1, y = umapoptimised_2, colour = clusters)) + 
+  geom_point() + 
+  scale_colour_manual(values = rainbow(15)) + 
+  theme_classic()
+
+
+## initialise plot to prevent error
+plot.new()
+
+## slingshot to get lineages
+lineage_uamp <- getLineages(umap_coords, clusters, start.clus = '6', end.clus = c('1', '12'))
+
+## make a curve through lineage 
+crv1 <- getCurves(lineage_uamp)
+
+## join points with line segments and plot
+plot(umap_coords, col = mycolors[clusters], asp = 3, pch = 16)
+lines(crv1, lwd = 3, col = 'black')
+```
+
+Add data to Seurat:
+```{r}
+## extract data to add to Seurat
+## extract clusters
+meta_data_to_add_from_slingshot <- data.frame(clusters_k_means_UMAP = clusters)
+## Add pseudotimes
+# check the length of each branch to see which curve is which using: sum(is.na(as.data.frame(slingPseudotime(crv1))$curve1))
+# then inspect using the ggplot2 above to where males are - 
+# tail(as.data.frame(slingPseudotime(crv1)), 100)
+# tail(meta_data_to_add_from_slingshot, 100)
+meta_data_to_add_from_slingshot$PT_Female_UMAP <- as.data.frame(slingPseudotime(crv1))$curve1
+meta_data_to_add_from_slingshot$PT_Male_UMAP <- as.data.frame(slingPseudotime(crv1))$curve2
+## add designation to SCE object
+meta_data_to_add_from_slingshot$sex_UMAP <- "pre-det"
+meta_data_to_add_from_slingshot$sex_UMAP[which(is.na(meta_data_to_add_from_slingshot$PT_Female_UMAP))] <- "male"
+meta_data_to_add_from_slingshot$sex_UMAP[which(is.na(meta_data_to_add_from_slingshot$PT_Male_UMAP))] <- "female"
+
+## if there are 3 curves in slingPseudotime(crv1):
+#meta_data_to_add_from_slingshot$sex_UMAP[which(is.na(meta_data_to_add_from_slingshot$PT_Female_UMAP) & is.na(as.data.frame(slingPseudotime(crv1))$curve3))] <- "male"
+#meta_data_to_add_from_slingshot$sex_UMAP[which(is.na(meta_data_to_add_from_slingshot$PT_Male_UMAP) & is.na(as.data.frame(slingPseudotime(crv1))$curve3))] <- "female"
+
+## add clusters to SCE object
+tenx.mutant.integrated.sex <- AddMetaData(tenx.mutant.integrated.sex, meta_data_to_add_from_slingshot)
+```
+
+```{r, fig.height = 5, fig.width = 10}
+## plot
+FeaturePlot(tenx.mutant.integrated.sex, label.size = 5, pt.size = 0.5, features = c("PT_Female_UMAP", "PT_Male_UMAP")) +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+```
+
+
+
+plot sex designations
+```{r, fig.height = 7, fig.width = 7}
+DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "sex_UMAP", na.value = "white") +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+```
+
+### SCMAP
+
+Load package
+```{r}
+library(scmap)
+```
+
+Set up Index
+```{r}
+#the reference dataset is: sexbranchWT
+## set up a feature symbol column in the SCE object
+rowData(sexbranchWT)$feature_symbol <- rownames(sexbranchWT)
+
+## make an is_expr assay which only counts values with more than 0
+assay(sexbranchWT, "is_expr") <- counts(sexbranchWT) > 0
+
+## Select the top 500 most important genes
+sexbranchWT <- selectFeatures(sexbranchWT, suppress_plot = FALSE, n_features = 500)
+
+## inspect features selected
+table(rowData(sexbranchWT)$scmap_features)
+
+## create reference index
+sexbranchWT <- indexCell(sexbranchWT)
+
+## inspect results
+names(metadata(sexbranchWT)$scmap_cell_index)
+length(metadata(sexbranchWT)$scmap_cell_index$subcentroids)
+dim(metadata(sexbranchWT)$scmap_cell_index$subcentroids[[1]])
+```
+
+Query dataset
+```{r}
+#query data set is called: sexbranch
+z <- sexbranch
+
+## add feature symbol to SCE object
+rowData(z)$feature_symbol <- rownames(z)
+
+## map cells
+scmapCell_results <- scmapCell(z, list(yan = metadata(sexbranchWT)$scmap_cell_index))
+
+## copy over PCA coordinate
+colData(sexbranchWT)$PC1<-as.data.frame(reducedDim(sexbranchWT))$PC1
+colData(sexbranchWT)$PC2<-as.data.frame(reducedDim(sexbranchWT))$PC2
+
+## Get nearest cell - which is located in the first row and make a list
+getcells <- scmapCell_results$yan$cells[1, ]
+## Extract meta data for these cells
+cdsce <- colData(sexbranchWT)[getcells, ]
+## Get similarity scores
+topsim <- scmapCell_results$yan$similarities[1, ]
+
+## add meta data to query dataset
+# add nearest cell
+z$top_pbcell <- getcells
+## add PCA coordinates
+z$PC1 <- cdsce$PC1
+z$PC2 <- cdsce$PC2
+## add assigned sex
+z$sex<- cdsce$sex
+## add pt
+z$PT_LineageFemale<- cdsce$PT_LineageFemale
+z$PT_LineageMale<- cdsce$PT_LineageMale
+## add similarity score
+z$topsim <- topsim
+
+## inspect similarity scores
+hist(z$topsim)
+
+## count anything with a similarity score below 0.4 as unassigned
+z$topcell_sp[z$topsim < 0.4] <- "unassigned"
+z$topcell_sp <- as.factor(z$topcell_sp)
+z$yt<-rep("assigned",length(z$topcell_sp))
+z$yt[z$topsim < 0.4] <- "unassigned"
+
+## extract PC scores
+no <- as.data.frame(reducedDim(sexbranchWT)[,1:2])
+## extract meta data
+number2 <- as.data.frame(cdsce)
+## extract top cell
+number2$topcell_sp <- z$yt
+
+## plot
+ggplot(no, aes(PC1, PC2)) +
+ geom_point(size = 1,alpha = 1/10) +
+ geom_point(aes(x=PC1, y=PC2,shape=factor(topcell_sp)), data=number2, size=2, colour="black") +
+ theme_classic() + scale_shape_manual(values=c(1,2))+
+ scale_color_manual( values = c("0" = "#1f77b4","1" ="#ff7f0e","2" ="#2ca02c","3,0" ="#d62728","3,1" ="#9467bd","3,2"="#8c564b","3,3"="#e377c2","4"="#bcbd22","5"="#17becf","6"="#aec7e8")) + labs(x="PC1", y="PC2") 
+
+#+
+#  theme(legend.position="none", axis.title=element_text(size=8), legend.text = element_text(size = , legend.title = element_text(size #= 8), axis.text = element_text(size=:sunglasses:, axis.text.x = element_blank(), axis.text.y = element_blank())
+
+```
+
+### to skip this section above and just get the data output from Arthur's script where PCA is used as the base dimensionality reduction:
+
+read in Arthur's data
+```{r}
+## read in data
+at_data <- readRDS("~/data/sexbranch")
+
+## extract values of interest
+at_meta_data <- as.data.frame(at_data@colData)
+
+## look at new cols:
+head(table(at_meta_data$top_pbcell))
+head(table(at_meta_data$topsim))
+head(table(at_meta_data$topcell_sp))
+head(table(at_meta_data$yt))
+head(table(at_meta_data$sex))
+#table(at_meta_data$PT_LineageFemale)
+#table(at_meta_data$PT_LineageMale)
+```
+
+Add meta data to Seurat object
+```{r}
+colnames_to_add_to_meta_data <- c("top_pbcell", "topsim", "topcell_sp", "yt", "sex", "PT_LineageFemale", "PT_LineageMale")
+
+tenx.mutant.integrated.sex <- AddMetaData(tenx.mutant.integrated.sex, metadata = at_meta_data[,which(colnames(at_meta_data) %in% colnames_to_add_to_meta_data)], col.name = c("at_top_pbcell", "at_topsim", "at_topcell_sp", "at_yt", "at_sex", "at_PT_LineageFemale", "at_PT_LineageMale"))
+
+## to remove columns in metadata:
+#tenx.mutant.integrated.sex@meta.data[136:144] <- NULL
+#tenx.mutant.integrated.sex@meta.data[['NAME_OF_COL']] <- NULL
+```
+
+Plot sexes
+```{r, fig.height = 7, fig.width = 7}
+DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "at_sex") +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+```
+
+```{r, fig.height = 5, fig.width = 10}
+## the slingshot pt values have NAs for e.g. male cells in the PT_LineageFemale, we can deal with this later, but for now, we will just ignore this as Dimplot will not plot NA values
+#sum(is.na(tenx.mutant.integrated.sex@meta.data$at_PT_LineageMale))
+#sum(is.na(tenx.mutant.integrated.sex@meta.data$at_PT_LineageFemale))
+
+## plot
+FeaturePlot(tenx.mutant.integrated.sex, label.size = 5, pt.size = 0.5, features = c("at_PT_LineageFemale", "at_PT_LineageMale")) +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+```
+
+
+#### Comparison of cluster way of calling males and females vs. slingshot:
+
+```{r}
+table(tenx.mutant.integrated.sex@meta.data$sex)
+
+male_clusters <- c("13", "5", "11", "25", "1", "17", "10", "24", "14", "27", "19")
+female_clusters <- c("16", "22", "23", "15", "21", "30", "4", "3", "18", "7", "8", "6", "20", "12", "26")
+asex_clusters <- c("0", "9", "28", "2", "29")
+
+tenx.mutant.integrated.sex@meta.data$sex_designation_using_clusters <- NA
+tenx.mutant.integrated.sex@meta.data$sex_designation_using_clusters[which(tenx.mutant.integrated.sex@meta.data$seurat_clusters %in% male_clusters)] <- "Male"
+tenx.mutant.integrated.sex@meta.data$sex_designation_using_clusters[which(tenx.mutant.integrated.sex@meta.data$seurat_clusters %in% female_clusters)] <- "Female"
+tenx.mutant.integrated.sex@meta.data$sex_designation_using_clusters[which(tenx.mutant.integrated.sex@meta.data$seurat_clusters %in% asex_clusters)] <- "Pre-det"
+
+table(tenx.mutant.integrated.sex@meta.data$sex_designation_using_clusters)
+```
+
+```{r}
+table(tenx.mutant.integrated.sex@meta.data$sex, tenx.mutant.integrated.sex@meta.data$sex_designation_using_clusters)
+```
+
+Plot sexes
+```{r, fig.height = 7, fig.width = 7}
+DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "sex") +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+```
+
+Plot sexes
+```{r, fig.height = 7, fig.width = 7}
+DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "sex_designation_using_clusters") +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+```
+
+correlation of monocle PT and 
+
+```{r}
+## extract pseudotime values:
+pt_values <- as.data.frame(pseudotime(monocle.object, reduction_method = "UMAP"))
+pt_values$cell_name <- rownames(pt_values)
+meta_data_df <- as.data.frame(monocle.object@colData)
+meta_data_df$cell_name <- rownames(meta_data_df)
+meta_data_df <- merge(meta_data_df, pt_values, by = "cell_name")
+names(meta_data_df)[142]<- "pt"
+
+male_pt_correlation_df <- meta_data_df[which(meta_data_df$cell_name %in% male_cells), ]
+female_pt_correlation_df <- meta_data_df[which(meta_data_df$cell_name %in% female_cells), ]
+
+ggplot(male_pt_correlation_df, aes(x = PT_LineageMale, y = pt, colour = sex)) + 
+  geom_point() +  
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_classic()
+
+ggplot(female_pt_correlation_df, aes(x = PT_LineageFemale, y = pt, colour = sex)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_classic()
+```
+
+```{r}
+ggplot(male_pt_correlation_df, aes(x = PT_Female_UMAP, y = pt)) + 
+  geom_point() +  
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_classic()
+```

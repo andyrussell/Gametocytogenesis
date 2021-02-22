@@ -11,8 +11,7 @@ Please contact ar19@sanger.ac.uk with any questions, or if you would like to col
 - Run `quality_control` notebooks to generate QCed data files
 - Run `analysis` notebooks
   - A. `merge`
-  - B. `pseudotime_allcells`
-  - C. `coexpression`
-  - D. `sex_branch_analysis`
-  - E. `sex_ratio`
-  - F. `misc_code` 
+  - B. `coexpression`
+  - C. `sex_branch_analysis`
+  - D. `sex_ratio`
+  - E. `misc_code` 

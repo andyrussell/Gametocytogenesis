@@ -2061,7 +2061,9 @@ df_pt_id[df_pt_id$cluster_colours_figure == "Bipotential", ]$colour <- bipot_ram
 #df_pt_id <- df_pt_id[ ,"colour", drop = FALSE]
 
 ## add back to seurat object
-#tenx.mutant.integrated <- AddMetaData(tenx.mutant.integrated, df_pt_id, "pt_id_cols")
+df <- df_pt_id[ ,"colour", drop = FALSE]
+tenx.mutant.integrated <- AddMetaData(tenx.mutant.integrated, df, "pt_id_cols")
+rm(df)
 
 ## plot
 ## extract UMAP coords
@@ -2252,3 +2254,5 @@ save
 ```{r}
 ggsave("../images_to_export/Figure_C.png", plot = Figure_publication, device = "png", path = NULL, scale = 1, width = 21, height = 29.7, units = "cm", dpi = 300, limitsize = TRUE)
 ```
+
+save and export individual plots so it can be stitched with 
