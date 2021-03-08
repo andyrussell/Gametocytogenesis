@@ -19,7 +19,221 @@ output:
 
 Now that we have subsetted the sexual branch, we will define what is a male and female using the slingshot package.
 
-# 4. Slingshot and SCMAP {.tabset}
+# 2. Read in the data  {.tabset}
+
+## Load/Install the Required Packages
+
+```{r load packages, echo = FALSE}
+## CRAN packages
+
+## Patchwork is needed to stich plots together using '+'
+if(require("patchwork", quietly = TRUE)){
+    print("patchwork is loaded correctly")
+} else {
+    print("trying to install patchwork")
+    install.packages("patchwork")
+    if(require(patchwork)){
+        print("patchwork installed and loaded")
+    } else {
+        stop("could not install patchwork")
+    }
+}
+
+## viridis allows different colours to be added to plots
+if(require("viridis", quietly = TRUE)){
+    print("viridis is loaded correctly")
+} else {
+    print("trying to install viridis")
+    install.packages("viridis")
+    if(require(viridis)){
+        print("viridis installed and loaded")
+    } else {
+        stop("could not install viridis")
+    }
+}
+
+## Seurat is needed for most of this script
+if(require("Seurat", quietly = TRUE)){
+    print("Seurat is loaded correctly")
+} else {
+    print("trying to install Seurat")
+    install.packages("Seurat")
+    if(require(Seurat)){
+        print("Seurat installed and loaded")
+    } else {
+        stop("could not install Seurat")
+    }
+}
+
+## cowplot is needed for plots in this script
+if(require("cowplot")){
+    print("cowplot is loaded correctly")
+} else {
+    print("trying to install cowplot")
+    install.packages("cowplot")
+    if(require(cowplot)){
+        print("cowplot installed and loaded")
+    } else {
+        stop("could not install cowplot")
+    }
+}
+
+## gridExtra is needed for grid graphics to plot multiple plots in the same view
+if(require("gridExtra")){
+    print("gridExtra is loaded correctly")
+} else {
+    print("trying to install gridExtra")
+    install.packages("gridExtra")
+    if(require(gridExtra)){
+        print("gridExtra installed and loaded")
+    } else {
+        stop("could not install gridExtra")
+    }
+}
+
+## grid is needed for grid.arrange function to change size of title
+if(require("grid")){
+    print("grid is loaded correctly")
+} else {
+    print("trying to install grid")
+    install.packages("grid")
+    if(require(grid)){
+        print("grid installed and loaded")
+    } else {
+        stop("could not install grid")
+    }
+}
+
+##for doing bulk correlation calculations
+if(require("Hmisc")){
+    print("Hmisc is loaded correctly")
+} else {
+    print("trying to install Hmisc")
+    install.packages("Hmisc")
+    if(require(Hmisc)){
+        print("Hmisc installed and loaded")
+    } else {
+        stop("could not install Hmisc")
+    }
+}
+
+## reshape2 to melt dataframes for plotting:
+if(require("reshape2")){
+    print("reshape2 is loaded correctly")
+} else {
+    print("trying to install reshape2")
+    install.packages("reshape2")
+    if(require(reshape2)){
+        print("reshape2 installed and loaded")
+    } else {
+        stop("could not install reshape2")
+    }
+}
+
+## to work with data frames:
+if(require("dplyr")){
+    print("dplyr is loaded correctly")
+} else {
+    print("trying to install dplyr")
+    install.packages("dplyr")
+    if(require(dplyr)){
+        print("dplyr installed and loaded")
+    } else {
+        stop("could not install dplyr")
+    }
+}
+
+## this allows us to use the colorRamp2 function which allows us to plot nice colour gradient pals:
+if(require("circlize")){
+    print("circlize is loaded correctly")
+} else {
+    print("trying to install circlize")
+    install.packages("circlize")
+    if(require(circlize)){
+        print("circlize installed and loaded")
+    } else {
+        stop("could not install circlize")
+    }
+}
+
+## non-CRAN packages
+
+## monocle3 to calculate pseudotime:
+if(require("monocle3")){
+    print("monocle3 is loaded correctly")
+} else {
+    print("Please install monocle3 (https://cole-trapnell-lab.github.io/monocle3/docs/installation/)")
+}
+
+## destiny is used for diffusion plots (DiffusionMap function)
+if(require("destiny")){
+    print("destiny is loaded correctly")
+} else {
+  print("trying to install destiny")
+  if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+  BiocManager::install("destiny")
+  if(require(destiny)){
+        print("destiny installed and loaded")
+    } else {
+        stop("could not install destiny")
+    }
+}
+
+#set the seed for both the mixture models and also for the sample function later on:
+set.seed(-92497)
+```
+
+## load data
+
+```{r}
+## load sex only branch cells saved from GCSKO_Sex_Branch_Analysis.Rmd
+## Restore the objects
+## load sex branch dataset
+tenx.mutant.integrated.sex <- readRDS("../data_to_export/tenx.mutant.integrated.sex.RDS")
+## load full dataset
+#tenx.mutant.integrated <- readRDS("../data_to_export/tenx.mutant.integrated.RDS")
+```
+
+```{r}
+## add old pt values
+## these values are calculated in hte GCSKO_pseudotime_allcells.Rmd script and so were added after the object was split into sex only.
+tenx.all <- readRDS("../data_to_export/tenx.mutant.integrated.RDS")
+tenx.all.meta <- as.data.frame(tenx.all@meta.data)
+tenx.all.meta <- tenx.all.meta[which(rownames(tenx.all.meta) %in% rownames(tenx.mutant.integrated.sex@meta.data)),]
+tenx.mutant.integrated.sex <- AddMetaData(tenx.mutant.integrated.sex, tenx.all.meta$old_pt_values, col.name = "old_pt_values")
+## then remove these objects so they don't use up memory
+rm(tenx.all, tenx.all.meta)
+```
+
+Add a meta.data column so that 10X is listed as WT:
+```{r}
+## get cells that are filtered out
+mutant_cells <- which(tenx.mutant.integrated.sex$experiment == "mutants")
+
+## make extra column in plotting df
+tenx.mutant.integrated.sex@meta.data$identity_name_combined <- "WT_10X"
+tenx.mutant.integrated.sex@meta.data$identity_name_combined[mutant_cells] <- tenx.mutant.integrated.sex@meta.data$identity_name_updated[mutant_cells]
+
+## check
+table(tenx.mutant.integrated.sex@meta.data$identity_name_combined)
+```
+
+```{r}
+## create a list of our mutant gene IDs
+list_of_mutant_genes <- c("PBANKA-0828000", "PBANKA-1302700", "PBANKA-1447900", "PBANKA-0102400", "PBANKA-0716500", "PBANKA-1435200", "PBANKA-1418100", "PBANKA-1144800", "PBANKA-0902300", "PBANKA-0413400", "PBANKA-1454800")
+```
+
+Read in gene annotations
+```{r}
+gene_annotations <- read.table("../data/Reference/GenesByTaxon_Summary.csv", header = TRUE, sep = ",", stringsAsFactors = TRUE)
+dim(gene_annotations)
+
+## convert _ to -
+gene_annotations$Gene.ID <- gsub("_", "-", gene_annotations$Gene.ID)
+```
+
+# 3. Slingshot and SCMAP {.tabset}
 
 We can then use Slingshot to plot a Pseudotime and extract mutually exclusive parts of the trajectory (Male and Female) as well as the common stalk of both trajectories.
 

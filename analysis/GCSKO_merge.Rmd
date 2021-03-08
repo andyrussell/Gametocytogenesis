@@ -2232,15 +2232,20 @@ mutant_genes_figure <- plot_grid(
                              list_of_density_plots_mutant_genes[[8]] + coord_fixed() + theme_void() + theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 8), text=element_text(size=9)) + labs(title = paste("fd2")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, barheight = 4.5, title = "")),
                              list_of_density_plots_mutant_genes[[9]] + coord_fixed() + theme_void() + theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 8), text=element_text(size=9)) + labs(title = paste("fd3")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, barheight = 4.5, title = "")),
                              list_of_density_plots_mutant_genes[[10]] + coord_fixed() + theme_void()+ theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 8), text=element_text(size=9)) + labs(title = paste("fd4")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, barheight = 4.5, title = "")),
-  labels = c(toupper(letters)[2:17]), 
+  labels = c(tolower(as.roman(c(1:16)))), 
   label_size = 12, 
   nrow = 4)
+
+## labels as uppercase letters:
+#c(toupper(letters)[2:17])
+# labels as roman numerals:
+# c(tolower(as.roman(c(2:17))
 
 Figure_publication <- plot_grid(umap_id_pt, 
                                 mutant_genes_figure,
                                 ## add empty plot to give spacing
                                 ggplot() + theme_void(),
-                                labels = c('A'), 
+                                labels = c('A', ''), 
                                 label_size = 12, 
                                 ncol = 2, 
                                 nrow=2, 
