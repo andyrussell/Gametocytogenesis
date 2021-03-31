@@ -240,7 +240,9 @@ gene_annotations$Gene.ID <- gsub("_", "-", gene_annotations$Gene.ID)
 #### Preparation
 ```{r}
 ## extracts only 10x cells and also remove cluster 0 cells 
-wt_cells <- rownames(tenx.justwt.integrated.sex@meta.data[which(tenx.justwt.integrated.sex@meta.data$identity_name_combined == "WT_10X" & !tenx.justwt.integrated.sex@meta.data$seurat_clusters == "3" & !tenx.justwt.integrated.sex@meta.data$seurat_clusters == "6"),])
+wt_cells <- rownames(tenx.justwt.integrated.sex@meta.data[which(tenx.justwt.integrated.sex@meta.data$identity_name_combined == "WT_10X" & !tenx.justwt.integrated.sex@meta.data$seurat_clusters == "3"),])
+
+# & !tenx.justwt.integrated.sex@meta.data$seurat_clusters == "6"
 
 ## make a new Seurat of this
 seurat.object <-subset(tenx.justwt.integrated.sex, cells = wt_cells)
@@ -252,7 +254,8 @@ seurat.object <-subset(tenx.justwt.integrated.sex, cells = wt_cells)
 
 ## extract counts and pheno:
 ## the reason we use the integrated and then subsetted is because these cells have been normalised whereas the cells in pb_sex_filtered have not been normalised (well they have but with doublets in them)
-data <- as(as.matrix(GetAssayData(seurat.object, assay = "RNA", slot = "data")), 'sparseMatrix')
+## with 10x only cells: all.equal(as.data.frame(counts(monocle.object)), as.data.frame(as.matrix(GetAssayData(seurat.object, assay = "RNA", slot = "counts")))) returns TRUE and also returns true when you change the slot input to "counts" and use monocle to norm it with method "log"
+data <- as(as.matrix(GetAssayData(seurat.object, assay = "RNA", slot = "counts")), 'sparseMatrix')
 ## make phenodata
 pd <- data.frame(seurat.object@meta.data)
 ## keep only the columns that are relevant in metadata
@@ -264,7 +267,7 @@ fData <- data.frame(gene_short_name = row.names(data), row.names = row.names(dat
 monocle.object <- new_cell_data_set(expression_data = data, cell_metadata = pd, gene_metadata = fData)
 
 ## preprocess
-monocle.object = preprocess_cds(monocle.object, num_dim = 50, norm_method = "none")
+monocle.object = preprocess_cds(monocle.object, num_dim = 50, norm_method = "log")
 ### if using integrated data:
 # norm_method = "none", alignment_group = "~ experiment"
 
@@ -398,7 +401,8 @@ ggplot(meta_data_df, aes(x = old_pt_values, y = pt, colour = monocle_sex)) +
 #### Module Construction
 ```{r}
 ## find genes that change as a function of pt:
-monocle.object_pr_test_res <- graph_test(monocle.object, neighbor_graph="principal_graph", cores=8)
+monocle.object_pr_test_res <- graph_test(monocle.object, neighbor_graph="principal_graph", cores=8, expression_family = "negbinomial")
+# explains expression family - https://cole-trapnell-lab.github.io/monocle3/docs/differential/ - results were same for either defauly or negbinomial
 
 ## find significant genes
 ## I used 0.05 previously in all cells 
@@ -426,7 +430,7 @@ Make a dataframe to plot by aggregating clusters vs. modules
 cell_group_df <- tibble::tibble(cell=row.names(colData(monocle.object)), cell_group=colData(monocle.object)$seurat_clusters)
 
 ## make plotting df
-agg_mat <- aggregate_gene_expression(monocle.object, gene_module_df_sex, cell_group_df)
+#agg_mat <- aggregate_gene_expression(monocle.object, gene_module_df_sex, cell_group_df)
 ```
 
 Find out how many genes there are per total so we can add this to the plot
@@ -532,7 +536,7 @@ df_landmark_gene_modules <- merge(df_landmark_gene_modules, name_of_landmark_gen
 df_landmark_gene_modules[order(df_landmark_gene_modules$module), ]
 ```
 
-enrichment of screen hits in modules
+#### enrichment of screen hits in modules
 ```{r}
 ## read in screen hits
 library("readxl")
@@ -585,7 +589,33 @@ screen_hits_modules <- merge(df_screen_hits_selected, df_gene_module_df_sex, by 
 screen_hits_modules
 ```
 
-DOZI-regulated genes
+```{r}
+## change the row order to match the heatmap later
+pc_screened$module <- factor(pc_screened$module, levels = rev(c("10", "9", "17", "4", "2", "6", "12", "14",
+               "21", "7", 
+               "22", "23","13","16", "18", "19", "11", "15", "5",
+               "20", "8", "3", "1"
+               )))
+
+ h1 <- ggplot(data = pc_screened, mapping = aes(x = module, fill=pc)) +
+  geom_bar(col = "#FFFFFF", width = 1)+
+      theme_void() +
+    theme(panel.spacing.x = unit(1, "mm")) +
+    scale_fill_continuous_sequential(palette = "Greens") +
+  coord_flip()
+ legend <- get_legend(h1)
+ h1 <- h1 + theme(legend.position = "none")
+
+ 
+screen_annotation <- plot_grid(h1, legend, nrow = 1, rel_widths = c(10, 1.5))
+screen_annotation
+```
+
+```{r}
+ggsave("../images_to_export/screen_annotation.png", plot = screen_annotation, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+#### DOZI-regulated genes
 
 Find out how many of the genes in each module has a DOZI-regulated gene
 
@@ -603,6 +633,164 @@ df_dozi_gene_modules <- gene_module_df_sex[which(gene_module_df_sex$id %in% dozi
 print("dozi genes by module")
 table(df_dozi_gene_modules$module)
 ```
+get as a percentage
+```{r}
+## make a table with the total number of genes in each module
+test <- as.data.frame(table(gene_module_df_sex$module), stringsAsFactors=FALSE)
+## reorder rows by module number
+test <- test[order(as.numeric(test$Var1)),]
+## combine the total number of dozi genes per module with the total number of genes per module
+pc_screened <- data.frame(dozi = table(df_dozi_gene_modules$module), total =  test)[,-3]
+names(pc_screened) <- c("module", "dozi_genes_per_module", "total_genes_per_module")
+## calculate percentage
+pc_screened$pc <- (pc_screened$dozi_genes_per_module /pc_screened$total_genes_per_module)*100
+
+## view
+pc_screened
+```
+
+```{r}
+## change row order:
+row.order <- c("10", "9", "17", "4", "2", "6", "12", "14",
+               "21", "7", 
+               "22", "23","13","16", "18", "19", "11", "15", "5",
+               "20", "8", "3", "1"
+               )
+## change the module to a string
+#pc_screened$module <- as.numeric(as.character(pc_screened$module))
+#pc_screened$module <- as.factor(pc_screened$module)
+#pc_screened <- pc_screened[match(row.order, pc_screened$module), ]
+pc_screened$module <- factor(pc_screened$module, levels = rev(c("10", "9", "17", "4", "2", "6", "12", "14",
+               "21", "7", 
+               "22", "23","13","16", "18", "19", "11", "15", "5",
+               "20", "8", "3", "1"
+               )))
+
+ h1 <- ggplot(data = pc_screened, mapping = aes(x = module, fill=pc)) +
+  geom_bar(col = "#FFFFFF", width = 1)+
+      theme_void() +
+    theme(panel.spacing.x = unit(1, "mm")) +
+    scale_fill_continuous_sequential(palette = "Blues") +
+  coord_flip()
+ legend <- get_legend(h1)
+ h1 <- h1 + theme(legend.position = "none")
+
+ 
+dozi_annotation <- plot_grid(h1, legend, nrow = 1, rel_widths = c(10, 1.5))
+dozi_annotation
+```
+
+```{r}
+ggsave("../images_to_export/dozi_annotation.png", plot = dozi_annotation, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+#### Essential genes
+
+Find out how many of the genes in each module has a DOZI-regulated gene
+
+```{r}
+essential_genes <-
+read.csv(file = "../data/Reference/bushell_2017_data.csv", header = TRUE)
+
+## extract info
+essential_genes <- essential_genes[, c("P..berghei.current.ID", "Phenotype" )]
+names(essential_genes) <- c("id", "phenotype")
+## change the underscore to a dash
+essential_genes$id <- gsub("_", "-", essential_genes$id)
+## remove any transcript numbers
+essential_genes$id <- sub("\\..*", "", essential_genes$id)
+
+## find out which modules all screened genes are in
+df_screened_gene_modules <- gene_module_df_sex[which(gene_module_df_sex$id %in% essential_genes$id),]
+print("total genes screened in this module")
+table(df_screened_gene_modules$module)
+
+## extract 3 main phenotypes - there are only two fast genes, and 13 Insufficient data
+e_genes <- essential_genes[essential_genes$phenotype == "Essential", ]$id
+s_genes <- essential_genes[essential_genes$phenotype == "Slow", ]$id
+d_genes <- essential_genes[essential_genes$phenotype == "Dispensable", ]$id
+
+## find out which modules they are in
+e_genes_gene_modules <- gene_module_df_sex[which(gene_module_df_sex$id %in% e_genes),]
+print("essential genes by module")
+table(e_genes_gene_modules$module)
+s_genes_gene_modules <- gene_module_df_sex[which(gene_module_df_sex$id %in% s_genes),]
+print("slow genes by module")
+table(s_genes_gene_modules$module)
+d_genes_gene_modules <- gene_module_df_sex[which(gene_module_df_sex$id %in% d_genes),]
+print("dispensible genes by module")
+table(d_genes_gene_modules$module)
+
+## make a combined table with this info
+pc_screened <- data.frame(essential = table(e_genes_gene_modules$module), 
+                          slow = table(s_genes_gene_modules$module),
+                          dispensible = table(d_genes_gene_modules$module), 
+                          screened =  table(df_screened_gene_modules$module))[,-c(3, 5, 7)]
+names(pc_screened) <- c("module", "essential", "slow", "dispensible", "screened")
+pc_screened$pc_e <- (pc_screened$essential /pc_screened$screened)*100
+pc_screened$pc_s <- (pc_screened$slow /pc_screened$screened)*100
+pc_screened$pc_d <- (pc_screened$dispensible /pc_screened$screened)*100
+
+```
+
+```{r}
+## change row order:
+row.order <- c("10", "9", "17", "4", "2", "6", "12", "14",
+               "21", "7", 
+               "22", "23","13","16", "18", "19", "11", "15", "5",
+               "20", "8", "3", "1"
+               )
+## change the module to a string
+#pc_screened$module <- as.numeric(as.character(pc_screened$module))
+#pc_screened$module <- as.factor(pc_screened$module)
+#pc_screened <- pc_screened[match(row.order, pc_screened$module), ]
+pc_screened$module <- factor(pc_screened$module, levels = rev(c("10", "9", "17", "4", "2", "6", "12", "14",
+               "21", "7", 
+               "22", "23","13","16", "18", "19", "11", "15", "5",
+               "20", "8", "3", "1"
+               )))
+
+library(scales) # For the percent_format() function
+
+ h1 <- ggplot(data = pc_screened, mapping = aes(x = module, fill=pc_e)) +
+  geom_bar(col = "#FFFFFF", width = 1)+
+      theme_void() +
+    theme(panel.spacing.x = unit(1, "mm")) +
+    scale_fill_continuous_sequential(palette = "Reds", labels = percent_format(scale = 1), limits=c(0,100)) +
+  coord_flip()
+ legend <- get_legend(h1)
+ h1 <- h1 + theme(legend.position = "none")
+ 
+  h2 <- ggplot(data = pc_screened, mapping = aes(x = module, fill=pc_s)) +
+  geom_bar(col = "#FFFFFF", width = 1)+
+      theme_void() +
+    theme(panel.spacing.x = unit(1, "mm")) +
+    scale_fill_continuous_sequential(palette = "Reds", labels = percent_format(scale = 1), limits=c(0,100)) +
+  coord_flip()
+ legend_2 <- get_legend(h2)
+ h2 <- h2 + theme(legend.position = "none")
+ 
+  h3 <- ggplot(data = pc_screened, mapping = aes(x = module, fill=pc_d)) +
+  geom_bar(col = "#FFFFFF", width = 1)+
+      theme_void() +
+    theme(panel.spacing.x = unit(1, "mm")) +
+    scale_fill_continuous_sequential(palette = "Reds", labels = percent_format(scale = 1), limits=c(0,100)) +
+  coord_flip()
+ legend_3 <- get_legend(h3 + theme(legend.position = "bottom", legend.box.margin = margin(0, 0, 0, 12)))
+ h3 <- h3 + theme(legend.position = "none")
+ 
+ ## add some space to the left of the legend as: https://wilkelab.org/cowplot/articles/shared_legends.html
+#legend <- legend + theme(legend.box.margin = margin(0, 0, 0, 12))
+ 
+ 
+bloodstage_annotation <- plot_grid(h1,h2,h3, nrow = 1, rel_widths = c(1,1,1))
+bloodstage_annotation <- plot_grid(bloodstage_annotation,legend_3, nrow = 2, rel_heights = c(3,1))
+bloodstage_annotation
+```
+
+```{r}
+ggsave("../images_to_export/bloodstage_annotation.png", plot = bloodstage_annotation, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+```
 
 #### Visualise module expression
 
@@ -618,7 +806,7 @@ module_dendro <- hclust(dist(agg_mat))
 gene_module_df_sex$module <- factor(gene_module_df_sex$module, levels = row.names(agg_mat)[module_dendro$order])
 
 ## plot
-UMAP_modules <- plot_cells(monocle.object, genes=gene_module_df_sex %>% filter(module %in% c(1:20)),
+UMAP_modules <- plot_cells(monocle.object, genes=gene_module_df_sex %>% filter(module %in% c(1:length(levels(gene_module_df_sex$module)))),
            cell_size = 2, 
            x = 1, y = 2,
            label_cell_groups=FALSE,
@@ -671,10 +859,10 @@ agg_mat_no_group <- agg_mat_no_group[,col.order]
 
 ## reorder the rows (gene modules) in the data frame so they are in pt order
 ## define the order visually and using the clusters originally produced
-row.order <- c("3", "17",
-               "6", "9", "10", "13", "16", "1", "7",
-               "18", "2", "5",
-               "4", "14", "15", "11", "8", "12"
+row.order <- c("10", "9", "17", "4", "2", "6", "12", "14",
+               "21", "7", 
+               "22", "23","13","16", "18", "19", "11", "15", "5",
+               "20", "8", "3", "1"
                )
 ## reorder using new order
 agg_mat_no_group <- agg_mat_no_group[row.order, ]
@@ -700,21 +888,23 @@ for(i in seq_along(genes_per_module_ordered$Freq)){
 ## C. Plotting
 
 ## plot
-heatmap_main <- pheatmap::pheatmap(agg_mat_no_group, 
-                   #scale="row",
-                   cluster_cols = FALSE,
-                   cluster_rows = FALSE,
-                   ## others: ward.D2,
-                   #clustering_method="complete",
-                   scale = "none",
-                   show_colnames = FALSE,
-                   labels_row = labels.row,
-                   fontsize_row = 15,
-                   fontsize = 12,
-                   gaps_col = c(length(asex_cells), length(c(asex_cells,bi_cells)), length(c(asex_cells,bi_cells,female_cells))),
-                   annotation_col = anno_no_group, 
-                   annotation_colors = annotation_colours, 
-                   cutree_rows = 6)
+heatmap_main <- pheatmap::pheatmap(agg_mat_no_group,
+                                   #scale="row",
+                                   #color = diverging_hcl(100, palette = "Blue-Red 3"),
+                                   cluster_cols = FALSE,
+                                   cluster_rows = FALSE,
+                                   ## others: ward.D2,
+                                   #clustering_method="complete",
+                                   scale = "none",
+                                   show_colnames = FALSE,
+                                   labels_row = labels.row,
+                                   fontsize_row = 15,
+                                   fontsize = 12,
+                                   gaps_col = c(length(asex_cells), length(c(asex_cells,bi_cells)), length(c(asex_cells,bi_cells,female_cells))),
+                                   annotation_col = anno_no_group, 
+                                   annotation_colors = annotation_colours, 
+                                   cutree_rows = 6
+                                   )
 
 ## view
 heatmap_main
@@ -724,12 +914,77 @@ save
 ggsave("../images_to_export/GCSKO_sexbranch_heatmap.png", plot = heatmap_main, device = "png", path = NULL, scale = 1, width = 21, height = 21, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
+#### Visualise the expression of select genes over pseudotime
 
+```{r, fig.height = 8, fig.width = 10}
+## landmark genes (genes of interest)
+# AP2G - PBANKA-1437500
+# AP2 - PBANKA-0909600 - from poran paper
+# AP2G-2 - PBANKA-1034300 
+#list_of_mutant_genes <- c("PBANKA-0828000", "PBANKA-1302700", "PBANKA-1447900", "PBANKA-0102400", "PBANKA-0716500", "PBANKA-1435200", "PBANKA-1418100", "PBANKA-1144800", "PBANKA-0902300", "PBANKA-0413400", "PBANKA-1454800")
+
+## define genes to plot
+list_of_genes_of_interest <- c("PBANKA-0102400", "PBANKA-0413400", "PBANKA-0716500", "PBANKA-0828000", "PBANKA-0902300", "PBANKA-1144800", "PBANKA-1302700", "PBANKA-1418100", "PBANKA-1435200", "PBANKA-1447900", "PBANKA-1454800", "PBANKA-1437500", "PBANKA-1319500", "PBANKA-0416100", "PBANKA-1034300")
+## add names
+names_of_genes_of_interest <- c("GCSKO-2", "GCSKO-10", "GCSKO-19", "GCSKO-3", "GCSKO-13", "GCSKO-28", "GCSKO-oom", "GCSKO-17", "GCSKO-20", "GCSKO-29", "GCSKO-21", "AP2-G", "CCP2", "MG1", "AP2-G2")
+
+##make df for genes of interest
+genes_of_interest <- data.frame(gene = list_of_genes_of_interest, group = c(1:length(list_of_genes_of_interest)), name = names_of_genes_of_interest)
+## reorder
+#genes_of_interest <- genes_of_interest[match(c("AP2-G", "CCP2", "GCSKO-21", "GCSKO-17", "GCSKO-2", "MG1", "GCSKO-20", "GCSKO-3", "GCSKO-oom", "GCSKO-29", "GCSKO-10", "GCSKO-28", "GCSKO-19", "GCSKO-13"), genes_of_interest$name), ]
+
+## prepare custom dataframe for all cells by modules:
+agg_mat_genes_of_interest <- aggregate_gene_expression(monocle.object, genes_of_interest[,1:2], scale_agg_values = FALSE)
+
+## reorder using new order
+agg_mat_genes_of_interest <- agg_mat_genes_of_interest[,col.order]
+
+## plot
+heatmap_plot <- pheatmap::pheatmap(agg_mat_genes_of_interest, 
+                   #scale="row",
+                   cluster_cols = FALSE,
+                   cluster_rows = TRUE,
+                   clustering_method="ward.D2",
+                   show_colnames = FALSE,
+                   labels_row = as.character(genes_of_interest[,3]),
+                   gaps_col = c(length(asex_cells), length(c(asex_cells,bi_cells)), length(c(asex_cells,bi_cells,female_cells))),
+                   #gaps_row = c(1, 6),
+                   cutree_rows = 3,
+                   ## trying to fix legend issue here
+                   #fontsize_row = 10,
+                   #fontsize_col = 3,
+                   #cellheight=3, 
+                   #cellwidth = 3,
+                   legend = TRUE,
+                   annotation_legend = FALSE,
+                   annotation_col = anno_no_group, 
+                   annotation_colors = annotation_colours
+                   )
+
+heatmap_plot
+```
+
+investigate specific modules
+```{r}
+## rename df
+df_screen_hits_selected_module <- as.data.frame(gene_module_df_sex[gene_module_df_sex$module == "20", ])
+
+## merge dfs together
+module_20_annotated <- merge(gene_annotations, df_screen_hits_selected_module,by.x = "Gene.ID", by.y = "id")
+
+## view
+View(module_20_annotated)
+
+## annotate all modules
+gene_module_df_sex_annotated <- merge(gene_annotations, gene_module_df_sex, by.x = "Gene.ID", by.y = "id")
+View(gene_module_df_sex_annotated)
+```
 
 # 4. Mapping on mutants {.tabset}
 
+pca plots
 ```{r}
-
+DimPlot(tenx.justwt.integrated.sex, reduction = 'pca', group.by = 'monocle_sex')
 ```
 
 
@@ -742,6 +997,8 @@ predictions <- TransferData(anchorset = pancreas.anchors, refdata = seurat.objec
     dims = 1:30)
 pancreas.query <- AddMetaData(pancreas.query, metadata = predictions)
 ```
+
+
 
 
 # Final Figures
@@ -841,6 +1098,8 @@ leg <- get_legend(umap_pt)
 
 # Convert to a ggplot and print
 legend_d <- as_ggplot(leg)
+
+legend_d
 ```
 
 save
@@ -849,6 +1108,218 @@ ggsave("../images_to_export/Figure_D.png", plot = umap_zoom_plot, device = "png"
 ggsave("../images_to_export/Figure_D_legend.png", plot = legend_d, device = "png", path = NULL, scale = 1, width = 21, height = 29.7, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
+```{r}
+## C
+## This shows the cells selected for module analysis 
+## this package allows easy extraction of viridis values used in the pt plots
+library("colourvalues") # allows 
+## extract colour hex values 
+monocle.object@colData$rt_sex_col <- colour_values(monocle.object@colData$Prediction.Spearman., palette = "viridis")
+
+## load in the whole dataset if you haven't already loaded it in
+#tenx.justwt.integrated <- readRDS("../data_to_export/tenx.justwt.integrated.RDS")
+
+## extract metadata
+df_plot <- tenx.justwt.integrated@meta.data
+
+## add umap - merge on row names and then make sure row names are not dropped or added
+df_plot <- transform(merge(df_plot, tenx.justwt.integrated@reductions[["umap"]]@cell.embeddings, by=0, all=TRUE), row.names=Row.names, Row.names=NULL)
+
+## make new col for colours - and make everything grey
+df_plot$hex <- "#e7e7e7"
+
+## extract colours for highlighted cells 
+df_plot_2 <- as.data.frame(monocle.object@colData[,"rt_sex_col", drop = FALSE])
+
+## then merge this back into the colour column, whilst matching the rows
+rownames_to_match <- rownames(df_plot[rownames(df_plot) %in% rownames(df_plot_2), ])
+
+df_plot$hex[rownames(df_plot) %in% rownames(df_plot_2)] <- df_plot_2[match(rownames_to_match, rownames(df_plot_2)), , drop = FALSE][ ,1]
+
+### make character so ggplto2 recognises them
+df_plot$hex <- as.character(df_plot$hex)
+
+## reorder so that the voloured points are on top
+## this is a bit hacky but you can split the data frame and then remerge, since the command commented out will still put E above other values - this command was just order by the col hex
+df_plot_1 <- df_plot[!(df_plot$hex == "#e7e7e7"), ]
+df_plot_2 <- df_plot[(df_plot$hex == "#e7e7e7"), ]
+df_plot <- rbind(df_plot_2, df_plot_1)
+rm(df_plot_2, df_plot_1)
+
+umap_zoom_plot_rt <- ggplot(df_plot, aes(x = UMAP_1, y = UMAP_2, colour = hex)) +
+                         geom_point(size = 2) +
+                        ## need this to tell ggplot2 to map to values
+                         scale_colour_identity(guide = "legend") +
+                        ## fix coordinates
+                         coord_fixed()
+  
+# Extract the legend. Returns a gtable
+leg <- get_legend(umap_zoom_plot_rt)
+
+# Convert to a ggplot and print
+legend_d <- as_ggplot(leg)
+
+legend_d
+  
+umap_zoom_plot_rt+theme(legend.position = "none") +
+                         theme_void()
+
+## remove big dataset
+#rm(tenx.justwt.integrated)
+```
+
+```{r}
+## extract metadata
+df_plot <- tenx.justwt.integrated@meta.data
+
+## add umap - merge on row names and then make sure row names are not dropped or added
+df_plot <- transform(merge(df_plot, tenx.justwt.integrated@reductions[["umap"]]@cell.embeddings, by=0, all=TRUE), row.names=Row.names, Row.names=NULL)
+
+## make new col for colours - and make everything grey
+df_plot$hex <- "#e7e7e7"
+
+## extract colours for highlighted cells 
+df_plot_2 <- as.data.frame(monocle.object@colData[,"monocle_sex", drop = FALSE])
+
+## then merge this back into the colour column, whilst matching the rows
+rownames_to_match <- rownames(df_plot[rownames(df_plot) %in% rownames(df_plot_2), ])
+
+df_plot$hex[rownames(df_plot) %in% rownames(df_plot_2)] <- df_plot_2[match(rownames_to_match, rownames(df_plot_2)), , drop = FALSE][ ,1]
+
+## add actual colours for sexes
+# 1 = blue - "#0052c5"
+# 2 = red - "#a52b1e"
+# 3 = green - "#016c00"
+# 4 = yellow - "#ffe400"
+#pal_sex <- c("#0052c5","#ffe400", "#a52b1e", "#016c00")
+df_plot$hex[df_plot$hex == "Male"] <- "#016c00"
+df_plot$hex[df_plot$hex == "Female"] <- "#a52b1e"
+df_plot$hex[df_plot$hex == "Bipotential"] <- "#ffe400"
+df_plot$hex[df_plot$hex == "Asexual_Early"] <- "#0052c5"
+
+### make character so ggplto2 recognises them
+df_plot$hex <- as.character(df_plot$hex)
+
+## reorder so that the voloured points are on top
+## this is a bit hacky but you can split the data frame and then remerge, since the command commented out will still put E above other values - this command was just order by the col hex
+df_plot_1 <- df_plot[!(df_plot$hex == "#e7e7e7"), ]
+df_plot_2 <- df_plot[(df_plot$hex == "#e7e7e7"), ]
+df_plot <- rbind(df_plot_2, df_plot_1)
+rm(df_plot_2, df_plot_1)
+
+umap_zoom_plot_rt <- ggplot(df_plot, aes(x = UMAP_1, y = UMAP_2, colour = hex)) +
+                         geom_point(size = 2) +
+                        ## need this to tell ggplot2 to map to values
+                         scale_colour_identity(guide = "legend") +
+  ## make points bigger
+                         guides(colour = guide_legend(override.aes = list(size = 5))) +
+                        ## fix coordinates
+                         coord_fixed()
+  
+# Extract the legend. Returns a gtable
+#leg <- get_legend(umap_zoom_plot_rt)
+
+# Convert to a ggplot and print
+#legend_d <- as_ggplot(leg)
+
+#legend_d
+  
+umap_zoom_plot_rt <- umap_zoom_plot_rt + theme(legend.position = "none")+  theme_void()
+
+umap_zoom_plot_rt
+
+## remove big dataset
+#rm(tenx.justwt.integrated)
+```
+save
+```{r}
+ggsave("../images_to_export/UMAP_sex_id.png", plot = umap_zoom_plot_rt, device = "png", path = NULL, scale = 1, width = 21, height = 29.7, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+```{r}
+# 1 = blue - "#0052c5"
+# 2 = red - "#a52b1e"
+# 3 = green - "#016c00"
+# 4 = yellow - "#ffe400"
+#pal_sex <- c("#0052c5","#ffe400", "#a52b1e", "#016c00")
+
+## extract pseudotime numbers and identity of cells to a dataframe
+df_pt_id <- as.data.frame(monocle.object@colData[,c("pt_sex", "monocle_sex")])
+
+## inspect possible values
+list_of_sexes <- names(table(df_pt_id$monocle_sex))
+
+## make a new column
+df_pt_id$colour <- NA
+
+## make colour ramps
+asex_ramp <- colorRampPalette(c("#D5E3F5", "#0052c5"))
+male_ramp <- colorRampPalette(c("#ABDDBF", "#016c00"))
+female_ramp <- colorRampPalette(c("#F4C1BE", "#a52b1e"))
+bipot_ramp <- colorRampPalette(c("white", "#ffe400"))
+
+## re-classify the cells that are unassigned cells removed from sexual branch above:
+#df_pt_id[which(rownames(df_pt_id) %in% remove_cells), ]$monocle_sex <- "Asexual"
+
+## assign values to each cluster
+## help here: https://stackoverflow.com/questions/9946630/colour-points-in-a-plot-differently-depending-on-a-vector-of-values 
+df_pt_id[df_pt_id$monocle_sex == "Asexual_Early" | df_pt_id$monocle_sex == "Asexual_Late", ]$colour <- asex_ramp(100)[as.numeric(cut(df_pt_id[df_pt_id$monocle_sex == "Asexual_Early" | df_pt_id$monocle_sex == "Asexual_Late", ]$pt_sex,breaks = 100))]
+
+df_pt_id[df_pt_id$monocle_sex == "Male", ]$colour <- male_ramp(100)[as.numeric(cut(df_pt_id[df_pt_id$monocle_sex == "Male", ]$pt_sex,breaks = 100))]
+
+df_pt_id[df_pt_id$monocle_sex == "Female", ]$colour <- female_ramp(100)[as.numeric(cut(df_pt_id[df_pt_id$monocle_sex == "Female", ]$pt_sex,breaks = 100))]
+
+df_pt_id[df_pt_id$monocle_sex == "Bipotential", ]$colour <- bipot_ramp(100)[as.numeric(cut(df_pt_id[df_pt_id$monocle_sex == "Bipotential", ]$pt_sex,breaks = 100))]
+
+## ADD TO BIG OBJECT
+
+## extract metadata
+df_plot <- tenx.justwt.integrated@meta.data
+
+## add umap - merge on row names and then make sure row names are not dropped or added
+df_plot <- transform(merge(df_plot, tenx.justwt.integrated@reductions[["umap"]]@cell.embeddings, by=0, all=TRUE), row.names=Row.names, Row.names=NULL)
+
+## make new col for colours - and make everything grey
+df_plot$hex <- "#e7e7e7"
+
+## extract colours for highlighted cells 
+df_plot_2 <- as.data.frame(df_pt_id[,"colour", drop = FALSE])
+
+## then merge this back into the colour column, whilst matching the rows
+rownames_to_match <- rownames(df_plot[rownames(df_plot) %in% rownames(df_plot_2), ])
+
+df_plot$hex[rownames(df_plot) %in% rownames(df_plot_2)] <- df_plot_2[match(rownames_to_match, rownames(df_plot_2)), , drop = FALSE][ ,1]
+
+### make character so ggplto2 recognises them
+df_plot$hex <- as.character(df_plot$hex)
+
+## reorder so that the voloured points are on top
+## this is a bit hacky but you can split the data frame and then remerge, since the command commented out will still put E above other values - this command was just order by the col hex
+df_plot_1 <- df_plot[!(df_plot$hex == "#e7e7e7"), ]
+df_plot_2 <- df_plot[(df_plot$hex == "#e7e7e7"), ]
+df_plot <- rbind(df_plot_2, df_plot_1)
+rm(df_plot_2, df_plot_1)
+
+## make ggplot
+umap_id_pt <- ggplot(df_plot, aes(x = UMAP_1, y = UMAP_2)) + 
+                     geom_point(col = df_plot$hex) +
+                     theme_void() +
+                     coord_fixed()
+
+umap_id_pt
+```
+
+save
+```{r}
+ggsave("../images_to_export/UMAP_sex_id_pt.png", plot = umap_id_pt, device = "png", path = NULL, scale = 1, width = 21, height = 29.7, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+save modules
+```{r}
+## modules are located in this object:
+# gene_module_df_sex
+write.csv(gene_module_df_sex, file = "../data_to_export/gene_module_df_sex.csv")
+```
 
 
 # Appendix {.tabset}

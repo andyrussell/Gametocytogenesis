@@ -197,6 +197,44 @@ paste("number of genes in counts", dim(counts)[1], "number of cells in counts", 
 paste("number of columns in pheno", dim(pheno)[2], "number of cells in pheno", dim(pheno)[1])
 ```
 
+### change md5 --> md3, md3 -->md4, md4 --> md5 
+
+```{r}
+## inspect original
+table(pheno$identity_name_updated)
+table(pheno$sub_name_updated)
+
+## change md3 --> mdx
+pheno$identity_name_updated[pheno$identity_name_updated == "md3"] <- "mdx"
+pheno$sub_name_updated[pheno$sub_name_updated == "md3"] <- "mdx"
+pheno$sub_name_updated[pheno$sub_name_updated == "WT-md3"] <- "WT-mdx"
+
+## change md5 --> md3 
+pheno$identity_name_updated[pheno$identity_name_updated == "md5"] <- "md3"
+pheno$sub_name_updated[pheno$sub_name_updated == "md5"] <- "md3"
+pheno$sub_name_updated[pheno$sub_name_updated == "WT-md5"] <- "WT-md3"
+
+## change md4 --> md5
+pheno$identity_name_updated[pheno$identity_name_updated == "md4"] <- "md5"
+pheno$sub_name_updated[pheno$sub_name_updated == "md4"] <- "md5"
+pheno$sub_name_updated[pheno$sub_name_updated == "WT-md4"] <- "WT-md5"
+
+## change mdx --> md4
+pheno$identity_name_updated[pheno$identity_name_updated == "mdx"] <- "md4"
+pheno$sub_name_updated[pheno$sub_name_updated == "mdx"] <- "md4"
+pheno$sub_name_updated[pheno$sub_name_updated == "WT-mdx"] <- "WT-md4"
+
+## inspect new
+table(pheno$identity_name_updated)
+table(pheno$sub_name_updated)
+```
+
+### Save 
+
+```{r}
+## pheno 
+```
+
 ### Filter non-genes out of counts
 
 Filter out the QC columns contained in counts that do not correspond to genes
@@ -837,8 +875,8 @@ QC_failed_plates <- grid.arrange(arrangeGrob(plot_list[[1]] + theme(legend.posit
                                plot_list[[2]] + theme(legend.position="none") + labs(title = paste("fd4", "\n", "plate 2")) + theme(plot.title = element_text(hjust = 0.5)),
                                plot_list[[3]] + theme(legend.position="none") + labs(title = paste("fd4", "\n", "plate 3")) + theme(plot.title = element_text(hjust = 0.5)),
                                plot_list[[4]] + theme(legend.position="none") + labs(title = paste("fd4", "\n", "plate 4")) + theme(plot.title = element_text(hjust = 0.5)),
-                               plot_list[[5]] + theme(legend.position="none") + labs(title = paste("md3", "\n", "plate 1")) + theme(plot.title = element_text(hjust = 0.5)),
-                               plot_list[[6]] + theme(legend.position="none") + labs(title = paste("md3", "\n", "plate 2")) + theme(plot.title = element_text(hjust = 0.5)), nrow=2), 
+                               plot_list[[5]] + theme(legend.position="none") + labs(title = paste("md4", "\n", "plate 1")) + theme(plot.title = element_text(hjust = 0.5)),
+                               plot_list[[6]] + theme(legend.position="none") + labs(title = paste("md4", "\n", "plate 2")) + theme(plot.title = element_text(hjust = 0.5)), nrow=2), 
                               mylegend, nrow=2,heights=c(10,2))
 
 ## plot

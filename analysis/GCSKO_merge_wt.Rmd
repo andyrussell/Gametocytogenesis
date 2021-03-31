@@ -321,6 +321,8 @@ for (i in 1:length(tenx.justwt.list)) {
     tenx.justwt.list[[i]] <- NormalizeData(tenx.justwt.list[[i]], verbose = FALSE)
     tenx.justwt.list[[i]] <- FindVariableFeatures(tenx.justwt.list[[i]], selection.method = "vst", 
         nfeatures = 2000, verbose = FALSE)
+    all.genes <- rownames(tenx.justwt.list[[i]])
+    tenx.justwt.list[[i]] <- ScaleData(tenx.justwt.list[[i]], features = all.genes)
 }
 ```
 
@@ -368,14 +370,68 @@ dp1 <- DimPlot(tenx.justwt.integrated, label = TRUE, repel = FALSE, pt.size = 0.
 dp1
 ```
 
+Make final plots:
+```{r, fig.height = 10, fig.width = 10}
+
+## split seurat object up
+ob.list <- SplitObject(tenx.justwt.integrated, split.by = "experiment")
+
+## make plots for each object
+plot.list <- lapply(X = ob.list, FUN = function(x) {
+    DimPlot(x, dims = c(1,2), pt.size = 1) + theme(legend.position="bottom")
+})
+
+composition_umap_10x <- plot.list$`tenx_5k` + 
+  coord_fixed() +
+  theme_void() +
+  scale_color_manual(values=c(replicate(45, "#999999"))) +
+  labs(title = paste("10x (wild-type)")) +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+
+composition_umap_ss2 <- plot.list$mutants +
+  coord_fixed() +
+  theme_void() +
+  scale_color_manual(values=c(replicate(46, "#999999"))) +
+  labs(title = paste("Smart-seq2 (wild-type)")) +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold"))
+
+composition_umap <- composition_umap_10x + composition_umap_ss2 
+
+composition_umap
+```
+
+save
 ```{r}
-FeaturePlot(tenx.justwt.integrated, features = "PBANKA-1437500", coord.fixed = TRUE, dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("AP2G (Commitment)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))  #+ 
-  ## reverse the scale
-  #scale_x_reverse()
+ggsave("../images_to_export/composition_umap.png", plot = composition_umap, device = "png", path = NULL, scale = 1, width = 20, height = 20, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+```{r}
+## make plots
+## hoo dataset correlation
+UMAP_hoo <- DimPlot(tenx.justwt.integrated, pt.size = 0.1, group.by = "Prediction.Spearman.", dims = c(1,2)) +
+  coord_fixed() + 
+  theme_void() +
+  labs(title = paste("Hoo Predicted Timepoint")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) +
+  scale_colour_manual(values = inferno(12))  +
+  labs(colour = "hour") +
+  theme(legend.position = "bottom", legend.title=element_text(size=10))
+
+## ap2g timecourse in this paper correlation
+UMAP_kasia <- DimPlot(tenx.justwt.integrated, pt.size = 0.1, group.by = "Prediction.Spearman._Kasia", dims = c(1,2)) +
+  coord_fixed() + 
+  theme_void() +
+  labs(title = paste("AP2G Timecourse Predicted Timepoint")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) +
+  scale_colour_manual(values = inferno(10))  +
+  labs(colour = "hour") +
+  theme(legend.position = "bottom", legend.title=element_text(size=10))
+
+## combine
+umap_bulk <- wrap_plots(UMAP_hoo, UMAP_kasia, ncol = 2)
+
+## print
+umap_bulk
 ```
 
 # 5. Clustering {.tabset} 
@@ -436,6 +492,7 @@ list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[
 ### Find Markers
 
 ```{r}
+DefaultAssay(tenx.justwt.integrated) <- "RNA"
 # find markers for every cluster compared to all remaining cells, report only the positive ones
 pb.markers <- FindAllMarkers(tenx.justwt.integrated, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
 pb.markers %>% group_by(cluster) %>% top_n(n = 5, wt = avg_logFC)
@@ -451,7 +508,18 @@ View(markers_subset_annotated)
 ### visualise markers
 
 ```{r, fig.height = 10, fig.width = 10}
+## get the top 10 for each cluster
 top10 <- pb.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
+
+## scale data is missing - but original dfs have scale.data
+# df_scaled <- as.matrix(transform(merge(as.data.frame(tenx.justwt.list[[1]]@assays$RNA@scale.data), as.data.frame(tenx.justwt.list[[2]]@assays$RNA@scale.data), by = 0, all=FALSE), row.names=Row.names, Row.names=NULL))
+# tenx.justwt.integrated@assays$RNA@scale.data <- df_scaled
+
+## scale data in RNA slot
+all.genes <- rownames(tenx.justwt.integrated)
+tenx.justwt.integrated <- ScaleData(tenx.justwt.integrated, vars.to.regress = 'experiment', features = all.genes)
+
+## heatmap
 DoHeatmap(tenx.justwt.integrated, features = top10$gene) + NoLegend()
 ```
 
@@ -459,174 +527,197 @@ DoHeatmap(tenx.justwt.integrated, features = top10$gene) + NoLegend()
 
 ### Downsampling
 ```{r}
-## check number of cells in each cluster
-df_clusters <- as.data.frame(table(tenx.justwt.integrated@meta.data$integrated_snn_res.2))
-plot(df_clusters)
-
-## downsample using appropriate metrics
-tenx.justwt.integrated.downsampled <- subset(tenx.justwt.integrated, downsample = 100)
-  
-## inspect plot
-FeaturePlot(tenx.justwt.integrated.downsampled, features = "PBANKA-1437500", coord.fixed = TRUE, dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("AP2G (Commitment)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
+# ## check number of cells in each cluster
+# df_clusters <- as.data.frame(table(tenx.justwt.integrated@meta.data$integrated_snn_res.2))
+# plot(df_clusters)
+# 
+# ## downsample using appropriate metrics
+# tenx.justwt.integrated.downsampled <- subset(tenx.justwt.integrated, downsample = 100)
+#   
+# ## inspect plot
+# FeaturePlot(tenx.justwt.integrated.downsampled, features = "PBANKA-1437500", coord.fixed = TRUE, dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
+#   theme_void() + 
+#   labs(title = paste("AP2G (Commitment)")) + 
+#   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+#   scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
 ```
 
 ### Marker Genes
-
-#### Expression - Viridis
-```{r, fig.height = 15, fig.width = 15}
-## find a good ring marker, to see if there is a better one than the ones reported
-#markers_ring <- FindMarkers(tenx.justwt.integrated, ident.1 = c("4", "5", "16", "11", "7", "3", "9", "0", "22"))
-#head(markers_ring)
-
-# PBANKA-1319500 - CCP2 - female - used in 820 line
-# PBANKA-0416100 - MG1 - dynenin heavy chain - male - used in 820 line
-# PBANKA-1437500 - AP2G - commitment
-# PBANKA-0831000 - MSP1 - late asexual
-# PBANKA-1102200 - MSP8 - early asexual (from Bozdech paper)
-# PBANKA-0711900 - HSP70 - promoter used for GFP and RFP expression in the mutants
-# PBANKA-1400400 - FAMB - ring marker - discovered by looking for marker genes in data
-# PBANKA-0722600 - Fam-b2 - ring marker - https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5113031/ 
-
-
-marker_gene_plot_CCP2 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-1319500", coord.fixed = TRUE, min.cutoff = "q1", dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("CCP2 (Female)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
-
-marker_gene_plot_MG1 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-0416100", coord.fixed = TRUE, min.cutoff = "q1", dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("MG1 (Male)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
-
-marker_gene_plot_AP2G <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-1437500", coord.fixed = TRUE, min.cutoff = "q1", dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("AP2G (Commitment)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
-
-marker_gene_plot_MSP1 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-0831000", coord.fixed = TRUE, min.cutoff = "q1", dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("MSP1 (Schizont)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
-
-marker_gene_plot_MSP8 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-1102200", coord.fixed = TRUE, min.cutoff = "q1", dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("MSP8 (Asexual)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
-
-marker_gene_plot_SBP1 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-1101300", coord.fixed = TRUE, min.cutoff = "q1", dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("SBP1 (Ring)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
-
-marker_gene_plot_FAMB <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-0722600", coord.fixed = TRUE, min.cutoff = "q1", dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("Fam-b2 (Ring)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
-
-marker_gene_plot_HSP70 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-0711900", coord.fixed = TRUE, min.cutoff = "q1", dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("(HSP70; Reporter)","\n", "PBANKA_0711900")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
-
-##original label:
-# labs(title = paste("(CCP2; Female)","\n", "PBANKA_1319500"))
-
-## plot
-## cowplot method
-marker_gene_plot_all <- plot_grid(marker_gene_plot_FAMB, marker_gene_plot_MSP8, marker_gene_plot_MSP1, marker_gene_plot_AP2G, marker_gene_plot_CCP2, marker_gene_plot_MG1, marker_gene_plot_HSP70, nrow=3)
-
-marker_gene_plot_all
-
-## patchwork method
-#marker_gene_plot_FAMB + marker_gene_plot_MSP8 + marker_gene_plot_MSP1 + marker_gene_plot_AP2G + marker_gene_plot_CCP2 + marker_gene_plot_MG1 + marker_gene_plot_HSP70
-```
-
-#### Expression - grey/purple
-```{r, fig.height = 15, fig.width = 15}
-
-marker_gene_ramp <- colorRampPalette(c("#D3D3D3", "#1D1564"))(50)
-
-marker_gene_plot_CCP2 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-1319500", coord.fixed = TRUE, min.cutoff = "q1", dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("CCP2 (Female)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=marker_gene_ramp)
-
-marker_gene_plot_MG1 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-0416100", coord.fixed = TRUE, min.cutoff = "q1", dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("MG1 (Male)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=marker_gene_ramp)
-
-marker_gene_plot_AP2G <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-1437500", coord.fixed = TRUE, min.cutoff = "q1", dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("AP2G (Commitment)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=marker_gene_ramp)
-
-marker_gene_plot_MSP1 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-0831000", coord.fixed = TRUE, min.cutoff = "q1", dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("MSP1 (Schizont)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=marker_gene_ramp)
-
-marker_gene_plot_MSP8 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-1102200", coord.fixed = TRUE, min.cutoff = "q1", dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("MSP8 (Asexual)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=marker_gene_ramp)
-
-marker_gene_plot_SBP1 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-1101300", coord.fixed = TRUE, min.cutoff = "q1", dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("SBP1 (Ring)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=marker_gene_ramp)
-
-marker_gene_plot_FAMB <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-0722600", coord.fixed = TRUE, min.cutoff = "q1", dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("Fam-b2 (Ring)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=marker_gene_ramp)
-
-marker_gene_plot_HSP70 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-0711900", coord.fixed = TRUE, min.cutoff = "q1", dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("(HSP70; Reporter)","\n", "PBANKA_0711900")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=marker_gene_ramp)
-
-## plot
-## cowplot method
-marker_gene_plot_all <- plot_grid(marker_gene_plot_FAMB, marker_gene_plot_MSP8, marker_gene_plot_MSP1, marker_gene_plot_AP2G, marker_gene_plot_CCP2, marker_gene_plot_MG1, marker_gene_plot_HSP70, nrow=3)
-
-marker_gene_plot_all
-```
 
 useful tools for all plots
 ```{r}
 ## define male and female symbol
 female_symbol <- intToUtf8(9792)
 male_symbol <- intToUtf8(9794)
+
+## define colour pal
+marker_gene_ramp <- colorRampPalette(c("#D3D3D3", "#1D1564"))(50)
 ```
+
+#### Expression - cutoffs - purple
+
+```{r, fig.height = 15, fig.width = 15}
+
+marker_gene_plot_CCP2 <- FeaturePlot(tenx.justwt.integrated, 
+                                     features = "PBANKA-1319500", 
+                                     coord.fixed = TRUE, 
+                                     min.cutoff = "q05", 
+                                     max.cutoff = "q95", 
+                                     dims = c(1,2), 
+                                     reduction = "umap", 
+                                     pt.size = 0.5, 
+                                     order = TRUE, 
+                                     slot = 'scale.data') + 
+                          coord_fixed() +
+                          theme_void() + 
+                          labs(title = expression(italic(ccp2)~(Female))) + 
+                          theme(plot.title = element_text(hjust = 0.5), 
+                                legend.text = element_text(size = 5), 
+                                text=element_text(size=6.0), 
+                                plot.margin = unit(c(0, 0, 0, 0), "cm")
+                                ) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+
+marker_gene_plot_MG1 <- FeaturePlot(tenx.justwt.integrated, 
+                                    features = "PBANKA-0416100", 
+                                    coord.fixed = TRUE, 
+                                    min.cutoff = "q05", 
+                                    max.cutoff = "q95", 
+                                    dims = c(1,2), 
+                                    reduction = "umap", 
+                                    pt.size = 0.5, 
+                                    order = TRUE, 
+                                    slot = 'scale.data') +
+                        coord_fixed() + 
+                        theme_void() + 
+                        labs(title = expression(italic(mg1)~(Male))) + 
+                        theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 5), text=element_text(size=6.0), plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
+                        scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+
+marker_gene_plot_AP2G <- FeaturePlot(tenx.justwt.integrated, 
+                                     features = "PBANKA-1437500", 
+                                     coord.fixed = TRUE, 
+                                     min.cutoff = "q05", 
+                                     max.cutoff = "q95", 
+                                     dims = c(1,2), 
+                                     reduction = "umap", 
+                                     pt.size = 0.5, 
+                                     order = TRUE, 
+                                     slot = 'scale.data') + 
+                          coord_fixed() +
+                          theme_void() + 
+                          labs(title = expression(italic(ap2g)~(Commitment))) + 
+                          theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 5), text=element_text(size=6.0), plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+
+marker_gene_plot_MSP1 <- FeaturePlot(tenx.justwt.integrated, 
+                                     features = "PBANKA-0831000", 
+                                     coord.fixed = TRUE, 
+                                     min.cutoff = "q05", 
+                                     max.cutoff = "q95", 
+                                     dims = c(1,2), 
+                                     reduction = "umap", 
+                                     pt.size = 0.5, 
+                                     order = TRUE, 
+                                     slot = 'scale.data') + 
+                          coord_fixed() +
+                          theme_void() + 
+                          labs(title = expression(italic(msp1)~(Schizont))) + 
+                          theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 5), text=element_text(size=6.0), plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+
+marker_gene_plot_MSP8 <- FeaturePlot(tenx.justwt.integrated, 
+                                     features = "PBANKA-1102200", 
+                                     coord.fixed = TRUE, 
+                                     min.cutoff = "q05", 
+                                     max.cutoff = "q95", 
+                                     dims = c(1,2), 
+                                     reduction = "umap", 
+                                     pt.size = 0.5, 
+                                     order = TRUE, 
+                                     slot = 'scale.data') + 
+                          coord_fixed() +
+                          theme_void() + 
+                          labs(title = expression(italic(msp8)~(Asexual))) + 
+                          theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 5), text=element_text(size=6.0), plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+
+marker_gene_plot_SBP1 <- FeaturePlot(tenx.justwt.integrated, 
+                                     features = "PBANKA-1101300", 
+                                     coord.fixed = TRUE, 
+                                     min.cutoff = "q05", 
+                                     max.cutoff = "q95", 
+                                     dims = c(1,2), 
+                                     reduction = "umap", 
+                                     pt.size = 0.5, 
+                                     order = TRUE,
+                                     slot = 'scale.data') +
+                          coord_fixed() + 
+                          theme_void() + 
+                          labs(title = expression(italic(SBP1)~(Ring))) + 
+                          theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 5), text=element_text(size=6.0), plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+
+marker_gene_plot_FAMB <- FeaturePlot(tenx.justwt.integrated, 
+                                     features = "PBANKA-0722600", 
+                                     coord.fixed = TRUE, 
+                                     min.cutoff = "q05", 
+                                     max.cutoff = "q95", 
+                                     dims = c(1,2), 
+                                     reduction = "umap", 
+                                     pt.size = 0.5, 
+                                     order = TRUE,
+                                     slot = 'scale.data') +
+                          coord_fixed() + 
+                          theme_void() + 
+                          labs(title = expression(italic(fam-b2)~(Ring))) + 
+                          theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 5), text=element_text(size=6.0), plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+
+marker_gene_plot_HSP70 <- FeaturePlot(tenx.justwt.integrated, 
+                                      features = "PBANKA-0711900", 
+                                      coord.fixed = TRUE, 
+                                      min.cutoff = "q05", 
+                                      max.cutoff = "q95", 
+                                      dims = c(1,2), 
+                                      reduction = "umap", 
+                                      pt.size = 0.5, 
+                                      order = TRUE, 
+                                      slot = 'scale.data') +
+                          coord_fixed() +
+                          theme_void() + 
+                          labs(title = expression(italic(hsp70)~(Line~Reporter))) + 
+                          theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 5), text=element_text(size=6.0), plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+
+# + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
+
+## plot
+## cowplot method
+marker_gene_plot_all <- plot_grid(marker_gene_plot_FAMB, marker_gene_plot_MSP8, marker_gene_plot_MSP1, marker_gene_plot_AP2G, marker_gene_plot_CCP2, marker_gene_plot_MG1, marker_gene_plot_HSP70, nrow=3)
+
+marker_gene_plot_all
+```
+
+### Mutant Genes
+
+#### Expression - with cutoffs
 
 ```{r, fig.height = 10, fig.width = 10}
 # PBANKA-1418100        GCSKO-17  FD3   
-# PBANKA-0102400         GCSKO-2  MD3 
-# PBANKA-0716500        GCSKO-19  MD4 
+# PBANKA-0102400         GCSKO-2  MD4 
+# PBANKA-0716500        GCSKO-19  MD5 
 # PBANKA-1435200        GCSKO-20  FD4 
 # PBANKA-0902300        GCSKO-13  FD2
-# PBANKA-0413400    GCSKO-10_820  MD5
+# PBANKA-0413400    GCSKO-10_820  MD3
 # PBANKA-0828000         GCSKO-3  GD1
 # PBANKA-1302700       GCSKO-oom  MD1 
 # PBANKA-1447900        GCSKO-29  MD2
@@ -634,101 +725,243 @@ male_symbol <- intToUtf8(9794)
 # PBANKA-1144800        GCSKO-28  FD5
 
 
-marker_gene_plot_17 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-1418100", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("fd3")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+marker_gene_plot_fd3 <- FeaturePlot(tenx.justwt.integrated, 
+                                   dims = c(1,2), 
+                                   reduction = "umap", 
+                                   features = "PBANKA-1418100", 
+                                   coord.fixed = TRUE,
+                                   min.cutoff = "q05", 
+                                   max.cutoff = "q95", 
+                                   pt.size = 0.5, 
+                                   order = TRUE, 
+                                   slot = 'scale.data') + 
+                        theme_void() + 
+                        labs(title = expression(italic(fd3))) + 
+                        theme(plot.title = element_text(hjust = 0.5), 
+                                legend.text = element_text(size = 5), 
+                                text=element_text(size=7), 
+                                plot.margin = unit(c(0, 0, 0, 0), "cm")
+                                ) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+                        ## add sex symbols
+                        #annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+                        #annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_2 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-0102400", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("md3")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+marker_gene_plot_md4 <- FeaturePlot(tenx.justwt.integrated, 
+                                  dims = c(1,2), 
+                                  reduction = "umap", 
+                                  features = "PBANKA-0102400", 
+                                  coord.fixed = TRUE, 
+                                  min.cutoff = "q05",
+                                  max.cutoff = "q95", 
+                                  pt.size = 0.5, 
+                                  order = TRUE, 
+                                  slot = 'scale.data') + 
+                      theme_void() + 
+                      labs(title = expression(italic(md4))) + 
+                      theme(plot.title = element_text(hjust = 0.5), 
+                                legend.text = element_text(size = 5), 
+                                text=element_text(size=7), 
+                                plot.margin = unit(c(0, 0, 0, 0), "cm")
+                                ) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+                      ## add sex symbols
+                      #annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+                      #annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_19 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-0716500", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("md4")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+marker_gene_plot_md5 <- FeaturePlot(tenx.justwt.integrated, 
+                                   dims = c(1,2), 
+                                   reduction = "umap", 
+                                   features = "PBANKA-0716500", 
+                                   coord.fixed = TRUE, 
+                                   min.cutoff = "q05", 
+                                   max.cutoff = "q95",
+                                   pt.size = 0.5, 
+                                   order = TRUE, 
+                                   slot = 'scale.data') + 
+                       theme_void() + 
+                       labs(title = expression(italic(md5))) + 
+                       theme(plot.title = element_text(hjust = 0.5), 
+                                legend.text = element_text(size = 5), 
+                                text=element_text(size=7), 
+                                plot.margin = unit(c(0, 0, 0, 0), "cm")
+                                ) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = "")) 
+                       ## add sex symbols
+                       #annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+                       #annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_20 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-1435200", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("fd4")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+marker_gene_plot_fd4 <- FeaturePlot(tenx.justwt.integrated, 
+                                   dims = c(1,2), 
+                                   reduction = "umap", 
+                                   features = "PBANKA-1435200", 
+                                   coord.fixed = TRUE, 
+                                   min.cutoff = "q05", 
+                                   max.cutoff = "q95", 
+                                   pt.size = 0.5, 
+                                   order = TRUE, 
+                                   slot = 'scale.data') + 
+                       theme_void() + 
+                       labs(title = expression(italic(fd4))) + 
+                       theme(plot.title = element_text(hjust = 0.5), 
+                                legend.text = element_text(size = 5), 
+                                text=element_text(size=7), 
+                                plot.margin = unit(c(0, 0, 0, 0), "cm")
+                                ) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = "")) 
+                       ## add sex symbols
+                       #annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+                       #annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_13 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-0902300", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("fd2")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+marker_gene_plot_fd2 <- FeaturePlot(tenx.justwt.integrated, 
+                                    dims = c(1,2), 
+                                    reduction = "umap", 
+                                    features = "PBANKA-0902300", 
+                                    coord.fixed = TRUE, 
+                                    min.cutoff = "q05", 
+                                    max.cutoff = "q95", 
+                                    pt.size = 0.5, 
+                                    order = TRUE, 
+                                    slot = 'scale.data') + 
+                       theme_void() + 
+                       labs(title = expression(italic(fd2))) + 
+                       theme(plot.title = element_text(hjust = 0.5), 
+                                legend.text = element_text(size = 5), 
+                                text=element_text(size=7), 
+                                plot.margin = unit(c(0, 0, 0, 0), "cm")
+                                ) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+                       ## add sex symbols
+                       # + annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+                       #annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_10 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-0413400", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("md5")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+marker_gene_plot_md3 <- FeaturePlot(tenx.justwt.integrated, 
+                                   dims = c(1,2), 
+                                   reduction = "umap", 
+                                   features = "PBANKA-0413400", 
+                                   coord.fixed = TRUE, 
+                                   min.cutoff = "q05", 
+                                   max.cutoff = "q95",
+                                   pt.size = 0.5, 
+                                   order = TRUE, 
+                                   slot = 'scale.data') + 
+                       theme_void() + 
+                       labs(title = expression(italic(md3))) + 
+                       theme(plot.title = element_text(hjust = 0.5), 
+                                legend.text = element_text(size = 5), 
+                                text=element_text(size=7), 
+                                plot.margin = unit(c(0, 0, 0, 0), "cm")
+                                ) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+                       ## add sex symbols
+                      #annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+                       #annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_3 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-0828000", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("gd1")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+marker_gene_plot_gd1 <- FeaturePlot(tenx.justwt.integrated, 
+                                  dims = c(1,2), 
+                                  reduction = "umap",
+                                  features = "PBANKA-0828000", 
+                                  coord.fixed = TRUE, 
+                                  min.cutoff = "q05", 
+                                  max.cutoff = "q95",
+                                  pt.size = 0.5, 
+                                  order = TRUE, 
+                                  slot = 'scale.data') + 
+                       theme_void() + 
+                       labs(title = expression(italic(gd1))) + 
+                       theme(plot.title = element_text(hjust = 0.5), 
+                                legend.text = element_text(size = 5), 
+                                text=element_text(size=7), 
+                                plot.margin = unit(c(0, 0, 0, 0), "cm")
+                                ) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+                       ## add sex symbols
+                       #annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+                       #annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_oom <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-1302700", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("md1")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+marker_gene_plot_md1 <- FeaturePlot(tenx.justwt.integrated, 
+                                    dims = c(1,2), 
+                                    reduction = "umap", 
+                                    features = "PBANKA-1302700",
+                                    coord.fixed = TRUE,
+                                    min.cutoff = "q05", 
+                                    max.cutoff = "q95", 
+                                    pt.size = 0.5, 
+                                    order = TRUE, 
+                                    slot = 'scale.data') + 
+                       theme_void() + 
+                       labs(title = expression(italic(md1))) + 
+                       theme(plot.title = element_text(hjust = 0.5), 
+                                legend.text = element_text(size = 5), 
+                                text=element_text(size=7), 
+                                plot.margin = unit(c(0, 0, 0, 0), "cm")
+                                ) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+                       ## add sex symbols
+                       #annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+                       #annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_29 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-1447900", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("md2")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+marker_gene_plot_md2 <- FeaturePlot(tenx.justwt.integrated,
+                                   dims = c(1,2), 
+                                   reduction = "umap",
+                                   features = "PBANKA-1447900",
+                                   coord.fixed = TRUE,
+                                   min.cutoff = "q05", 
+                                   max.cutoff = "q95", 
+                                   pt.size = 0.5, 
+                                   order = TRUE, 
+                                   slot = 'scale.data') + 
+                       theme_void() + 
+                       labs(title = expression(italic(md2))) + 
+                       theme(plot.title = element_text(hjust = 0.5), 
+                                legend.text = element_text(size = 5), 
+                                text=element_text(size=7), 
+                                plot.margin = unit(c(0, 0, 0, 0), "cm")
+                                ) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+                       ## add sex symbols
+                       #annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+                       #annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_21 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-1454800", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q95", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("fd1")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+marker_gene_plot_fd1 <- FeaturePlot(tenx.justwt.integrated, 
+                                    dims = c(1,2), 
+                                    reduction = "umap", 
+                                    features = "PBANKA-1454800", 
+                                    coord.fixed = TRUE, 
+                                    min.cutoff = "q05",
+                                    max.cutoff = "q95", 
+                                    pt.size = 0.5, 
+                                    order = TRUE, 
+                                    slot = 'scale.data') + 
+                       theme_void() + 
+                       labs(title = expression(italic(fd1))) + 
+                       theme(plot.title = element_text(hjust = 0.5), 
+                                legend.text = element_text(size = 5), 
+                                text=element_text(size=7), 
+                                plot.margin = unit(c(0, 0, 0, 0), "cm")
+                                ) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+                       ## add sex symbols
+                       #annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+                       #annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
 ##original label:
 # labs(title = paste("(CCP2; Female)","\n", "PBANKA_1319500"))
+# scale_color_continuous_sequential(palette = "Purples 2")
+# scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
 
 ## make composite plot
-mutant_expression_composite <- wrap_plots(marker_gene_plot_17 , marker_gene_plot_2 , marker_gene_plot_19 , marker_gene_plot_20 , marker_gene_plot_13 , marker_gene_plot_10 , marker_gene_plot_3 , marker_gene_plot_oom , marker_gene_plot_29 , marker_gene_plot_21 , ncol = 4)
+mutant_expression_composite <- wrap_plots(marker_gene_plot_gd1 , marker_gene_plot_md1 , marker_gene_plot_md2 , marker_gene_plot_md3 , marker_gene_plot_md4 , marker_gene_plot_md5 , marker_gene_plot_fd1 , marker_gene_plot_fd2 , marker_gene_plot_fd3 , marker_gene_plot_fd4, ncol = 4)
            
 ## print
 mutant_expression_composite
@@ -748,92 +981,92 @@ mutant_expression_composite
 # PBANKA-1144800        GCSKO-28  FD5
 
 
-marker_gene_plot_17 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-1418100", coord.fixed = TRUE,  pt.size = 1, order = TRUE) + 
+marker_gene_plot_17 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-1418100", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q90", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("fd3")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=marker_gene_ramp) +
+  scale_color_continuous_sequential(palette = "Purples 2") +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_2 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-0102400", coord.fixed = TRUE,  pt.size = 1, order = TRUE) + 
+marker_gene_plot_2 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-0102400", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q90", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("md3")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=marker_gene_ramp) +
+  scale_color_continuous_sequential(palette = "Purples 2") +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_19 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-0716500", coord.fixed = TRUE,  pt.size = 1, order = TRUE) + 
+marker_gene_plot_19 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-0716500", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q90", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("md4")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=marker_gene_ramp) +
+  scale_color_continuous_sequential(palette = "Purples 2") +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_20 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-1435200", coord.fixed = TRUE,  pt.size = 1, order = TRUE) + 
+marker_gene_plot_20 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-1435200", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q90", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("fd4")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=marker_gene_ramp) +
+  scale_color_continuous_sequential(palette = "Purples 2") +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_13 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-0902300", coord.fixed = TRUE,  pt.size = 1, order = TRUE) + 
+marker_gene_plot_13 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-0902300", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q90", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("fd2")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=marker_gene_ramp) +
+  scale_color_continuous_sequential(palette = "Purples 2") +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_10 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-0413400", coord.fixed = TRUE,  pt.size = 1, order = TRUE) + 
+marker_gene_plot_10 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-0413400", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q90", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("md5")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=marker_gene_ramp) +
+  scale_color_continuous_sequential(palette = "Purples 2") +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_3 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-0828000", coord.fixed = TRUE,  pt.size = 1, order = TRUE) + 
+marker_gene_plot_3 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-0828000", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q90", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("gd1")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=marker_gene_ramp) +
+  scale_color_continuous_sequential(palette = "Purples 2") +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_oom <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-1302700", coord.fixed = TRUE,  pt.size = 1, order = TRUE) + 
+marker_gene_plot_oom <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-1302700", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q90", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("md1")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=marker_gene_ramp) +
+  scale_color_continuous_sequential(palette = "Purples 2") +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_29 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-1447900", coord.fixed = TRUE,  pt.size = 1, order = TRUE) + 
+marker_gene_plot_29 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-1447900", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q90", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("md2")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=marker_gene_ramp) +
+  scale_color_continuous_sequential(palette = "Purples 2") +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-marker_gene_plot_21 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-1454800", coord.fixed = TRUE,  pt.size = 1, order = TRUE) + 
+marker_gene_plot_21 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-1454800", coord.fixed = TRUE, min.cutoff = "q10", max.cutoff = "q90", pt.size = 1, order = TRUE) + 
   theme_void() + 
   labs(title = paste("fd1")) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=marker_gene_ramp) +
+  scale_color_continuous_sequential(palette = "Purples 2") +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
@@ -849,99 +1082,6 @@ mutant_expression_composite
 ```
 
 
-
-#### Density 
-```{r, fig.height = 10, fig.width = 10}
-# PBANKA-0828000         GCSKO-3  GD1
-
-# PBANKA-1302700       GCSKO-oom  MD1 
-# PBANKA-1447900        GCSKO-29  MD2
-# PBANKA-0102400         GCSKO-2  MD3 
-# PBANKA-0716500        GCSKO-19  MD4 
-# PBANKA-0413400    GCSKO-10_820  MD5
-
-# PBANKA-1454800        GCSKO-21  FD1
-# PBANKA-0902300        GCSKO-13  FD2
-# PBANKA-1418100        GCSKO-17  FD3   
-# PBANKA-1435200        GCSKO-20  FD4 
-
-markers_list <- c("PBANKA-0828000", "PBANKA-1302700", "PBANKA-1447900", "PBANKA-0102400", "PBANKA-0716500", "PBANKA-0413400", "PBANKA-1454800", "PBANKA-0902300", "PBANKA-1418100", "PBANKA-1435200")
-
-list_of_density_plots_mutant_genes <- plot_density(tenx.justwt.integrated, markers_list, joint = FALSE, combine = FALSE, dims = c(1,2), pal = "plasma", method = "ks")
-
-## make composite plot
-UMAP_composite_mutant_genes <- wrap_plots(list_of_density_plots_mutant_genes[[1]] + 
-                                            coord_fixed() + 
-                                            theme_void() + 
-                                            labs(title = paste("gd1")) + 
-                                            scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + 
-                                            guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
-                             list_of_density_plots_mutant_genes[[2]] + 
-                               coord_fixed() + theme_void() + 
-                               labs(title = paste("md1")) + 
-                               scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + 
-                               guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
-                             list_of_density_plots_mutant_genes[[3]] + coord_fixed() + theme_void() + labs(title = paste("md2")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
-                             list_of_density_plots_mutant_genes[[4]] + coord_fixed() + theme_void() + labs(title = paste("md3")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)) )+ guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
-                             list_of_density_plots_mutant_genes[[5]] + coord_fixed() + theme_void() + 
-  labs(title = paste("md4")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
-                             list_of_density_plots_mutant_genes[[6]] + coord_fixed() + theme_void() + labs(title = paste("md5")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
-                             list_of_density_plots_mutant_genes[[7]] + coord_fixed() + theme_void() + labs(title = paste("fd1")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
-                             list_of_density_plots_mutant_genes[[8]] + coord_fixed() + theme_void() + labs(title = paste("fd2")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
-                             list_of_density_plots_mutant_genes[[9]] + coord_fixed() + theme_void() + labs(title = paste("fd3")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
-                             list_of_density_plots_mutant_genes[[10]] + coord_fixed() + theme_void() + labs(title = paste("fd4")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
-                             ncol = 4)
-
-UMAP_composite_mutant_genes
-```
-
-```{r, fig.height = 10, fig.width = 10}
-# PBANKA-0828000         GCSKO-3  GD1
-
-# PBANKA-1302700       GCSKO-oom  MD1 
-# PBANKA-1447900        GCSKO-29  MD2
-# PBANKA-0102400         GCSKO-2  MD3 
-# PBANKA-0716500        GCSKO-19  MD4 
-# PBANKA-0413400    GCSKO-10_820  MD5
-
-# PBANKA-1454800        GCSKO-21  FD1
-# PBANKA-0902300        GCSKO-13  FD2
-# PBANKA-1418100        GCSKO-17  FD3   
-# PBANKA-1435200        GCSKO-20  FD4 
-
-markers_list <- c("PBANKA-0828000", "PBANKA-1302700", "PBANKA-1447900", "PBANKA-0102400", "PBANKA-0716500", "PBANKA-0413400", "PBANKA-1454800", "PBANKA-0902300", "PBANKA-1418100", "PBANKA-1435200")
-
-list_of_density_plots_mutant_genes <- plot_density(tenx.justwt.integrated, markers_list, joint = FALSE, combine = FALSE, dims = c(1,2), pal = "plasma", method = "ks")
-
-## make composite plot
-UMAP_composite_mutant_genes <- wrap_plots(list_of_density_plots_mutant_genes[[1]] + 
-                                            coord_fixed() + 
-                                            theme_void() + 
-                                            labs(title = paste("gd1")) + 
-                                            scale_colour_gradientn(colours=marker_gene_ramp) + 
-                                            guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
-                             list_of_density_plots_mutant_genes[[2]] + 
-                               coord_fixed() + theme_void() + 
-                               labs(title = paste("md1")) + 
-                               scale_colour_gradientn(colours=marker_gene_ramp) + 
-                               guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
-                             list_of_density_plots_mutant_genes[[3]] + 
-                               coord_fixed() + 
-                               theme_void() + 
-                               labs(title = paste("md2")) + scale_colour_gradientn(colours=marker_gene_ramp) + 
-                               guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
-                             list_of_density_plots_mutant_genes[[4]] + coord_fixed() + theme_void() + labs(title = paste("md3")) + scale_colour_gradientn(colours=marker_gene_ramp )+ guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
-                             list_of_density_plots_mutant_genes[[5]] + coord_fixed() + theme_void() + 
-  labs(title = paste("md4")) + scale_colour_gradientn(colours=marker_gene_ramp) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
-                             list_of_density_plots_mutant_genes[[6]] + coord_fixed() + theme_void() + labs(title = paste("md5")) + scale_colour_gradientn(colours=marker_gene_ramp) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
-                             list_of_density_plots_mutant_genes[[7]] + coord_fixed() + theme_void() + labs(title = paste("fd1")) + scale_colour_gradientn(colours=marker_gene_ramp) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
-                             list_of_density_plots_mutant_genes[[8]] + coord_fixed() + theme_void() + labs(title = paste("fd2")) + scale_colour_gradientn(colours=marker_gene_ramp) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
-                             list_of_density_plots_mutant_genes[[9]] + coord_fixed() + theme_void() + labs(title = paste("fd3")) + scale_colour_gradientn(colours=marker_gene_ramp) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
-                             list_of_density_plots_mutant_genes[[10]] + coord_fixed() + theme_void() + labs(title = paste("fd4")) + scale_colour_gradientn(colours=marker_gene_ramp) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
-                             ncol = 4)
-
-UMAP_composite_mutant_genes
-```
 
 # 7. Pseudotime on all cells {.tabset}
 
@@ -1160,7 +1300,7 @@ make composite pseudotime/ID figure
 # 4 = yellow - "#ffe400"
 #pal_sex <- c("#0052c5","#ffe400", "#a52b1e", "#016c00")
 
-## extract pseodtime numbers and identity of cells to a dataframe
+## extract pseudotime numbers and identity of cells to a dataframe
 df_pt_id <- tenx.justwt.integrated@meta.data[,c("old_pt_values", "monocle_sex")]
 
 ## inspect possible values
@@ -1243,6 +1383,445 @@ umap_id_pt <- ggplot(df_umap_plot, aes(x = UMAP_1, y = UMAP_2)) +
                           data=edge_df)
 
 umap_id_pt
+```
+
+save
+```{r}
+#ggsave("../images_to_export/umap_id_pt.png", plot = umap_id_pt, device = "png", path = NULL, scale = 1, width = 21, height = 29.7, units = "cm", dpi = 300, limitsize = TRUE)
+```
+cluster plot
+```{r}
+### Prepare data
+
+## extract df with cluster ID, 
+df_pt_id <- tenx.justwt.integrated@meta.data[ ,"seurat_clusters", drop=FALSE]
+## extract UMAP coords
+df_plot <- tenx.justwt.integrated@reductions[["umap"]]@cell.embeddings
+df_plot <- merge(df_plot, df_pt_id, by=0, all=TRUE)
+## add colour col
+df_plot$colour <- df_plot$seurat_clusters
+levels(df_plot$colour) <- list(print(asex_ramp(17)[1]) = "9", asex_ramp(17)[2]="4", 
+                               asex_ramp(17)[3]="15", 
+                                asex_ramp(17)[4] = "8", 
+                                asex_ramp(17)[5]= "1",
+                                asex_ramp(17)[6]=  "14", 
+                                asex_ramp(17)[7] = "2", 
+                                asex_ramp(17)[8] = "10",
+                                asex_ramp(17)[9] = "3",
+                                asex_ramp(17)[10] = "0",
+                                asex_ramp(17)[11] = "6",
+                                asex_ramp(17)[12] = "5",
+                                asex_ramp(17)[13] = "7",
+                                asex_ramp(17)[14] = "12",
+                                asex_ramp(17)[15] = "18",
+                                asex_ramp(17)[16] = "20",
+                                asex_ramp(17)[17] = "23",
+                                bipot_ramp(3)[2] = "11",
+                                male_ramp(3)[2] = "16",
+                                male_ramp(3)[3] = "13",
+                                female_ramp(4)[2] = "21",
+                                female_ramp(4)[3] = "22",
+                                female_ramp(4)[4] = "19",
+                                female_ramp(4)[4] = "17"
+                                      )
+## aabbreviate clusters
+df_plot$cluster_names <- df_plot$seurat_clusters
+levels(df_plot$cluster_names) <- list(A_1="9", 
+                                      A_2="4", 
+                                      A_3="15", 
+                                      A_4 = "8", 
+                                      A_5 = "1",
+                                      A_6=  "14", 
+                                      A_7 = "2", 
+                                      A_8 = "10",
+                                      A_9 = "3",
+                                      A_10 = "0",
+                                      A_11 = "6",
+                                      A_12 = "5",
+                                      A_13 = "7",
+                                      A_14 = "12",
+                                      A_15 = "18",
+                                      A_16 = "20",
+                                      A_17 = "23",
+                                      B = "11",
+                                      M_1 = "16",
+                                      M_2 = "13",
+                                      F_1 = "21",
+                                      F_2 = "22",
+                                      F_3 = "19",
+                                      F_3 = "17"
+                                      )
+
+library(dplyr)
+dat%>%
+group_by(custid)%>% 
+summarise(Mean=mean(value), Max=max(value), Min=min(value), Median=median(value), Std=sd(value))
+
+
+
+## plot
+umap_id <- ggplot(df_plot, aes(x = UMAP_1, y = UMAP_2)) + 
+                     geom_point(col = df_plot$colour) +
+                     theme_void() +
+                     coord_fixed()
+
+umap_id
+```
+
+```{r}
+## these get defined later on, but are replicated above here for plotting
+asexual_early_clusters <- c(9, 4, 15, 8, 1, 14, 2, 10, 3, 0, 6, 5)
+asexual_late_clusters <- c(7, 12, 18, 20, 23)
+bipotentional_early_clusters <- # 0?
+bipotential_clusters <- c(11) 
+male_clusters <- c(16, 13)
+female_clusters <- c(21, 22, 17, 19)
+
+## make a new column for plotting
+tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting <- tenx.justwt.integrated@meta.data$seurat_clusters
+
+## reorder the levels so you can plot the cluters as you wish
+my_levels <- c(asexual_early_clusters,asexual_late_clusters, bipotential_clusters, male_clusters, female_clusters)
+tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting <- factor(x = tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting, levels = my_levels)
+
+## change the levels
+levels(tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting) <- list(A_1="9", 
+                                      A_2="4", 
+                                      A_3="15", 
+                                      A_4 = "8", 
+                                      A_5 = "1",
+                                      A_6=  "14", 
+                                      A_7 = "2", 
+                                      A_8 = "10",
+                                      A_9 = "3",
+                                      A_10 = "0",
+                                      A_11 = "6",
+                                      A_12 = "5",
+                                      A_13 = "7",
+                                      A_14 = "12",
+                                      A_15 = "18",
+                                      A_16 = "20",
+                                      A_17 = "23",
+                                      B = "11",
+                                      M_1 = "16",
+                                      M_2 = "13",
+                                      F_1 = "21",
+                                      F_2 = "22",
+                                      F_3 = "19",
+                                      F_3 = "17"
+                                      )
+
+### Annotation set-up
+
+## extract pseudotime numbers and identity of cells to a dataframe
+df_pt_id <- tenx.justwt.integrated@meta.data[,c("old_pt_values", "monocle_sex", "seurat_clusters_dot_plotting", "Prediction.Spearman.", "Prediction.Spearman._Kasia")]
+
+## make a new column
+df_pt_id$colour <- NA
+
+## assign bins to each of the values
+## help here: https://stackoverflow.com/questions/9946630/colour-points-in-a-plot-differently-depending-on-a-vector-of-values 
+df_pt_id[df_pt_id$monocle_sex == "Asexual_Early" | df_pt_id$monocle_sex == "Asexual_Late", ]$colour <- as.numeric(cut(df_pt_id[df_pt_id$monocle_sex == "Asexual_Early" | df_pt_id$monocle_sex == "Asexual_Late", ]$old_pt_values,breaks = 100))
+
+df_pt_id[df_pt_id$monocle_sex == "Male", ]$colour <- as.numeric(cut(df_pt_id[df_pt_id$monocle_sex == "Male", ]$old_pt_values,breaks = 100))
+
+df_pt_id[df_pt_id$monocle_sex == "Female", ]$colour <- as.numeric(cut(df_pt_id[df_pt_id$monocle_sex == "Female", ]$old_pt_values,breaks = 100))
+
+df_pt_id[df_pt_id$monocle_sex == "Bipotential", ]$colour <- as.numeric(cut(df_pt_id[df_pt_id$monocle_sex == "Bipotential", ]$old_pt_values,breaks = 100))
+
+## make colour ramps
+asex_ramp <- colorRampPalette(c("#D5E3F5", "#0052c5"))
+male_ramp <- colorRampPalette(c("white", "yellow", "#016c00"))
+female_ramp <- colorRampPalette(c("yellow", "#a52b1e"))
+bipot_ramp <- colorRampPalette(c("white", "#ffe400"))
+
+## assign values to each cluster
+## take the mean of the bin
+df_annotation <- aggregate(df_pt_id[, "colour"], list(df_pt_id$seurat_clusters_dot_plotting), mean)
+## BECAUSE we have ordered the clusters already, we can simply take the row index for this bit
+df_annotation$colour <- NA
+df_annotation[1:17, ]$colour <- asex_ramp(100)[df_annotation[1:17, ]$x]
+df_annotation[18, ]$colour <- bipot_ramp(100)[df_annotation[18, ]$x]
+df_annotation[19:20, ]$colour <- male_ramp(100)[df_annotation[19:20, ]$x]
+df_annotation[21:23, ]$colour <- female_ramp(100)[df_annotation[21:23, ]$x]
+
+## make colour pallete
+#pal_plot <- c(asex_ramp(170)[1,11,21,31,], bipot_ramp(3)[2], male_ramp(5)[3:4], female_ramp(5)[2:5])
+pal_plot <- c(df_annotation$colour, '#49C16DFF')
+
+## plot
+umap_with_clusters <- DimPlot(tenx.justwt.integrated,
+        group.by = "seurat_clusters_dot_plotting",
+        dims = c(1,2), 
+        reduction = "umap", 
+        pt.size = 1,
+        label.box = TRUE,
+        label.size = 8,
+        label.color	= c(rep(c("#000000"), 12), rep(c("#ffffff"), 5), rep(c("#000000"), 2),"#ffffff", "#000000", "#ffffff", "#ffffff"),
+        order = TRUE, 
+        repel = TRUE, 
+        label = TRUE,
+        cols = pal_plot) +
+  scale_color_manual(labels = c("Asexual 1", "Asexual 2" , "Asexual 3", "Asexual 4", "Asexual 5", "Asexual 6", "Asexual 7", "Asexual 8",  "Asexual 9", "Asexual 10", "Asexual 11", "Asexual 12", "Asexual 13", "Asexual 14", "Asexual 15", "Asexual 16", "Asexual 17", "Bipotential", "Male 1", "Male 2", "Female 1", "Female 2", "Female 3"), values = pal_plot) +
+  theme_void() +
+                     coord_fixed()
+
+umap_with_clusters
+```
+
+save
+```{r}
+ggsave("../images_to_export/umap_with_clusters.png", plot = umap_with_clusters, device = "png", path = NULL, scale = 1, width = 21, height = 29.5, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+### dotplot
+
+A dotplot allows us to look at the expression of multiple genes in a clearer way than succesive UMAP plots
+
+```{r, fig.width = 9, fig.height= 8}
+### Data set-up
+
+# PBANKA-0828000         GCSKO-3  GD1
+
+# PBANKA-1302700       GCSKO-oom  MD1 
+# PBANKA-1447900        GCSKO-29  MD2
+# PBANKA-0413400    GCSKO-10_820  MD3
+# PBANKA-0716500        GCSKO-19  MD4 
+# PBANKA-0102400         GCSKO-2  MD5 
+
+# PBANKA-1454800        GCSKO-21  FD1
+# PBANKA-0902300        GCSKO-13  FD2
+# PBANKA-1418100        GCSKO-17  FD3   
+# PBANKA-1435200        GCSKO-20  FD4 
+
+# PBANKA-1437500 - AP2G - commitment
+# PBANKA-1319500 - CCP2 - female - used in 820 line
+# PBANKA-0416100 - MG1 - dynenin heavy chain - male - used in 820 line
+# PBANKA-0831000 - MSP1 - late asexual
+# PBANKA-1102200 - MSP8 - early asexual (from Bozdech paper)
+
+marker_genes_list <- c("PBANKA-1437500", "PBANKA-1319500", "PBANKA-0416100", "PBANKA-0831000", "PBANKA-1102200")
+mutant_genes_list <- c("PBANKA-0828000", "PBANKA-1302700", "PBANKA-1447900", "PBANKA-0413400", "PBANKA-0716500", "PBANKA-0102400",  "PBANKA-1454800", "PBANKA-0902300", "PBANKA-1418100", "PBANKA-1435200")
+
+## these get defined later on, but are replicated above here for plotting
+asexual_early_clusters <- c(9, 4, 15, 8, 1, 14, 2, 10, 3, 0, 6, 5)
+asexual_late_clusters <- c(7, 12, 18, 20, 23)
+bipotentional_early_clusters <- # 0?
+bipotential_clusters <- c(11) 
+male_clusters <- c(16, 13)
+female_clusters <- c(21, 22, 17, 19)
+
+## copy the clusters so you don't permanently edit the master
+tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting <- tenx.justwt.integrated@meta.data$seurat_clusters
+
+## reorder the levels so you can plot the cluters as you wish
+my_levels <- c(asexual_early_clusters,asexual_late_clusters, bipotential_clusters, male_clusters, female_clusters)
+
+## reorder the levels
+tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting <- factor(x = tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting, levels = my_levels)
+
+## rename clusters so that they are intuitive
+# this trick is from here: http://www.cookbook-r.com/Manipulating_data/Renaming_levels_of_a_factor/
+levels(tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting) <- list(Asexual_1="9", 
+                                                                              Asexual_2="4", 
+                                                                              Asexual_3="15", 
+                                                                              Asexual_4 = "8", 
+                                                                              Asexual_5 = "1",
+                                                                              Asexual_6=  "14", 
+                                                                              Asexual_7 = "2", 
+                                                                              Asexual_8 = "10",
+                                                                              Asexual_9 = "3",
+                                                                              Asexual_10 = "0",
+                                                                              Asexual_11 = "6",
+                                                                              Asexual_12 = "5",
+                                                                              Asexual_13 = "7",
+                                                                              Asexual_14 = "12",
+                                                                              Asexual_15 = "18",
+                                                                              Asexual_16 = "20",
+                                                                              Asexual_17 = "23",
+                                                                              Bipotential = "11",
+                                                                              Male_1 = "16",
+                                                                              Male_2 = "13",
+                                                                              Female_1 = "21",
+                                                                              Female_2 = "22",
+                                                                              Female_3 = "19",
+                                                                              Female_3 = "17"
+                                                                              )
+
+### Annotation set-up
+
+## extract pseudotime numbers and identity of cells to a dataframe
+df_pt_id <- tenx.justwt.integrated@meta.data[,c("old_pt_values", "monocle_sex", "seurat_clusters_dot_plotting", "Prediction.Spearman.", "Prediction.Spearman._Kasia")]
+
+## make a new column
+df_pt_id$colour <- NA
+
+## assign bins to each of the values
+## help here: https://stackoverflow.com/questions/9946630/colour-points-in-a-plot-differently-depending-on-a-vector-of-values 
+df_pt_id[df_pt_id$monocle_sex == "Asexual_Early" | df_pt_id$monocle_sex == "Asexual_Late", ]$colour <- as.numeric(cut(df_pt_id[df_pt_id$monocle_sex == "Asexual_Early" | df_pt_id$monocle_sex == "Asexual_Late", ]$old_pt_values,breaks = 100))
+
+df_pt_id[df_pt_id$monocle_sex == "Male", ]$colour <- as.numeric(cut(df_pt_id[df_pt_id$monocle_sex == "Male", ]$old_pt_values,breaks = 100))
+
+df_pt_id[df_pt_id$monocle_sex == "Female", ]$colour <- as.numeric(cut(df_pt_id[df_pt_id$monocle_sex == "Female", ]$old_pt_values,breaks = 100))
+
+df_pt_id[df_pt_id$monocle_sex == "Bipotential", ]$colour <- as.numeric(cut(df_pt_id[df_pt_id$monocle_sex == "Bipotential", ]$old_pt_values,breaks = 100))
+
+## make colour ramps
+asex_ramp <- colorRampPalette(c("#D5E3F5", "#0052c5"))
+male_ramp <- colorRampPalette(c("white", "yellow", "#016c00"))
+female_ramp <- colorRampPalette(c("yellow", "#a52b1e"))
+bipot_ramp <- colorRampPalette(c("white", "#ffe400"))
+
+## assign values to each cluster
+## take the mean of the bin
+df_annotation <- aggregate(df_pt_id[, "colour"], list(df_pt_id$seurat_clusters_dot_plotting), mean)
+## BECAUSE we have ordered the clusters already, we can simply take the row index for this bit
+df_annotation$colour <- NA
+df_annotation[1:17, ]$colour <- asex_ramp(100)[df_annotation[1:17, ]$x]
+df_annotation[18, ]$colour <- bipot_ramp(100)[df_annotation[18, ]$x]
+df_annotation[19:20, ]$colour <- male_ramp(100)[df_annotation[19:20, ]$x]
+df_annotation[21:23, ]$colour <- female_ramp(100)[df_annotation[21:23, ]$x]
+
+## plot annotation 
+## this really helped: https://www.biostars.org/p/396810/
+h2 <- ggplot(df_annotation)+
+  geom_bar(mapping = aes(x = Group.1, y = 1), 
+           stat = "identity",
+           fill = df_annotation$colour,
+           col = "#FFFFFF",
+           width = 1)+
+      theme_void()+
+      theme(panel.spacing.x = unit(1, "mm"))#+
+     #facet_grid(.~colour, scales = "free_x")
+     #legend <- plot_grid(get_legend(h2), get_legend(h1), ncol = 1)
+ h2 <- h2 + theme(legend.position = "none")
+ #   geom_point(col = df_umap_plot$colour)
+ 
+ h1 <- ggplot(df_annotation)+
+  geom_point(mapping = aes(x = Group.1, y = 1),
+            col = df_annotation$colour,
+            size = 5)+
+      theme_void()+
+      theme(panel.spacing.x = unit(1, "mm"))#+
+     #facet_grid(.~colour, scales = "free_x")
+     #legend <- plot_grid(get_legend(h2), get_legend(h1), ncol = 1)
+ h1 <- h1 + theme(legend.position = "none")
+ #   geom_point(col = df_umap_plot$colour)
+
+ ## add predicted time point
+ ## take the mean of the bin
+df_annotation <- aggregate(df_pt_id[, "Prediction.Spearman."], list(df_pt_id$seurat_clusters_dot_plotting), mean)
+df_annotation$colour <- NA
+df_annotation$colour <- viridis(300)[(df_annotation$x)*10]
+
+h3 <- ggplot(df_annotation)+
+  geom_bar(mapping = aes(x = Group.1, y = 1), 
+           stat = "identity",
+           fill = df_annotation$colour,
+           col = "#FFFFFF",
+           width = 1)+
+      theme_void()+
+      theme(panel.spacing.x = unit(1, "mm"))#+
+     #facet_grid(.~colour, scales = "free_x")
+     legend_h3 <- get_legend(h3)
+ h3 <- h3 + theme(legend.position = "none")
+
+  h3 <- ggplot(data = df_annotation, 
+              mapping = aes(x = Group.1, fill=x)
+              ) +
+       geom_bar(col = "#FFFFFF", width = 1)+
+       theme_void() +
+       theme(panel.spacing.x = unit(1, "mm")) +
+       scale_fill_viridis(option = 'cividis')
+ legend_h3 <- get_legend(h3)
+ h3 <- h3 + theme(legend.position = "none")
+ 
+ ## add kasia data
+  ## take the mean of the bin
+df_annotation <- aggregate(df_pt_id[, "Prediction.Spearman._Kasia"], list(df_pt_id$seurat_clusters_dot_plotting), mean)
+df_annotation$colour <- NA
+df_annotation$colour <- viridis(300)[(df_annotation$x)*10]
+
+h4 <- ggplot(df_annotation)+
+  geom_bar(mapping = aes(x = Group.1, y = 1), 
+           stat = "identity",
+           fill = df_annotation$colour,
+           col = "#FFFFFF",
+           width = 1)+
+      theme_void()+
+      theme(panel.spacing.x = unit(1, "mm"))+
+     facet_grid(.~colour, scales = "free_x")
+     legend <- plot_grid(get_legend(h4), ncol = 1)
+    legend_h4 <- get_legend(h4)
+ h4 <- h4 + theme(legend.position = "none")
+
+ h4 <- ggplot(data = df_annotation, 
+              mapping = aes(x = Group.1, fill=x)
+              ) +
+       geom_bar(col = "#FFFFFF", width = 1)+
+       theme_void() +
+       theme(panel.spacing.x = unit(1, "mm")) +
+       scale_fill_viridis()
+ legend_h4 <- get_legend(h4)
+ h4 <- h4 + theme(legend.position = "none")
+
+### Plot
+dot_plot_markers <- DotPlot(tenx.justwt.integrated, 
+                            features = c(marker_genes_list, rev(mutant_genes_list)), 
+                            group.by = "seurat_clusters_dot_plotting", 
+                            dot.min = 0.00001,
+                            assay = 'RNA') +
+  theme_classic() +
+  coord_fixed() +
+  coord_flip() +
+  # change appearance and remove axis elements, and make room for arrows
+  theme(axis.text.x = element_text(size=16, angle = 45, hjust=1,vjust=1, family = "Arial"), 
+        axis.text.y = element_text(size=16, face="italic"), 
+        text=element_text(size=16, family="Arial", colour="black"), 
+        legend.position = "bottom", 
+        legend.direction = "horizontal", 
+        legend.box = "vertical", 
+        plot.title = element_blank(), 
+        plot.margin = unit(c(1,3,1,3), "lines"), 
+        axis.line = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=0.5)) +
+  #change the colours
+  #scale_colour_viridis(option = "inferno", guide = "colourbar", na.value="white", begin = 0, end = 1, direction = 1) +
+  scale_color_continuous_sequential(palette = "Purples 2") +
+  ## change x axis label
+  # labs(x = "Marker Genes", y = "Cluster", title = "Expression of Marker Genes by Cluster") 
+  labs(x = "", y = "", title = "") +
+  ## add arrows
+  #annotate("segment", x = 5.5, xend = 5.5, y = 21.5, yend = 25, colour = "green", size=1, alpha=1, arrow=arrow(length=unit(0.30,"cm"), type = "closed")) +
+  #annotate("segment", x = 5.5, xend = 5.5, y = 16.5, yend = 21.5, colour = "red", size=1, alpha=1, arrow=arrow(length=unit(0.30,"cm"), type = "closed")) +
+  #annotate("segment", x = 5.5, xend = 5.5, y = 0, yend = 15.5, colour = "grey", size=1, alpha=1, arrow=arrow(length=unit(0.30,"cm"), type = "closed")) +
+  ## annotate asex
+  geom_hline(aes(yintercept = (length(c(asexual_early_clusters, asexual_late_clusters))+0.5)), size = 0.5, linetype= 'dashed') +
+  ## annotate bipotential
+  geom_hline(aes(yintercept = (length(c(asexual_early_clusters, asexual_late_clusters, bipotential_clusters))+0.5)), size = 0.5, linetype= 'dashed') +
+  ## annotate sexes
+  geom_hline(aes(yintercept = (length(c(asexual_early_clusters, asexual_late_clusters, bipotential_clusters, male_clusters))+0.5)), size = 0.5, linetype= 'dashed') +
+  ## change label on bottom of plot so we can indicate markers
+  scale_x_discrete(labels = rev(c("gd1", "md1", "md2", "md3", "md4", "md5", "fd1", "fd2", "fd3", "fd4", "msp8", "msp1", "mg1", "ccp2", "ap2g"))) +
+  ## change label on bottom of plot so we can indicate markers
+  scale_y_discrete(labels = c("Asexual 1", "Asexual 2" , "Asexual 3", "Asexual 4", "Asexual 5", "Asexual 6", "Asexual 7", "Asexual 8",  "Asexual 9", "Asexual 10", "Asexual 11", "Asexual 12", "Asexual 13", "Asexual 14", "Asexual 15", "Asexual 16", "Asexual 17", "Bipotential", "Male 1", "Male 2", "Female 1", "Female 2", "Female 3")) +
+  ## change name of legends
+  guides(col=guide_colorbar(title = 'Scaled Average Expression'),
+         size=guide_legend("% of cells expressing"))
+
+## view
+#print(dot_plot_markers)
+
+plot <- plot_grid(h4, h3, h1, dot_plot_markers, align = "v", ncol = 1, axis = "tb", rel_heights = c(0.5, 0.5, 0.5, 18)) 
+
+dot_plot <- plot_grid(plot, legend_h3, legend_h4, nrow = 1, rel_widths = c(10, 1.5, 1.5))
+
+dot_plot
+```
+
+save
+```{r}
+ggsave("../images_to_export/dot_plot_all.png", plot = dot_plot, device = "png", path = NULL, scale = 1, width = 29.7, height = 21, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 # 9. Subset sexual cells {.tabset}
@@ -1338,72 +1917,33 @@ copy old clusters over
 tenx.justwt.integrated.sex <- AddMetaData(tenx.justwt.integrated.sex, tenx.justwt.integrated.sex@meta.data$seurat_clusters, col.name = "post_integration_clusters")
 ```
 
-# 10. Save and Export {.tabset}
+# 10. Sex assignment of mutants 
 
-Save environment
-```{r}
-## This saves everything in the global environment for easy recall later
-#save.image(file = "GCSKO_merge.RData")
-#load(file = "GCSKO_merge.RData")
-```
-
-Save object(s)
-```{r}
-## Save an object to a file
-saveRDS(tenx.justwt.integrated.sex, file = "../data_to_export/tenx.justwt.integrated.sex.RDS")
-## Restore the object
-#readRDS(file = "../data_to_export/tenx.mutant.integrated.sex.RDS")
-
-## save integrated object to file
-#saveRDS(tenx.justwt.integrated, file = "../data_to_export/tenx.justwt.integrated.RDS") 
-## restore the object
-tenx.justwt.integrated <- readRDS("../data_to_export/tenx.justwt.integrated.RDS")
-
-## save integrated object to file
-#saveRDS(GCSKO_mutants, file = "../data_to_export/GCSKO_mutants.RDS") 
-## restore the object
-#tenx.justwt.integrated <- readRDS("../data_to_export/tenx.justwt.integrated.RDS")
-```
-
-Clean up
-```{r}
-#rm(ss2_wt_cells)
-#rm(tenx.justwt.integrated)
-#rm(tenx.justwt.list)
-```
-
-# Appendix {.tabset}
-
-## Session Info 
-```{r, echo = FALSE}
-sessionInfo()
-```
-
-
-# Assigning identities to mutants
+## A. Seurat Method
 
 ```{r}
+## find transfer anchors
+DefaultAssay(tenx.justwt.integrated) <- "integrated"
 merge.anchors <- FindTransferAnchors(reference = tenx.justwt.integrated, query = GCSKO_mutants, 
     dims = 1:30)
+
+## transfer data between ref and query
 predictions <- TransferData(anchorset = merge.anchors, refdata = tenx.justwt.integrated$monocle_sex, 
     dims = 1:30)
-```
 
-```{r}
 ## add meta data to object
 GCSKO_mutants <- AddMetaData(GCSKO_mutants, metadata = predictions)
+
 ## new object from this
 mutant_seurat <- GCSKO_mutants
+
 ## look at breakdown of mutant by designation
 df <- as.data.frame(mutant_seurat@meta.data)
 table(df$predicted.id, df$identity_name_updated)
 ```
 
 ```{r}
-table(df$predicted.id, df$fluoresence_sorted_on)
-```
-
-```{r}
+## see how this overlaps with fluorescence sorted on for 820 to confirm accuracy
 df_820 <- df[df$genetic_background =="PBANKA_820", ]
 table(df_820$predicted.id, df_820$fluoresence_sorted_on)
 ```
@@ -1411,7 +1951,6 @@ table(df_820$predicted.id, df_820$fluoresence_sorted_on)
 
 Calculate sex ratios
 ```{r}
-
 ## use designations above for sexes
 male_cells <- rownames(mutant_seurat@meta.data[mutant_seurat@meta.data$predicted.id == "Male", ])
 female_cells <- rownames(mutant_seurat@meta.data[mutant_seurat@meta.data$predicted.id == "Female", ])
@@ -1473,7 +2012,7 @@ df_sex_ratio
 
 ```{r}
 ## remove WT-2 because it is really inappropriate to have a sex ratio for this:
-df_sex_ratio <- df_sex_ratio[-which(df_sex_ratio$genotype == "WT-md3"),]
+df_sex_ratio <- df_sex_ratio[-which(df_sex_ratio$genotype == "WT-md5"),]
 ```
 
 plot
@@ -1501,7 +2040,8 @@ sex_ratio_plot <- ggplot(df_sex_ratio, aes(sex_ratio_log, genotype_with_n, color
       theme_classic() +
       theme(legend.position = "none", text=element_text(size=16, family="Arial")) + 
       ## change axis labels
-      labs(y = expression(paste("Genotype", group("(", frac(paste("n male"), "n female"), ")")))) +
+      labs(y = TeX("$Genotype\ \\left(\\frac{n_{male}}{n_{female}}\\right)$")) +
+      #labs(y = expression(paste("Genotype", group("(", frac(paste("n male"), "n female"), ")")))) +
       xlab(expression(paste("Sex Ratio (", log[10], 
                                group("(",
                                       frac(paste("n male + 0.1"), 
@@ -1515,6 +2055,8 @@ sex_ratio_plot <- ggplot(df_sex_ratio, aes(sex_ratio_log, genotype_with_n, color
 
 print(sex_ratio_plot)
 
+### CHANGE TO BIG BRACKET HERE: https://www.overleaf.com/learn/latex/Brackets_and_Parentheses 
+
 #paste("Sex Ratio", "\n", "log10((n male + 0.1)/(n female + 0.1))")
 #theme(legend.position = "none", text=element_text(size=16, family="Arial"))
 
@@ -1524,19 +2066,17 @@ print(sex_ratio_plot)
 #ggsave(filename = "../images_to_export/sex_ratio_plot.png", device = "png", width = 7, height = 7, units = "in")
 ```
 
-# SCMAP
+## B. SCMAP Method
 
-## Build the index
+### Build the index
 
 ```{r}
+### Making an ortholog reference index
+
 ## load in mca data
-counts <- read.csv("../scmap/allpb10x_counts.csv", row.names = 1)
-pheno <- read.csv("../scmap/allpb10x_pheno.csv")
-ggplot(pheno, aes(x=PC2_3d, y = PC3_3d,colour=absclust3)) + geom_point()
-```
-
-```{r}
-###Making an ortholog reference index
+#counts <- read.csv("../scmap/allpb10x_counts.csv", row.names = 1)
+#pheno <- read.csv("../scmap/allpb10x_pheno.csv")
+#ggplot(pheno, aes(x=PC2_3d, y = PC3_3d,colour=absclust3)) + geom_point()
 
 ## load required libraries
 library(scmap) #https://bioconductor.org/packages/release/bioc/html/scmap.html 
@@ -1551,29 +2091,37 @@ library(SingleCellExperiment) #
 #colData(sce) <- cbind(colData(sce), pcs)
 #rowData(sce)$feature_symbol <- rowData(sce)$gene
 
-## extract counts
-cells_tenx <- rownames(tenx.justwt.integrated@meta.data[which(tenx.justwt.integrated@meta.data$experiment == "tenx_5k"), ])
-tenx.justwt.integrated.10k <- subset(tenx.justwt.integrated, cells = cells_tenx)
-counts = as.matrix(GetAssayData(tenx.justwt.integrated.10k, slot = "counts", assay = "RNA"))
-pheno = as.data.frame(tenx.justwt.integrated.10k@meta.data)
+## extract data from Seurat
+#cells_tenx <- rownames(tenx.justwt.integrated@meta.data[which(tenx.justwt.integrated@meta.data$experiment == "tenx_5k"), ])
+#tenx.justwt.integrated.10k <- subset(tenx.justwt.integrated, cells = cells_tenx)
+counts = as.matrix(GetAssayData(tenx.justwt.integrated, slot = "counts", assay = "RNA"))
+pheno = as.data.frame(tenx.justwt.integrated@meta.data)
 
+## add UMAP coordinates
+df_sex_cell_embeddings <- as.data.frame(tenx.justwt.integrated@reductions[["umap"]]@cell.embeddings)
+pheno <- cbind(pheno, df_sex_cell_embeddings)
+
+## Set up object
 sce <- SingleCellExperiment(list(counts=counts),
     colData=DataFrame(label=pheno),
     rowData=DataFrame(feature_symbol=rownames(counts)))
 sce
-counts_1 <- assay(sce, "counts")
-libsizes <- colSums(counts_1)
-size.factors <- libsizes/mean(libsizes)
-logcounts(sce) <- log2(t(t(counts_1)/size.factors) + 1)
+
+## manual logging
+#counts_1 <- assay(sce, "counts")
+#libsizes <- colSums(counts_1)
+#size.factors <- libsizes/mean(libsizes)
+#logcounts(sce) <- log2(t(t(counts_1)/size.factors) + 1)
 #counts(sce) <- as.matrix(counts(sce))
 #logcounts(sce) <- as.matrix(logcounts(sce))
-# remove features with duplicated names
+logcounts(sce) <- as.matrix(GetAssayData(tenx.justwt.integrated, slot = "data", assay = "RNA"))
+
+## remove features with duplicated names
 sce <- sce[!duplicated(rownames(sce)), ]
 
-#build scmap-cell reference index, save this rds
-sce <- selectFeatures(sce, suppress_plot = FALSE, n_features = 1000)
+## build scmap-cell reference index, save this rds
+sce <- selectFeatures(sce, suppress_plot = FALSE, n_features = 2000)
 table(rowData(sce)$scmap_features)
-
 set.seed(1)
 sce <- indexCell(sce, M = 50, k = 80)
 names(metadata(sce)$scmap_cell_index)
@@ -1585,14 +2133,9 @@ dim(metadata(sce)$scmap_cell_index$subclusters)
 #saveRDS(pb_filtered_sce_orth, file="pb_filtered_sce_orthindex_20181109.rds")
 ```
 
-## Map to the index
-
-### LIVE
+### Map to the index
 
 ```{r}
-
-
-
 #rowData(pb_filtered_sce_orth)$feature_symbol <- rowData(pb_filtered_sce_orth)$orth_name
 #rownames(pb_filtered_sce_orth) <- rowData(pb_filtered_sce_orth)$orth_name
 
@@ -1602,26 +2145,31 @@ dim(metadata(sce)$scmap_cell_index$subclusters)
 #pca <- plotPCA(sce)
 #pcs <- pca$data
 #table(rownames(pcs)==colnames(sce))
+
 #colData(sce) <- cbind(colData(sce), pcs)
 
-pf_field_counts = as.matrix(GetAssayData(mutant_seurat, slot = "counts", assay = "RNA"))
-pf_field_pheno = as.data.frame(mutant_seurat@meta.data)
+mutants_counts = as.matrix(GetAssayData(mutant_seurat, slot = "counts", assay = "RNA"))
+mutants_pheno = as.data.frame(mutant_seurat@meta.data)
 
 #rowData(sce)$feature_symbol <- rowData(sce)$gene
-pf_live_field.sce.orth <- SingleCellExperiment(list(counts=pf_field_counts),
-    colData=DataFrame(label=pf_field_pheno),
-    rowData=DataFrame(feature_symbol=rownames(pf_field_counts)))
-pf_live_field.sce.orth
-counts_1 <- assay(pf_live_field.sce.orth, "counts")
-libsizes <- colSums(counts_1)
-size.factors <- libsizes/mean(libsizes)
-logcounts(pf_live_field.sce.orth) <- log2(t(t(counts_1)/size.factors) + 1)
+mutants.sce <- SingleCellExperiment(list(counts=mutants_counts),
+    colData=DataFrame(label=mutants_pheno),
+    rowData=DataFrame(feature_symbol=rownames(mutants_counts)))
+mutants.sce
 
+## add log counts
+## manual
+#counts_1 <- assay(mutants.sce, "counts")
+#libsizes <- colSums(counts_1)
+#size.factors <- libsizes/mean(libsizes)
+#logcounts(mutants.sce) <- log2(t(t(counts_1)/size.factors) + 1)
+## from seurat
+logcounts(mutants.sce) <- as.matrix(GetAssayData(mutant_seurat, slot = "data", assay = "RNA"))
 
 #Project query data set onto cell index
 scmapCell_results <- scmapCell(
-  pf_live_field.sce.orth, 
-  list(yan = metadata(sce)$scmap_cell_index
+  mutants.sce, 
+  list(wt = metadata(sce)$scmap_cell_index
   )
 )
 
@@ -1634,30 +2182,876 @@ scmapCell_results <- scmapCell(
 
 
 ##Top cell assignment method
-scmapCell_results$yan$cells[, 1:3]
-getcells <- scmapCell_results$yan$cells[1, ]
+
+## look at assignments
+scmapCell_results$wt$cells[, 1:3]
+## get cell indexes 
+getcells <- scmapCell_results$wt$cells[1, ]
+## exctract cells metadata from index
 cdsce <- colData(sce)[getcells, ]
-topsim <- scmapCell_results$yan$similarities[1, ]
-
-pf_live_field.sce.orth$topcell <- cdsce$label.sample_id
-pf_live_field.sce.orth$topcell_ac <- cdsce$label.monocle_sex
-pf_live_field.sce.orth$indexPC1 <- cdsce$label.PC1
-pf_live_field.sce.orth$indexPC2 <- cdsce$label.PC2
-#pf_live_field.sce.orth$pbpt <- cdsce$pseudotime
-#pf_live_field.sce.orth$pbbulk <- cdsce$bulk
-pf_live_field.sce.orth$topcell_sp <- pf_live_field.sce.orth$topcell_ac
-pf_live_field.sce.orth$topsim <- topsim
-pf_live_field.sce.orth$topcell_sp[pf_live_field.sce.orth$topsim < 0.5] <- "unassigned"
-table(pf_live_field.sce.orth$topcell_sp)
+## extract similarities
+topsim <- scmapCell_results$wt$similarities[1, ]
+## get name of top cell matched
+mutants.sce$topcell <- rownames(cdsce)
+## get sex id
+mutants.sce$topcell_ac <- cdsce$label.monocle_sex
+## get coordinates of matched cell
+mutants.sce$indexPC1 <- cdsce$label.UMAP_1
+mutants.sce$indexPC2 <- cdsce$label.UMAP_2
+#mutants.sce$pbpt <- cdsce$pseudotime
+#mutants.sce$pbbulk <- cdsce$bulk
+mutants.sce$topcell_sp <- mutants.sce$topcell_ac
+mutants.sce$topsim <- topsim
+mutants.sce$topcell_sp[mutants.sce$topsim < 0.4] <- "unassigned"
+table(mutants.sce$topcell_sp)
 ```
 
 ```{r}
-table(pf_live_field.sce.orth$topcell_sp, pf_live_field.sce.orth$label.identity_name_updated)
+## see how this overlaps with fluorescence sorted on for 820 to confirm accuracy
+df_820 <- colData(mutants.sce)[colData(mutants.sce)$label.genetic_background =="PBANKA_820", ]
+table(df_820$topcell_sp, df_820$label.fluoresence_sorted_on)
 ```
 
 ```{r}
-table(tenx.justwt.integrated@meta.data$fluoresence_sorted_on)
+table(colData(mutants.sce)$topcell_sp, colData(mutants.sce)$label.identity_name_updated)
 ```
+
+
+```{r}
+#### TOP 3NN method
+
+#This function makes a list of the PC means for each cell and then do.call below rbinds them into a dataframe called big_data
+
+datalist = list()
+
+for (i in colnames(scmapCell_results$wt$cells)) {
+  
+  getcellstest <- scmapCell_results$wt$cells[1:3, i]
+  cdscetest <- colData(sce)[getcellstest, ]
+  PC1mean <- mean(cdscetest$label.UMAP_1)
+  PC2mean <- mean(cdscetest$label.UMAP_2)
+  # ... make some data
+  dat <- data.frame(i, PC1mean, PC2mean)
+  dat$i <- i  # maybe you want to keep track of which iteration produced it?
+  datalist[[i]] <- dat # add it to your list
+}
+
+big_data = do.call(rbind, datalist)
+# or big_data <- dplyr::bind_rows(datalist)
+# or big_data <- data.table::rbindlist(datalist)
+
+test <- big_data[1, ]
+
+df <- data.frame(X=colData(sce)$label.UMAP_1, Y=colData(sce)$label.UMAP_2, row.names = rownames(colData(sce)))
+
+#the snap function snaps to the nearest cell in PC coordiantes
+snap <- function(df, test){
+  require(Biobase)
+  d <- matchpt(as.matrix(df),
+               as.matrix(data.frame(X=test$PC1mean,Y=test$PC2mean)))
+  
+  min_row <- rownames(d[d$distance==min(d$distance),])
+  
+  test$X_snap <- unique(df[min_row,"X"])
+  test$Y_snap <- unique(df[min_row,"Y"])
+  test$pb_cell <- min_row
+  
+  test
+}
+
+#this loops through each cell and in big_data and runs the snap function
+datalist2 = list()
+colnames(big_data) <- c("sample_id", "PC1mean", "PC2mean")
+for (i in rownames(big_data)) {
+  test <- big_data[i, ]
+  coord <- snap(df, test)
+  coord$i <- i
+  datalist2[[i]] <- coord
+}
+big_data2 = do.call(rbind, datalist2)
+
+
+table(rownames(big_data2)==rownames(colData(mutants.sce)))
+
+allpbcd <- colData(sce)
+allpbcd <- as.data.frame(allpbcd)
+pbabsclust <- allpbcd[, c("label.pt_id_cols", "label.identity_name_updated", "label.monocle_sex"), drop=FALSE]
+pbabsclust$pb_sample_id <- rownames(pbabsclust)
+
+# Now merge the pc cell asignments with their abs clust and get in the right order
+big_data3 <- merge(big_data2, pbabsclust, by.x = "pb_cell", by.y = "pb_sample_id", all.x=TRUE, all.y=FALSE)
+big_data4 <- big_data3[match(rownames(big_data2), big_data3$sample_id), ]
+
+
+colors <- c("6"="#78C679",
+            "2"="#D1EC9F",
+            "0"="#FEB24C",
+            "1"="#F4CF63",
+            "3"="#FEEEAA",
+            "4"="#85B1D3",
+            "7"="#9ecae1",
+            "5"="#C9E8F1",
+            "M"= "#B7B7D8",
+            "F"="#9C96C6",
+            "unassigned"="black")
+
+ggplot(big_data4, aes(PC1mean, PC2mean)) +
+  geom_point(col = big_data4$label.pt_id_cols) +
+                     theme_void() +
+                     coord_fixed()
+
+#+ geom_point(aes(colour=factor(big_data4$label.label.pt_id_cols))) + scale_color_manual(values = colors) 
+
+                     
+
+ggplot(big_data4, aes(X_snap, Y_snap)) +
+  geom_point(col = big_data4$label.pt_id_cols) +
+                     theme_void() +
+                     coord_fixed() 
+
+#+ geom_point(aes(colour=factor(big_data4$label.label.pt_id_cols))) + scale_color_manual(values = colors) 
+
+##add info to SCE and save colData, to be an assigned cell all 3NN must have a cos sim >0.4
+scmapCell_results$wt$similarities[, 1:3]
+topsim1 <- scmapCell_results$wt$similarities[1, ]
+topsim2 <- scmapCell_results$wt$similarities[2, ]
+topsim3 <- scmapCell_results$wt$similarities[3, ]
+
+table(big_data4$sample_id==rownames(colData(mutants.sce)))
+#pfobj$pb_cell <- big_data4$pb_cell
+#pfobj$PC1mean <- big_data4$PC1mean
+bd4 <- big_data4[, c("pb_cell", "sample_id", "PC1mean", "PC2mean", "X_snap", "Y_snap", "label.pt_id_cols", "label.identity_name_updated", "label.monocle_sex")]
+
+colData(mutants.sce) <- cbind(colData(mutants.sce), bd4)
+
+mutants.sce$topsim1 <- topsim1
+mutants.sce$topsim2 <- topsim2
+mutants.sce$topsim3 <- topsim3
+mutants.sce$stage_pred <- big_data4$label.monocle_sex
+mutants.sce$stage_pred[mutants.sce$topsim1 < 0.4 | mutants.sce$topsim2 < 0.4 | mutants.sce$topsim3 < 0.4] <- "unassigned"
+table(mutants.sce$stage_pred)
+
+#write.csv(bd4, "pfcellassignmentswithmean3nn_20181029.csv")
+#write.csv(colData(pfobj), "pf3d7100scmapclusts2methodindexn100_20190107.csv")
+```
+
+```{r}
+## see how this overlaps with fluorescence sorted on for 820 to confirm accuracy
+df_820 <- colData(mutants.sce)[colData(mutants.sce)$label.genetic_background =="PBANKA_820", ]
+table(df_820$stage_pred, df_820$label.fluoresence_sorted_on)
+```
+
+```{r}
+table(colData(mutants.sce)$stage_pred, colData(mutants.sce)$label.identity_name_updated)
+```
+
+
+## make final plot with MCA data below
+```{r}
+## Read in MCA data
+pheno <- read.csv("../scmap/allpb10x_pheno.csv")
+## extract rows needed for plotting
+df_plot <- pheno[,c("PC2_3d", "PC3_3d", "absclust3")]
+df_plot$experiment <- df_plot$absclust3
+
+## extract rows needed for plotting from mapped object
+df_plot_pm <- as.data.frame(colData(pm_ss2_field.sce.orth))
+df_plot_pm <- df_plot_pm[ ,c("X_snap", "Y_snap", "label.absclust3")]
+df_plot_pm$experiment <- "pm"
+colnames(df_plot_pm) <- c("PC2_3d", "PC3_3d", "absclust3", "experiment")
+
+## extract rows needed for plotting from mapped object
+df_plot_pf <- as.data.frame(colData(pf_ss2_field.sce.orth))
+df_plot_pf <- df_plot_pf[ ,c("X_snap", "Y_snap", "label.absclust3")]
+df_plot_pf$experiment <- "pf"
+colnames(df_plot_pf) <- c("PC2_3d", "PC3_3d", "absclust3", "experiment")
+
+## bind together
+df_plot <- rbind(df_plot, df_plot_pf, df_plot_pm)
+
+colors <- c("6"="#78C679",
+            "2"="#D1EC9F",
+            "0"="#FEB24C",
+            "1"="#F4CF63",
+            "3"="#FEEEAA",
+            "4"="#85B1D3",
+            "7"="#9ecae1",
+            "5"="#C9E8F1",
+            "M"= "#B7B7D8",
+            "F"="#9C96C6",
+            "unassigned"="black",
+            "pm" = "#dc65a4",
+            "pf" = "#24245f")
+
+## add alpha for plotting
+df_plot$alpha[!df_plot$experiment == "pm"] <- 0.5
+df_plot$alpha[df_plot$experiment == "pm"] <- 1
+df_plot$alpha[df_plot$experiment == "pf"] <- 1
+
+##plot
+scmap_pca <- ggplot(df_plot, aes(x=PC2_3d, y = PC3_3d,colour=experiment, alpha = alpha)) + 
+  geom_point() +
+  theme_void() +
+  scale_color_manual(values = colors) +
+  ## remove alpha scale
+  scale_alpha_continuous(guide=FALSE)
+  ## draw ring around field samples
+  #geom_point(data=df_plot[df_plot$experiment == "pm", ], pch=21, fill=NA, size=2, colour="black", stroke=1) +
+  ## make non-field samples more opaque
+  #geom_point(data=df_plot[-df_plot$experiment == "pm", ], alpha = 0.2)
+
+## view
+scmap_pca_2 <- scmap_pca + 
+  guides(colour=guide_legend(override.aes = list(size=4)))
+
+scmap_pca_2
+```
+
+save
+```{r}
+#ggsave("../images_to_export/field_samples_scmap.png", plot = scmap_pca_2, device = "png", path = NULL, scale = 1, width = 15, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+## Overlap and validation
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+# 11. Save and Export {.tabset}
+
+## save
+
+Save environment
+```{r}
+## This saves everything in the global environment for easy recall later
+#save.image(file = "GCSKO_merge.RData")
+#load(file = "GCSKO_merge.RData")
+```
+
+Save object(s)
+```{r}
+## Save an object to a file
+saveRDS(tenx.justwt.integrated.sex, file = "../data_to_export/tenx.justwt.integrated.sex.RDS")
+## Restore the object
+#readRDS(file = "../data_to_export/tenx.mutant.integrated.sex.RDS")
+
+## save integrated object to file
+saveRDS(tenx.justwt.integrated, file = "../data_to_export/tenx.justwt.integrated.RDS") 
+## restore the object
+#tenx.justwt.integrated <- readRDS("../data_to_export/tenx.justwt.integrated.RDS")
+
+## save monocle object
+saveRDS(monocle.object.all, file = "../data_to_export/monocle.object.all.RDS") 
+## restore the object
+#monocle.object.all <- readRDS("../data_to_export/monocle.object.all.RDS")
+
+## save integrated object to file
+#saveRDS(GCSKO_mutants, file = "../data_to_export/GCSKO_mutants.RDS") 
+## restore the object
+#tenx.justwt.integrated <- readRDS("../data_to_export/tenx.justwt.integrated.RDS")
+```
+
+Clean up
+```{r}
+#rm(ss2_wt_cells)
+#rm(tenx.justwt.integrated)
+#rm(tenx.justwt.list)
+```
+
+## final figure construction
+
+[Cowplot](https://wilkelab.org/cowplot/articles/plot_grid.html)(plot_grid), [patchwork](https://cran.r-project.org/web/packages/patchwork/vignettes/patchwork.html)(wrap_plots), and [ggpubr](http://www.sthda.com/english/articles/24-ggpubr-publication-ready-plots/81-ggplot2-easy-way-to-mix-multiple-graphs-on-the-same-page/) can all allow multiple plots to be plotted together. 
+
+```{r, fig.height = 11.7, fig.width = 8.3}
+## A
+# umap_id_pt
+## B
+# marker gene expression
+## C
+# Mutant gene expression
+## D
+# Modules
+
+#Figure_A <- grid.arrange(arrangeGrob(QC_composite_plot, QC_mito_violin, QC_mito_graph, QC_by_genotype, mapping_rate_plot), nrow=3), nrow=2, heights=c(10,2))
+
+## cowplot method
+## can use this for labels: toupper(letters)[1:10]
+
+## C. Mutant genes
+mutant_genes_figure <- plot_grid(
+                                 ## marker genes starts
+                                 marker_gene_plot_FAMB,
+                                 marker_gene_plot_MSP8,
+                                 marker_gene_plot_MSP1,
+                                 marker_gene_plot_AP2G,
+                                 marker_gene_plot_CCP2,
+                                 marker_gene_plot_MG1,
+                                 ## mutant genes starts  
+                                 marker_gene_plot_gd1,
+                                 marker_gene_plot_md1,
+                                 marker_gene_plot_md2,
+                                 marker_gene_plot_md3,
+                                 marker_gene_plot_md4, 
+                                 marker_gene_plot_md5,
+                                 marker_gene_plot_fd1,
+                                 marker_gene_plot_fd2,
+                                 marker_gene_plot_fd3,
+                                 marker_gene_plot_fd4, 
+  label_size = 1, 
+  nrow = 4)
+
+## labels as uppercase letters:
+#c(toupper(letters)[2:17])
+# labels as roman numerals:
+# c(tolower(as.roman(c(2:17))
+
+Figure_publication <- plot_grid(umap_id_pt + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
+                                mutant_genes_figure,
+                                ## add empty plot to give spacing
+                                ggplot() + theme_void(),
+                                labels = c('A', 'B'), 
+                                label_size = 12, 
+                                ncol = 2, 
+                                nrow=2, 
+                                rel_heights = c(1, 1, 4), 
+                                rel_widths = c(1, 2, 3))
+
+Figure_publication
+```
+
+save
+```{r}
+ggsave("../images_to_export/Figure_C.png", plot = Figure_publication, device = "png", path = NULL, scale = 1, width = 21, height = 29.7, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+```{r, fig.height = 11.7, fig.width = 8.3}
+layout <- "
+AABB
+DEFG
+HIJK
+LMNO
+PQRS
+"
+
+Figure_publication <- (composition_umap_10x + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 10))) +
+(composition_umap_ss2 + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 10))) +
+#(UMAP_hoo + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 10)) + labs(title="Predicted Asexual Cycle Real Timepoint")) +
+#(UMAP_kasia + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 10)) + labs(title="Predicted Gametocytogenesis Real Timepoint")) +
+  ## marker genes
+marker_gene_plot_FAMB +
+marker_gene_plot_MSP8 +
+marker_gene_plot_MSP1 +
+marker_gene_plot_AP2G +
+marker_gene_plot_CCP2 +
+marker_gene_plot_MG1 +
+  ## mutant genes starts  
+marker_gene_plot_gd1 +
+marker_gene_plot_md1 +
+marker_gene_plot_md2 +
+marker_gene_plot_md3 +
+marker_gene_plot_md4 + 
+marker_gene_plot_md5 +
+marker_gene_plot_fd1 +
+marker_gene_plot_fd2 +
+marker_gene_plot_fd3 +
+marker_gene_plot_fd4 + 
+plot_layout(ncol = 4, 
+            widths = c(1, 1, 1, 1),
+            heights = c(2, 1, 1, 1, 1),
+            design = layout
+            )
+
+Figure_publication
+```
+
+save
+```{r}
+ggsave("../images_to_export/Figure_S2.png", plot = Figure_publication, device = "png", path = NULL, scale = 1, width = 21, height = 29.7, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+# Appendix {.tabset}
+
+## Session Info 
+```{r, echo = FALSE}
+sessionInfo()
+```
+
+# Expression plots
+
+#### Expression - raw - Viridis
+```{r, fig.height = 15, fig.width = 15}
+## find a good ring marker, to see if there is a better one than the ones reported
+#markers_ring <- FindMarkers(tenx.justwt.integrated, ident.1 = c("4", "5", "16", "11", "7", "3", "9", "0", "22"))
+#head(markers_ring)
+
+# PBANKA-1319500 - CCP2 - female - used in 820 line
+# PBANKA-0416100 - MG1 - dynenin heavy chain - male - used in 820 line
+# PBANKA-1437500 - AP2G - commitment
+# PBANKA-0831000 - MSP1 - late asexual
+# PBANKA-1102200 - MSP8 - early asexual (from Bozdech paper)
+# PBANKA-0711900 - HSP70 - promoter used for GFP and RFP expression in the mutants
+# PBANKA-1400400 - FAMB - ring marker - discovered by looking for marker genes in data
+# PBANKA-0722600 - Fam-b2 - ring marker - https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5113031/ 
+
+
+marker_gene_plot_CCP2 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-1319500", coord.fixed = TRUE, 
+                                     #min.cutoff = "q1", 
+                                     dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste(italic(ccp2), "(Female)")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
+
+marker_gene_plot_MG1 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-0416100", coord.fixed = TRUE, 
+                                    #min.cutoff = "q1", 
+                                    dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste(italic(mg1), "(Male)")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
+
+marker_gene_plot_AP2G <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-1437500", coord.fixed = TRUE, 
+                                     #min.cutoff = "q1", 
+                                     dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste(italic(ap2g), "(Commitment)")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
+
+marker_gene_plot_MSP1 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-0831000", coord.fixed = TRUE, 
+                                     #min.cutoff = "q1", 
+                                     dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste(italic(msp1), "(Schizont)")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
+
+marker_gene_plot_MSP8 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-1102200", coord.fixed = TRUE, 
+                                     #min.cutoff = "q1", 
+                                     dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste(italic(msp8), "(Asexual)")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
+
+marker_gene_plot_SBP1 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-1101300", coord.fixed = TRUE, 
+                                     #min.cutoff = "q1", 
+                                     dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste(italic(sbp1), "(Ring)")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
+
+marker_gene_plot_FAMB <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-0722600", coord.fixed = TRUE, 
+                                     #min.cutoff = "q1", 
+                                     dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste(italic(fam-b2),  "(Ring)")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
+
+marker_gene_plot_HSP70 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-0711900", coord.fixed = TRUE, 
+                                      #min.cutoff = "q1", 
+                                      dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste(italic(HSP70),  "(Reporter)","\n", "PBANKA_0711900")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
+
+##original label:
+# labs(title = paste("(CCP2; Female)","\n", "PBANKA_1319500"))
+
+## plot
+## cowplot method
+marker_gene_plot_all <- plot_grid(marker_gene_plot_FAMB, marker_gene_plot_MSP8, marker_gene_plot_MSP1, marker_gene_plot_AP2G, marker_gene_plot_CCP2, marker_gene_plot_MG1, marker_gene_plot_HSP70, nrow=3)
+
+marker_gene_plot_all
+
+## patchwork method
+#marker_gene_plot_FAMB + marker_gene_plot_MSP8 + marker_gene_plot_MSP1 + marker_gene_plot_AP2G + marker_gene_plot_CCP2 + marker_gene_plot_MG1 + marker_gene_plot_HSP70
+```
+
+#### Expression - raw - purple
+```{r, fig.height = 15, fig.width = 15}
+
+marker_gene_ramp <- colorRampPalette(c("#D3D3D3", "#1D1564"))(50)
+
+marker_gene_plot_CCP2 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-1319500", coord.fixed = TRUE, 
+                                     #min.cutoff = "q1", 
+                                     dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste("CCP2 (Female)")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=marker_gene_ramp)
+
+marker_gene_plot_MG1 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-0416100", coord.fixed = TRUE, 
+                                    #min.cutoff = "q1", 
+                                    dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste("MG1 (Male)")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=marker_gene_ramp)
+
+marker_gene_plot_AP2G <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-1437500", coord.fixed = TRUE, 
+                                     #min.cutoff = "q1", 
+                                     dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste("AP2G (Commitment)")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=marker_gene_ramp)
+
+marker_gene_plot_MSP1 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-0831000", coord.fixed = TRUE, 
+                                     #min.cutoff = "q1", 
+                                     dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste("MSP1 (Schizont)")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=marker_gene_ramp)
+
+marker_gene_plot_MSP8 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-1102200", coord.fixed = TRUE, 
+                                     #min.cutoff = "q1", 
+                                     dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste("MSP8 (Asexual)")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=marker_gene_ramp)
+
+marker_gene_plot_SBP1 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-1101300", coord.fixed = TRUE, 
+                                     #min.cutoff = "q1", 
+                                     dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste("SBP1 (Ring)")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=marker_gene_ramp)
+
+marker_gene_plot_FAMB <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-0722600", coord.fixed = TRUE, 
+                                     #min.cutoff = "q1", 
+                                     dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste("Fam-b2 (Ring)")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=marker_gene_ramp)
+
+marker_gene_plot_HSP70 <- FeaturePlot(tenx.justwt.integrated, features = "PBANKA-0711900", coord.fixed = TRUE, 
+                                      #min.cutoff = "q1", 
+                                      dims = c(1,2), reduction = "umap", pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste("(HSP70; Reporter)","\n", "PBANKA_0711900")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_colour_gradientn(colours=marker_gene_ramp)
+
+## plot
+## cowplot method
+marker_gene_plot_all <- plot_grid(marker_gene_plot_FAMB, marker_gene_plot_MSP8, marker_gene_plot_MSP1, marker_gene_plot_AP2G, marker_gene_plot_CCP2, marker_gene_plot_MG1, marker_gene_plot_HSP70, nrow=3)
+
+marker_gene_plot_all
+```
+
+#### Expression - data - purple
+
+```{r, fig.height = 10, fig.width = 10}
+# PBANKA-1418100        GCSKO-17  FD3   
+# PBANKA-0102400         GCSKO-2  MD3 
+# PBANKA-0716500        GCSKO-19  MD4 
+# PBANKA-1435200        GCSKO-20  FD4 
+# PBANKA-0902300        GCSKO-13  FD2
+# PBANKA-0413400    GCSKO-10_820  MD5
+# PBANKA-0828000         GCSKO-3  GD1
+# PBANKA-1302700       GCSKO-oom  MD1 
+# PBANKA-1447900        GCSKO-29  MD2
+# PBANKA-1454800        GCSKO-21  FD1
+# PBANKA-1144800        GCSKO-28  FD5
+
+
+marker_gene_plot_17 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-1418100", coord.fixed = TRUE,  pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste("fd3")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_color_continuous_sequential(palette = "Purples 2") +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+
+marker_gene_plot_2 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-0102400", coord.fixed = TRUE,  pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste("md3")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_color_continuous_sequential(palette = "Purples 2") +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+
+marker_gene_plot_19 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-0716500", coord.fixed = TRUE,  pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste("md4")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_color_continuous_sequential(palette = "Purples 2") +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+
+marker_gene_plot_20 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-1435200", coord.fixed = TRUE,  pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste("fd4")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_color_continuous_sequential(palette = "Purples 2") +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+
+marker_gene_plot_13 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-0902300", coord.fixed = TRUE,  pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste("fd2")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_color_continuous_sequential(palette = "Purples 2") +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+
+marker_gene_plot_10 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-0413400", coord.fixed = TRUE,  pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste("md5")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_color_continuous_sequential(palette = "Purples 2") +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+
+marker_gene_plot_3 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-0828000", coord.fixed = TRUE,  pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste("gd1")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_color_continuous_sequential(palette = "Purples 2") +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+
+marker_gene_plot_oom <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-1302700", coord.fixed = TRUE,  pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste("md1")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_color_continuous_sequential(palette = "Purples 2") +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+
+marker_gene_plot_29 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-1447900", coord.fixed = TRUE,  pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste("md2")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_color_continuous_sequential(palette = "Purples 2") +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+
+marker_gene_plot_21 <- FeaturePlot(tenx.justwt.integrated, dims = c(1,2), reduction = "umap", features = "PBANKA-1454800", coord.fixed = TRUE,  pt.size = 1, order = TRUE) + 
+  theme_void() + 
+  labs(title = paste("fd1")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
+  scale_color_continuous_sequential(palette = "Purples 2") +
+  ## add sex symbols
+  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+
+##original label:
+# labs(title = paste("(CCP2; Female)","\n", "PBANKA_1319500"))
+
+## make composite plot
+mutant_expression_composite <- wrap_plots(marker_gene_plot_17 , marker_gene_plot_2 , marker_gene_plot_19 , marker_gene_plot_20 , marker_gene_plot_13 , marker_gene_plot_10 , marker_gene_plot_3 , marker_gene_plot_oom , marker_gene_plot_29 , marker_gene_plot_21 , ncol = 4)
+           
+## print
+mutant_expression_composite
+```
+
+# Density Plots
+
+#### Density - purple
+
+```{r}
+# PBANKA-1319500 - CCP2 - female - used in 820 line
+# PBANKA-0416100 - MG1 - dynenin heavy chain - male - used in 820 line
+# PBANKA-1437500 - AP2G - commitment
+# PBANKA-0831000 - MSP1 - late asexual
+# PBANKA-1102200 - MSP8 - early asexual (from Bozdech paper)
+# PBANKA-0711900 - HSP70 - promoter used for GFP and RFP expression in the mutants
+# PBANKA-1400400 - FAMB - ring marker - discovered by looking for marker genes in data
+# PBANKA-0722600 - Fam-b2 - ring marker - https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5113031/ 
+
+markers_list <- c("PBANKA-0828000", "PBANKA-1302700", "PBANKA-1447900", "PBANKA-0102400", "PBANKA-0716500", "PBANKA-0413400", "PBANKA-1454800", "PBANKA-0902300", "PBANKA-1418100", "PBANKA-1435200")
+
+list_of_density_plots_mutant_genes <- plot_density(tenx.justwt.integrated, markers_list, joint = FALSE, combine = FALSE, dims = c(1,2), pal = "plasma", method = "ks")
+
+## make composite plot
+UMAP_composite_mutant_genes <- wrap_plots(list_of_density_plots_mutant_genes[[1]] + 
+                                            coord_fixed() + 
+                                            theme_void() + 
+                                            labs(title = paste("gd1")) + 
+                                            scale_colour_gradientn(colours=marker_gene_ramp) + 
+                                            guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[2]] + 
+                               coord_fixed() + theme_void() + 
+                               labs(title = paste("md1")) + 
+                               scale_colour_gradientn(colours=marker_gene_ramp) + 
+                               guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[3]] + coord_fixed() + theme_void() + labs(title = paste("md2")) + scale_colour_gradientn(colours=marker_gene_ramp) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[4]] + coord_fixed() + theme_void() + labs(title = paste("md3")) + scale_colour_gradientn(colours=marker_gene_ramp) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[5]] + coord_fixed() + theme_void() + 
+  labs(title = paste("md4")) + scale_colour_gradientn(colours=marker_gene_ramp) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[6]] + coord_fixed() + theme_void() + labs(title = paste("md5")) + scale_colour_gradientn(colours=marker_gene_ramp) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[7]] + coord_fixed() + theme_void() + labs(title = paste("fd1")) + scale_colour_gradientn(colours=marker_gene_ramp) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[8]] + coord_fixed() + theme_void() + labs(title = paste("fd2")) + scale_colour_gradientn(colours=marker_gene_ramp) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[9]] + coord_fixed() + theme_void() + labs(title = paste("fd3")) + scale_colour_gradientn(colours=marker_gene_ramp) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[10]] + coord_fixed() + theme_void() + labs(title = paste("fd4")) + scale_colour_gradientn(colours=marker_gene_ramp) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             ncol = 4)
+
+UMAP_composite_mutant_genes
+```
+
+
+#### Density -viridis
+
+```{r}
+# PBANKA-1319500 - CCP2 - female - used in 820 line
+# PBANKA-0416100 - MG1 - dynenin heavy chain - male - used in 820 line
+# PBANKA-1437500 - AP2G - commitment
+# PBANKA-0831000 - MSP1 - late asexual
+# PBANKA-1102200 - MSP8 - early asexual (from Bozdech paper)
+# PBANKA-0711900 - HSP70 - promoter used for GFP and RFP expression in the mutants
+# PBANKA-1400400 - FAMB - ring marker - discovered by looking for marker genes in data
+# PBANKA-0722600 - Fam-b2 - ring marker - https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5113031/ 
+
+markers_list <- c("PBANKA-0828000", "PBANKA-1302700", "PBANKA-1447900", "PBANKA-0102400", "PBANKA-0716500", "PBANKA-0413400", "PBANKA-1454800", "PBANKA-0902300", "PBANKA-1418100", "PBANKA-1435200")
+
+list_of_density_plots_mutant_genes <- plot_density(tenx.justwt.integrated, markers_list, joint = FALSE, combine = FALSE, dims = c(1,2), pal = "plasma", method = "ks")
+
+## make composite plot
+UMAP_composite_mutant_genes <- wrap_plots(list_of_density_plots_mutant_genes[[1]] + 
+                                            coord_fixed() + 
+                                            theme_void() + 
+                                            labs(title = paste("gd1")) + 
+                                            scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + 
+                                            guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[2]] + 
+                               coord_fixed() + theme_void() + 
+                               labs(title = paste("md1")) + 
+                               scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + 
+                               guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[3]] + coord_fixed() + theme_void() + labs(title = paste("md2")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[4]] + coord_fixed() + theme_void() + labs(title = paste("md3")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)) )+ guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[5]] + coord_fixed() + theme_void() + 
+  labs(title = paste("md4")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[6]] + coord_fixed() + theme_void() + labs(title = paste("md5")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[7]] + coord_fixed() + theme_void() + labs(title = paste("fd1")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[8]] + coord_fixed() + theme_void() + labs(title = paste("fd2")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[9]] + coord_fixed() + theme_void() + labs(title = paste("fd3")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[10]] + coord_fixed() + theme_void() + labs(title = paste("fd4")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             ncol = 4)
+
+UMAP_composite_mutant_genes
+```
+
+#### Density - viridis
+```{r, fig.height = 10, fig.width = 10}
+# PBANKA-0828000         GCSKO-3  GD1
+
+# PBANKA-1302700       GCSKO-oom  MD1 
+# PBANKA-1447900        GCSKO-29  MD2
+# PBANKA-0102400         GCSKO-2  MD3 
+# PBANKA-0716500        GCSKO-19  MD4 
+# PBANKA-0413400    GCSKO-10_820  MD5
+
+# PBANKA-1454800        GCSKO-21  FD1
+# PBANKA-0902300        GCSKO-13  FD2
+# PBANKA-1418100        GCSKO-17  FD3   
+# PBANKA-1435200        GCSKO-20  FD4 
+
+markers_list <- c("PBANKA-0828000", "PBANKA-1302700", "PBANKA-1447900", "PBANKA-0102400", "PBANKA-0716500", "PBANKA-0413400", "PBANKA-1454800", "PBANKA-0902300", "PBANKA-1418100", "PBANKA-1435200")
+
+list_of_density_plots_mutant_genes <- plot_density(tenx.justwt.integrated, markers_list, joint = FALSE, combine = FALSE, dims = c(1,2), pal = "plasma", method = "ks")
+
+## make composite plot
+UMAP_composite_mutant_genes <- wrap_plots(list_of_density_plots_mutant_genes[[1]] + 
+                                            coord_fixed() + 
+                                            theme_void() + 
+                                            labs(title = paste("gd1")) + 
+                                            scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + 
+                                            guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[2]] + 
+                               coord_fixed() + theme_void() + 
+                               labs(title = paste("md1")) + 
+                               scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + 
+                               guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[3]] + coord_fixed() + theme_void() + labs(title = paste("md2")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[4]] + coord_fixed() + theme_void() + labs(title = paste("md3")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)) )+ guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[5]] + coord_fixed() + theme_void() + 
+  labs(title = paste("md4")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[6]] + coord_fixed() + theme_void() + labs(title = paste("md5")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[7]] + coord_fixed() + theme_void() + labs(title = paste("fd1")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[8]] + coord_fixed() + theme_void() + labs(title = paste("fd2")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[9]] + coord_fixed() + theme_void() + labs(title = paste("fd3")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[10]] + coord_fixed() + theme_void() + labs(title = paste("fd4")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             ncol = 4)
+
+UMAP_composite_mutant_genes
+
+## IF putting in MAIN - list_of_density_plots_mutant_genes[[2]] + coord_fixed() + theme_void() + theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 8), text=element_text(size=9)) + labs(title = paste("md1")) + scale_colour_gradientn(colours=c("#DCDCDC", plasma(30))) + guides(colour = guide_colourbar(barwidth = 0.3, barheight = 4.0, title = ""))
+```
+
+```{r, fig.height = 10, fig.width = 10}
+# PBANKA-0828000         GCSKO-3  GD1
+
+# PBANKA-1302700       GCSKO-oom  MD1 
+# PBANKA-1447900        GCSKO-29  MD2
+# PBANKA-0102400         GCSKO-2  MD3 
+# PBANKA-0716500        GCSKO-19  MD4 
+# PBANKA-0413400    GCSKO-10_820  MD5
+
+# PBANKA-1454800        GCSKO-21  FD1
+# PBANKA-0902300        GCSKO-13  FD2
+# PBANKA-1418100        GCSKO-17  FD3   
+# PBANKA-1435200        GCSKO-20  FD4 
+
+markers_list <- c("PBANKA-0828000", "PBANKA-1302700", "PBANKA-1447900", "PBANKA-0102400", "PBANKA-0716500", "PBANKA-0413400", "PBANKA-1454800", "PBANKA-0902300", "PBANKA-1418100", "PBANKA-1435200")
+
+list_of_density_plots_mutant_genes <- plot_density(tenx.justwt.integrated, markers_list, joint = FALSE, combine = FALSE, dims = c(1,2), pal = "plasma", method = "wkde", slot = 'data')
+
+## make composite plot
+UMAP_composite_mutant_genes <- wrap_plots(list_of_density_plots_mutant_genes[[1]] + 
+                                            coord_fixed() + 
+                                            theme_void() + 
+                                            labs(title = paste("gd1")) + 
+                                            scale_color_continuous_sequential(palette = "Purples 2") + 
+                                            guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[2]] + 
+                               coord_fixed() + theme_void() + 
+                               labs(title = paste("md1")) + 
+                               scale_color_continuous_sequential(palette = "Purples 2") + 
+                               guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[3]] + 
+                               coord_fixed() + 
+                               theme_void() + 
+                               labs(title = paste("md2")) + scale_color_continuous_sequential(palette = "Purples 2") + 
+                               guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[4]] + coord_fixed() + theme_void() + labs(title = paste("md3")) + scale_color_continuous_sequential(palette = "Purples 2") + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[5]] + coord_fixed() + theme_void() + 
+  labs(title = paste("md4")) + scale_color_continuous_sequential(palette = "Purples 2") + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[6]] + coord_fixed() + theme_void() + labs(title = paste("md5")) + scale_color_continuous_sequential(palette = "Purples 2") + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[7]] + coord_fixed() + theme_void() + labs(title = paste("fd1")) + scale_color_continuous_sequential(palette = "Purples 2") + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[8]] + coord_fixed() + theme_void() + labs(title = paste("fd2")) + scale_color_continuous_sequential(palette = "Purples 2") + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[9]] + coord_fixed() + theme_void() + labs(title = paste("fd3")) + scale_color_continuous_sequential(palette = "Purples 2") + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             list_of_density_plots_mutant_genes[[10]] + coord_fixed() + theme_void() + labs(title = paste("fd4")) + scale_color_continuous_sequential(palette = "Purples 2") + guides(colour = guide_colourbar(barwidth = 0.5, title = "")),
+                             ncol = 4)
+
+## old colour scale: scale_colour_gradientn(colours=marker_gene_ramp )
+
+UMAP_composite_mutant_genes
+```
+
 
 
 

@@ -753,6 +753,7 @@ seurat.object <-subset(tenx.mutant.integrated.sex, cells = wt_cells)
 
 ## extract counts and pheno:
 ## the reason we use the integrated and then subsetted is because these cells have been normalised whereas the cells in pb_sex_filtered have not been normalised (well they have but with doublets in them)
+## with 10x only cells: all.equal(as.data.frame(counts(monocle.object)), as.data.frame(as.matrix(GetAssayData(seurat.object, assay = "RNA", slot = "counts")))) returns TRUE and also returns true when you change the slot input to "counts" and use monocle to norm it with method "log"
 data <- as(as.matrix(GetAssayData(seurat.object, assay = "RNA", slot = "data")), 'sparseMatrix')
 ## make phenodata
 pd <- data.frame(seurat.object@meta.data)
