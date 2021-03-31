@@ -8,10 +8,17 @@ Please contact ar19@sanger.ac.uk with any questions, or if you would like to col
 
 
 ## Basic steps
-- Run `quality_control` notebooks to generate QCed data files
-- Run `analysis` notebooks
-  - A. `merge`
-  - B. `coexpression`
-  - C. `sex_branch_analysis`
-  - D. `sex_ratio`
-  - E. `misc_code` 
+
+### Single-cell data
+- 1. Run `quality_control` notebooks to generate QCed data files
+    - `GCSKO_SS2_QC.Rmd`
+    - `GCSKO_10X_QC.Rmd`
+    - `GCSKO_genotyping_coverage_plots.Rmd`*
+- 2. Run `analysis` notebooks
+    - A. `merge`
+    - B. `coexpression`
+    - C. `sex_branch_analysis`
+    - D. `sex_ratio`
+    - E. `misc_code` 
+
+*optional
