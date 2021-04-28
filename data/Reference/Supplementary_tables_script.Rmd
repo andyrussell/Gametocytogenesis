@@ -1,0 +1,126 @@
+---
+title: "Supplementary Table Generation"
+output: html_notebook
+---
+
+_Supplemental Data File 1._ 
+
+Can we have one table showing:
+genes included in the screen (gene ID old and new)
+pbgem vector used
+pool 1 to 15 (1-9 being normal, 10-15 slow)
+included in validation pool (true/false)
+summary statistics and phenotype call
+cluster number, reprogramming bulk transcriptomics (Fig. 2)
+cluster number, single cell sexual development (Fig. 3)
+asexual growth rate according to Bushell et al., 2017
+oocyst phenotype according to Stanway et al., 2019
+DOZI-regulated according to Guerreiro A, et al. (2014) Genome Biol. https://www.ncbi.nlm.nih.gov/pubmed/25418785?
+Separate sheet with 
+normalised data from each replicate screen
+
+```{r}
+
+```
+
+
+
+
+
+Supplemental Data File 2. Transcript abundance in P. berghei parasites at 0 - 44 h after initiating infections in mice with in vitro-synchronised schizonts. Data are shown as log2-fold change in a population reprogrammed to undergo gametocytogenesis by induction of ap2g (Kent et al., 2018), compared with uninduced, asexually developing parasites. All data are from synchronised parasite populations growing in mice. Column N additionally shows the log2 of the male-to-famle ratio of normalised transcript abundance in flow-sorted male and female gametocytes of the Pb820 line. 
+
+```{r}
+#### gene annotations
+gene_annotations <- read.table("../../data/Reference/GenesByTaxon_Summary.csv", header = TRUE, sep = ",", stringsAsFactors = TRUE)
+dim(gene_annotations)
+## convert _ to -
+gene_annotations$Gene.ID <- gsub("_", "-", gene_annotations$Gene.ID)
+## check dim
+dim(gene_annotations)
+## this has duplicates as it includes transcripts:
+#gene_annotations[duplicated(gene_annotations$Gene.ID)|duplicated(gene_annotations$Gene.ID, fromLast=TRUE),]
+## remove duplicates 
+gene_annotations <- gene_annotations[!duplicated(gene_annotations$Gene.ID),]
+dim(gene_annotations)
+
+#### gene_modules 
+gene_modules <- read.csv(file = "../../data_to_export/gene_module_df_sex.csv", header = TRUE, row.names = 1)
+gene_modules <- gene_modules[ ,c(1,2)]
+dim(gene_modules)
+
+## Stanway 
+stanway <- read.csv(file = "../../data/Reference/raw_data_and_merging_scripts/Stanway_2019_B1MG.csv", header = TRUE)
+colnames(stanway) <- stanway[1, ]
+stanway <- stanway[-1, ]
+names(stanway)[1] <- "id"
+## change the underscore to a dash
+stanway$id <- gsub("_", "-", stanway$id)
+## remove any transcript numbers
+stanway$id <- sub("\\..*", "", stanway$id)
+## extract info
+stanway <- stanway[ ,c("id", "Power")]
+dim(stanway)
+
+## Bushell 
+essential_genes <- read.csv(file = "../../data/Reference/bushell_2017_data.csv", header = TRUE)
+## extract info
+essential_genes <- essential_genes[, c("P..berghei.current.ID", "Phenotype" )]
+names(essential_genes) <- c("id", "phenotype")
+## change the underscore to a dash
+essential_genes$id <- gsub("_", "-", essential_genes$id)
+dim(essential_genes)
+
+## DOZI
+guerreiro <- read.csv(file = "../../data/Reference/raw_data_and_merging_scripts/Guerreiro_2014.csv", header = TRUE)
+guerreiro <- guerreiro[, c(1, 9,10,11)]
+names(guerreiro) <- c("id", "CITH", "DOZI", "CITH_and_DOZI")
+## change old gene IDs
+old_ids <- read.csv(file = "../../data/Reference/raw_data_and_merging_scripts/New_to_old_gene_ids.csv", header = FALSE)
+## Get only 1 to 1 conversions
+old_ids <- old_ids[old_ids$V3 == "",]
+old_ids <- old_ids[ , c(1,2)]
+names(old_ids) <- c("new", "old")
+guerreiro_new <- merge(guerreiro, old_ids, by.x = "id", by.y = "old", all.x = TRUE)
+guerreiro_new <- guerreiro_new[-which(is.na(guerreiro_new$new)), ]
+## change the underscore to a dash
+guerreiro_new$new <- gsub("_", "-", guerreiro_new$new)
+guerreiro_new <- guerreiro_new[guerreiro_new$CITH_and_DOZI == 2, ]
+## compare genes in kent paper:
+#dozi_genes[-which(dozi_genes %in% guerreiro_new$new)]
+#[1] "PBANKA-1230100"   "PBANKA-0609300"   "PBANKA-1342300.2"
+## the first two genes are associated with two gene IDs and the last one is a transcript isoform
+## the converse was also checked:
+# guerreiro_new$new[-which(guerreiro_new$new %in% dozi_genes)] 
+## the two genes resulting from this were both confirmed in the supplementary data and may be as a result of a newer genome version after the publication?
+dim(guerreiro_new)
+```
+
+Merge together
+```{r}
+## Everything will be merged in starting with gene annotations as this contains all genes
+## Bushell
+SD2 <- merge(gene_annotations, essential_genes, by.x = "Gene.ID", by.y = "id", all.x = TRUE)
+dim(SD2)
+## Stanway
+SD2 <- merge(SD2, stanway, by.x = "Gene.ID", by.y = "id", all.x = TRUE)
+dim(SD2)
+## DOZI 
+SD2 <- merge(SD2, guerreiro_new, by.x = "Gene.ID", by.y = "new", all.x = TRUE)
+dim(SD2)
+## gene modules
+SD2 <- merge(SD2, gene_modules, by.x = "Gene.ID", by.y = "id", all.x = TRUE)
+dim(SD2)
+
+## clean up
+SD2 <- SD2[ ,c(1,3,4,5,6,8,9,13,14)]
+names(SD2) <- c("Gene_ID", "Product_Description", "Gene_type", "Is_pseudogene?", "Gene_Name", "Bushell_Asexual", "Stanway_Oocyst", "Guerreiro_CITH/DOZI", "scRNA-seq_Module")
+## reorder
+SD2 <- SD2[,c(1,5,2,3,4,6,7,8,9) ]
+## convert - to _
+SD2$Gene_ID <- gsub("_", "-", SD2$Gene_ID)
+
+## export
+write.csv(SD2, file = "../../data_to_export/SD2.csv")
+```
+
+

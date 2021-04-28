@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+        <title>PlasmoDB</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <link href="/plasmo/images/PlasmoDB/favicon.ico" type="image/x-icon" rel="shortcut icon"/>
+    <script>
+            window.__asset_path_remove_me_please__ = "/plasmo/bundles/";
+
+            window.__SITE_CONFIG__ = {
+                rootElement: "#wdk-container",
+        rootUrl: "/plasmo/app",
+        endpoint: "/plasmo/service",
+        projectId: "PlasmoDB",
+        webAppUrl: "/plasmo",
+        facebookUrl: "https://facebook.com/pages/EuPathDB/133123003429972",
+        twitterUrl: "https://twitter.com/VEuPathDB",
+        twitterUrl2: "",
+        youtubeUrl: "https://youtube.com/user/EuPathDB/playlists",
+        vimeoUrl: "",
+        communitySite: "//static-content.veupathdb.org/",
+        siteSearchServiceUrl: "/site-search",
+              };
+
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+        ga('create', 'UA-49060279-2', 'auto');    </script>
+    <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css"/>
+    <link rel="stylesheet" type="text/css" href="/plasmo/bundles/site-client.bundle.css"/>
+    <script charset="utf8" src="/plasmo/bundles/site-client.bundle.js" ></script>
+  </head>
+    <body class="vpdb-Body">
+    <div class="main-stack">
+      <div id="wdk-container">
+                  Loading...
+              </div>
+    </div>
+  </body>        <script>
+      ((window.gitter = {}).chat = {}).options = {
+        room: 'VEuPathDB-genomic/community'
+      };
+    </script>
+    <script src="https://sidecar.gitter.im/dist/sidecar.v1.js" async defer></script></html>
