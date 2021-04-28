@@ -406,25 +406,23 @@ tenx.mutant.integrated <- FindNeighbors(tenx.mutant.integrated, dims = 1:10, red
 tenx.mutant.integrated <- FindClusters(tenx.mutant.integrated, resolution = 0.5, random.seed = 42, algorithm = 2)
 ```
 ```{r, echo = FALSE, message=FALSE}
-## for loop which takes each cluster and makes a list of cells and then plots a highlighted plot and adds it to a list
+levels_to_plot <- levels(tenx.mutant.integrated@meta.data$integrated_snn_res.0.5)
 
-## make a blank list
-list_UMAPs_by_cluster <- vector(mode = "list", length = length(levels(tenx.mutant.integrated@meta.data$integrated_snn_res.0.5)))
-
-## for loop
-for(i in seq_along(levels(tenx.mutant.integrated@meta.data$integrated_snn_res.0.5))){
-  ## make a list of cells
-  list_of_cells <- rownames(tenx.mutant.integrated@meta.data[which(tenx.mutant.integrated@meta.data$integrated_snn_res.0.5 == levels(tenx.mutant.integrated@meta.data$integrated_snn_res.0.5)[i]), ])
-  uamp_plot <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = list_of_cells, dims = c(2,1), reduction = "DIM_UMAP") +
+plot_level <- function(level, level_index) {
+  list_of_cells <- tenx.mutant.integrated@meta.data %>%
+    filter(integrated_snn_res.0.5 == level) %>%
+    row.names()
+  uamp_plot <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = list_of_cells, dims = c(2, 1), reduction = "DIM_UMAP") +
     ## fix coordinates
-    coord_fixed() + 
-  scale_color_manual(values=c("#000000", "#f54e1e")) + 
-  theme_void() + 
-  labs(title = paste("cluster", levels(tenx.mutant.integrated@meta.data$integrated_snn_res.0.5)[i])) + 
-  theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
-  ## add to the list
-  list_UMAPs_by_cluster[[i]] <- uamp_plot
+    coord_fixed() +
+    scale_color_manual(values = c("#000000", "#f54e1e")) +
+    theme_void() +
+    labs(title = paste("cluster", level_index)) +
+    theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
+  return(uamp_plot)
 }
+
+list_UMAPs_by_cluster <- purrr::imap(levels_to_plot, plot_level)
 
 ## check number of clusters
 length(list_UMAPs_by_cluster)
@@ -432,15 +430,7 @@ length(list_UMAPs_by_cluster)
 
 plot
 ```{r, fig.height = 10, fig.width = 10}
-## this function writes the next bit of code for you
-## put it into the console and paste the response
-#ploty <- c()
-#for(i in seq_along(levels(tenx.mutant.integrated@meta.data$seurat_clusters))){
-#  ploty <- paste0(ploty, "list_UMAPs_by_cluster[[", i, "]]", " + ")
-#}
-
-## plot
-list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[[3]] + list_UMAPs_by_cluster[[4]] + list_UMAPs_by_cluster[[5]] + list_UMAPs_by_cluster[[6]] + list_UMAPs_by_cluster[[7]] + list_UMAPs_by_cluster[[8]] + list_UMAPs_by_cluster[[9]] + list_UMAPs_by_cluster[[10]] + list_UMAPs_by_cluster[[11]] + list_UMAPs_by_cluster[[12]] + list_UMAPs_by_cluster[[13]] + list_UMAPs_by_cluster[[14]] + list_UMAPs_by_cluster[[15]] + list_UMAPs_by_cluster[[16]] + list_UMAPs_by_cluster[[17]] + list_UMAPs_by_cluster[[18]] + list_UMAPs_by_cluster[[19]] + list_UMAPs_by_cluster[[20]] + list_UMAPs_by_cluster[[21]] + list_UMAPs_by_cluster[[22]] + list_UMAPs_by_cluster[[23]] + list_UMAPs_by_cluster[[24]] + list_UMAPs_by_cluster[[25]] + list_UMAPs_by_cluster[[26]]
+wrap_plots(list_UMAPs_by_cluster)
 ```
 
 ### Pick final resolution 
