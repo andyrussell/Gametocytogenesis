@@ -1,18 +1,18 @@
 ---
-subtitle: 'Gametocyte Development in <i>Plasmodium berghei</i>'
-title: |
-  ![](../GCSKO_logo.jpg){width=300px}  
-  Smart-seq2 Quality Control
-author: "[Andrew Russell](https://ajcrussell.wixsite.com/mysite/about)"
-institute: Wellcome Sanger Institute
-date: '`r format(Sys.Date(), "%B %d, %Y")`'
+title: "![](../GCSKO_logo.jpg){width=300px}"
+author: '[Andrew Russell](https://ajcrussell.wixsite.com/mysite/about)'
 output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '3'
   html_notebook:
+    df_print: paged
     theme: cosmo
     toc: yes
     toc_depth: 3
-    #toc_float: yes
-    df_print: paged
+subtitle: Gametocyte Development in <i>Plasmodium berghei</i>
+institute: Wellcome Sanger Institute
 ---
 
 ***
