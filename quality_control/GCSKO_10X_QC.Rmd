@@ -1,18 +1,21 @@
 ---
-subtitle: 'Gametocyte Development in <i>Plasmodium berghei</i>'
-title: |
-  ![](../GCSKO_logo.jpg){width=300px}  
-  10X Quality Control
-author: "[Andrew Russell](https://ajcrussell.wixsite.com/mysite/about)"
-institute: Wellcome Sanger Institute
-date: '`r format(Sys.Date(), "%B %d, %Y")`'
+title: "![](../GCSKO_logo.jpg){width=300px}"
+author: '[Andrew Russell](https://ajcrussell.wixsite.com/mysite/about)'
 output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '3'
   html_notebook:
+    df_print: paged
     theme: cosmo
     toc: yes
     toc_depth: 3
-    #toc_float: yes
-    df_print: paged
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+subtitle: Gametocyte Development in <i>Plasmodium berghei</i>
+institute: Wellcome Sanger Institute
 ---
 ***
 # 1. Introduction and Aims {.tabset}
@@ -301,8 +304,13 @@ df_barcodes$cell[df_barcodes$cell == 2] <- "Background"
 boundary <- as.numeric(sum(df_barcodes$cell == "Cells"))
 split <- 10^split
 
+# reduce overplotting for performance:
+df_barcodes_to_plot <- df_barcodes %>% group_by(round(log10(barcode_rank) * 1000), round(log10(lib_size) * 1000), cell)
+df_barcodes_to_plot <- df_barcodes_to_plot %>% filter(row_number() == 1)
+
 ## make the plot
-barcode_plot <- ggplot(df_barcodes, aes(x=barcode_rank, y=lib_size, colour = cell, theme_size = 40)) +
+
+barcode_plot <- ggplot(df_barcodes_to_plot, aes(x=barcode_rank, y=lib_size, colour = cell, theme_size = 40)) +
   ## make into a dot plot
   geom_point(size = 1, shape = 16) +
   ## make the axis into log and specify breaks
@@ -848,8 +856,8 @@ df[,4] <- as.numeric(as.character(df[,4]))
 pb_sex_filtered <- AddMetaData(pb_sex_filtered, metadata = df)
 ```
 
-### Kasia's data
-Can also do with Kasia's timecourse data:
+### AP2-G over-expression timecourse
+Can also do with the AP2-G over-expression timecourse data:
 ```{r}
 kas<-as.matrix(read.table("../data/Reference/AP2OETC.txt",header=T, row.names=1))
 #Make a blank dataframe in which to add prediction:

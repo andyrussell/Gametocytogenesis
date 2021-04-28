@@ -7,7 +7,11 @@ In this project, we explore the process of gametocytogenesis in *Plasmodium berg
 Please contact ar19@sanger.ac.uk with any questions, or if you would like to collaborate.
 
 
-## Basic steps
+## Reproducing our analysis
+
+This work was conducted using R 4.05.
+
+You can install necessary packages by installing `renv` and running `renv::restore()` with this directory as your working directory.
 
 ### Single-cell data
 - 1. Run `quality_control` notebooks to generate QCed data files
