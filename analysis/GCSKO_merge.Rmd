@@ -567,16 +567,13 @@ table(tenx.mutant.integrated@meta.data$genotype_combined)
 
 Then define each cluster as Male, Female or Asexual:
 ```{r}
-## copy clusters to new column
-tenx.mutant.integrated@meta.data$cluster_colours_figure <- NA
-
 ## define which clusters will be which identity
 
 male_clusters <- c("22", "18", "9", "16")
 
-female_clusters <- c("19","24","20","3")
+female_clusters <- c("19", "24", "20", "3")
 
-asex_clusters <- c("8","1","0","4","2","6","7","5","12","14","15","10","23","13","17","21","25")
+asex_clusters <- c("8", "1", "0", "4", "2", "6", "7", "5", "12", "14", "15", "10", "23", "13", "17", "21", "25")
 
 bipotential_clusters <- c("11")
 
@@ -584,15 +581,13 @@ bipotential_clusters <- c("11")
 paste("Is the total number of clusters in the list the same as the number of clusters in the slot?", identical(length(unique(c(male_clusters, female_clusters, asex_clusters, bipotential_clusters))), length(levels(tenx.mutant.integrated@meta.data$seurat_clusters))))
 
 ## change the column IDs
-tenx.mutant.integrated@meta.data = tenx.mutant.integrated@meta.data %>% mutate(cluster_colours_figure=case_when( seurat_clusters %in% male_clusters ~ "Male",
-                                                seurat_clusters %in% female_clusters ~ "Female",
-                                                seurat_clusters %in% asex_clusters ~ "Asexual",
-                                                seurat_clusters %in% bipotential_clusters ~ "Bipotential",
-                                                TRUE ~ NA
-                                              
-                                                ))
-
-
+tenx.mutant.integrated@meta.data <- tenx.mutant.integrated@meta.data %>% mutate(cluster_colours_figure = case_when(
+  seurat_clusters %in% male_clusters ~ "Male",
+  seurat_clusters %in% female_clusters ~ "Female",
+  seurat_clusters %in% asex_clusters ~ "Asexual",
+  seurat_clusters %in% bipotential_clusters ~ "Bipotential",
+  TRUE ~ NA_character_
+))
 
 table(tenx.mutant.integrated@meta.data$cluster_colours_figure)
 ```
@@ -822,139 +817,41 @@ unique(tenx.mutant.integrated@meta.data$identity_name_updated)
 # PBANKA-1418100        GCSKO-17  FD3   
 # PBANKA-1435200        GCSKO-20  FD4 
 
-## ~ TODO ~ MAKE INTO A FOR LOOP
 
-## make lists for each genotype
-cells_md1 <- rownames(tenx.mutant.integrated@meta.data[which(tenx.mutant.integrated@meta.data$identity_name_updated == "md1"), ])
-cells_md2 <- rownames(tenx.mutant.integrated@meta.data[which(tenx.mutant.integrated@meta.data$identity_name_updated == "md2"), ])
-cells_md3 <- rownames(tenx.mutant.integrated@meta.data[which(tenx.mutant.integrated@meta.data$identity_name_updated == "md3"), ])
-cells_md4 <- rownames(tenx.mutant.integrated@meta.data[which(tenx.mutant.integrated@meta.data$identity_name_updated == "md4"), ])
-cells_md5 <- rownames(tenx.mutant.integrated@meta.data[which(tenx.mutant.integrated@meta.data$identity_name_updated == "md5"), ])
-cells_gd1 <- rownames(tenx.mutant.integrated@meta.data[which(tenx.mutant.integrated@meta.data$identity_name_updated == "gd1"), ])
-cells_fd1 <- rownames(tenx.mutant.integrated@meta.data[which(tenx.mutant.integrated@meta.data$identity_name_updated == "fd1"), ])
-cells_fd2 <- rownames(tenx.mutant.integrated@meta.data[which(tenx.mutant.integrated@meta.data$identity_name_updated == "fd2"), ])
-cells_fd3 <- rownames(tenx.mutant.integrated@meta.data[which(tenx.mutant.integrated@meta.data$identity_name_updated == "fd3"), ])
-cells_fd4 <- rownames(tenx.mutant.integrated@meta.data[which(tenx.mutant.integrated@meta.data$identity_name_updated == "fd4"), ])
+labels = c("fd3"="(PBANKA_1418100)","md4"="(PBANKA_0102400)","md5"="(PBANKA_0716500)","fd4"="(PBANKA_1435200)","fd2"= "PBANKA_0902300","md3"="(PBANKA_0413400)","gd1"= "(PBANKA_0828000)","md1"="(PBANKA_1302700)","md2"="(PBANKA_1447900)","fd1"= "(PBANKA_1454800)")
 
-## make plots
+genotypes = names(labels)
+names(genotypes) = genotypes
 
-pm2 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_fd3, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
+get_cells <- function(gt){
+  return(rownames(dplyr::filter(tenx.mutant.integrated@meta.data, identity_name_updated == gt)))
+}
+
+cells_by_gt<- purrr::map(as.list(genotypes),get_cells)
+
+make_plot <- function(cell_list, genotype_name){
+  plot <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cell_list, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
   scale_color_manual(values=c("#E2E2E2", "#31206E")) + 
   theme_void() + 
-  labs(title = paste("fd3","\n", "(PBANKA_1418100)")) + 
+  labs(title = paste(genotype_name, "\n", labels[genotype_name])) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")+ theme(plot.margin = unit(c(0, 0, 0, 0), "cm"))
+  
+  return(plot)
+} 
 
-pm3 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_md4, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
-  coord_fixed() + 
-  scale_color_manual(values=c("#E2E2E2", "#31206E")) + 
-  theme_void() + 
-  labs(title = paste("md4","\n", "(PBANKA_0102400)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-pm4 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_md5, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
-  coord_fixed() + 
-  scale_color_manual(values=c("#E2E2E2", "#31206E")) +
-  theme_void() + 
-  labs(title = paste("md5","\n", "(PBANKA_0716500)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
-
-pm5 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_fd4, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
-  coord_fixed() + 
-  scale_color_manual(values=c("#E2E2E2", "#31206E")) + 
-  theme_void() + 
-  labs(title = paste("fd4","\n", "(PBANKA_1435200)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
-
-pm6 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_fd2, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
-  coord_fixed() + 
-  scale_color_manual(values=c("#E2E2E2", "#31206E")) + 
-  theme_void() + 
-  labs(title = paste("fd2","\n", "PBANKA_0902300")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
-
-pm7 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_md3, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
-  coord_fixed() + 
-  scale_color_manual(values=c("#E2E2E2", "#31206E")) + 
-  theme_void() + 
-  labs(title = paste("md3","\n", "(PBANKA_0413400)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
-
-pm8 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_gd1, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
-  coord_fixed() + 
-  scale_color_manual(values=c("#E2E2E2", "#31206E")) + 
-  theme_void() + 
-  labs(title = paste("gd1","\n", "(PBANKA_0828000)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
-
-pm9 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_md1, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
-  coord_fixed() + 
-  scale_color_manual(values=c("#E2E2E2", "#31206E")) + 
-  theme_void() + 
-  labs(title = paste("md1","\n", "(PBANKA_1302700)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
-
-pm10 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_md2, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
-  coord_fixed() + 
-  scale_color_manual(values=c("#E2E2E2", "#31206E")) + 
-  theme_void() + 
-  labs(title = paste("md2","\n", "(PBANKA_1447900)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
-
-pm11 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_fd1, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
-  coord_fixed() + 
-  scale_color_manual(values=c("#E2E2E2", "#31206E")) + 
-  theme_void() + 
-  labs(title = paste("fd1","\n", "(PBANKA_1454800)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
-  ## add sex symbols
-  annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
-  annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+plots<- purrr::imap(cells_by_gt,make_plot)
 
 ## plot composite plot
 ## not used as outside plots have odd sizes
 #pm1 + pm2 + pm4 + pm5 + pm11 + pm7 + pm6 + pm8 + pm9 + pm10 + pm3
 
 ## plot composite plot
-mutant_cell_locations <- plot_grid(pm8 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
-                                   pm9 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
-                                   pm10 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
-                                   pm7 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
-                                   pm3 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")),
-                                   
-                                   pm11 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
-                                   pm6 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
-                                   pm2 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
-                                   pm5 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
-                                   pm4 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
-                                   nrow = 2)
+mutant_cell_locations <- wrap_plots(plots,ncol=2)
 
 ## print
 mutant_cell_locations
