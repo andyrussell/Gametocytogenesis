@@ -1,18 +1,18 @@
 ---
-subtitle: 'Gametocyte Development in <i>Plasmodium berghei</i>'
-title: |
-  ![](../GCSKO_logo.jpg){width=300px}  
-  Genotyping Coverage Plots
-author: "[Andrew Russell](https://ajcrussell.wixsite.com/mysite/about)"
-institute: Wellcome Sanger Institute
-date: '`r format(Sys.Date(), "%B %d, %Y")`'
+title: "![](../GCSKO_logo.jpg){width=300px}"
+author: '[Andrew Russell](https://ajcrussell.wixsite.com/mysite/about)'
 output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '3'
   html_notebook:
+    df_print: paged
     theme: cosmo
     toc: yes
     toc_depth: 3
-    #toc_float: yes
-    df_print: paged
+subtitle: Gametocyte Development in <i>Plasmodium berghei</i>
+institute: Wellcome Sanger Institute
 ---
 
 TO DO
@@ -92,6 +92,8 @@ bed
 ### Read in the coverage plot data
 
 ```{r}
+process_raw_data= FALSE
+if(process_raw_data){
 ## read in list of mutants profiled
 genotypes <- c(read.table("../data/Genotyping/BAM_LIST_FILES_FOR_R", stringsAsFactors = FALSE)$V1)
 
@@ -116,6 +118,7 @@ for(j in seq_along(genotypes)){
     list_of_list_of_coverage_plots[[j]][[i]] <- read.delim(filepath, sep = "\t", header = FALSE)
   }
 }
+}
 
 ## reference:
 ## https://stackoverflow.com/questions/31561238/lapply-function-loops-on-list-of-lists-r
@@ -123,6 +126,7 @@ for(j in seq_along(genotypes)){
 
 check data was read in correctly
 ```{r}
+if(process_raw_data){
 ## make a blank dataframe to store results from for loop
 df <- data.frame()
 
@@ -139,12 +143,16 @@ head(df)
 expected_length <- 30*17
 expected_length
 nrow(df)
+}
 ```
 
 Save the session data so you don't have to do this again as the loading in takes a long time
 ```{r}
+if(process_raw_data){
 save.image(file = "../data/Genotyping/Coverage_plots.RData")
-#load(file = "../data/Genotyping/Coverage_plots.RData")
+}else{
+  load(file = "../data/Genotyping/Coverage_plots.RData")
+}
 ```
 
 # 3. Restructure in the data for plotting {.tabset}
