@@ -818,7 +818,10 @@ unique(tenx.mutant.integrated@meta.data$identity_name_updated)
 # PBANKA-1435200        GCSKO-20  FD4 
 
 
-labels = c("fd3"="(PBANKA_1418100)","md4"="(PBANKA_0102400)","md5"="(PBANKA_0716500)","fd4"="(PBANKA_1435200)","fd2"= "PBANKA_0902300","md3"="(PBANKA_0413400)","gd1"= "(PBANKA_0828000)","md1"="(PBANKA_1302700)","md2"="(PBANKA_1447900)","fd1"= "(PBANKA_1454800)")
+labels = c( "gd1"= "(PBANKA_0828000)","fd1"= "(PBANKA_1454800)","fd2"= "PBANKA_0902300","fd3"="(PBANKA_1418100)","fd4"="(PBANKA_1435200)","md1"="(PBANKA_1302700)","md2"="(PBANKA_1447900)","md3"="(PBANKA_0413400)","md4"="(PBANKA_0102400)","md5"="(PBANKA_0716500)")
+
+
+
 
 genotypes = names(labels)
 names(genotypes) = genotypes
@@ -851,7 +854,7 @@ plots<- purrr::imap(cells_by_gt,make_plot)
 #pm1 + pm2 + pm4 + pm5 + pm11 + pm7 + pm6 + pm8 + pm9 + pm10 + pm3
 
 ## plot composite plot
-mutant_cell_locations <- wrap_plots(plots,ncol=2)
+mutant_cell_locations <- wrap_plots(plots,nrow=2)
 
 ## print
 mutant_cell_locations
