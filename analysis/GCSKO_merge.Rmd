@@ -1,18 +1,19 @@
 ---
-subtitle: 'Gametocyte Development in <i>Plasmodium berghei</i>'
-title: |
-  ![](../GCSKO_logo.jpg){width=300px}  
-  Merging Smart-seq2 and 10X Datasets
-author: "[Andrew Russell](https://ajcrussell.wixsite.com/mysite/about)"
-institute: Wellcome Sanger Institute
-date: '`r format(Sys.Date(), "%B %d, %Y")`'
+title: "![](../GCSKO_logo.jpg){width=300px}"
+author: '[Andrew Russell](https://ajcrussell.wixsite.com/mysite/about)'
+date: "`r format(Sys.Date(), "%B %d, %Y")`"
 output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '3'
   html_notebook:
+    df_print: paged
     theme: cosmo
     toc: yes
     toc_depth: 3
-    #toc_float: yes
-    df_print: paged
+subtitle: Gametocyte Development in <i>Plasmodium berghei</i>
+institute: Wellcome Sanger Institute
 ---
 ***
 # 1. Introduction and Aims {.tabset}
@@ -488,7 +489,8 @@ plots[[3]] + NoLegend() + plots[[4]]/plot_spacer() + plot_layout(widths = c(2,1)
 
 #### Known Marker Genes Plots
 
-marker genes plots
+Marker genes plots:
+
 ```{r, fig.height = 15, fig.width = 15}
 ## find a good ring marker, to see if there is a better one than the ones reported
 #markers_ring <- FindMarkers(tenx.mutant.integrated, ident.1 = c("4", "5", "16", "11", "7", "3", "9", "0", "22"))
@@ -501,68 +503,30 @@ marker genes plots
 # PBANKA-1102200 - MSP8 - early asexual (from Bozdech paper)
 # PBANKA-0711900 - HSP70 - promoter used for GFP and RFP expression in the mutants
 # PBANKA-1400400 - FAMB - ring marker - discovered by looking for marker genes in data
-# PBANKA-0722600 - Fam-b2 - ring marker - https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5113031/ 
+# PBANKA-0722600 - Fam-b2 - ring marker - https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5113031/
 
-
-marker_gene_plot_CCP2 <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-1319500", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP", pt.size = 1, order = TRUE) + 
+plot_marker = function(marker_name,marker){
+  plot <- FeaturePlot(tenx.mutant.integrated, features = marker, coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP", pt.size = 1, order = TRUE) + 
   theme_void() + 
-  labs(title = paste("CCP2 (Female)")) + 
+  labs(title = marker_name) + 
   theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
   scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
+  
+  return(plot)
+  
+}
 
-marker_gene_plot_MG1 <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-0416100", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("MG1 (Male)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
+markers = list("PBANKA-1319500"="CCP2 (Female)","PBANKA-0416100"="MG1 (Male)","PBANKA-1437500"="AP2G (Commitment)","PBANKA-0831000"="MSP1 (Schizont)","PBANKA-1102200"="MSP8 (Asexual)","PBANKA-1101300"="SBP1 (Ring)","PBANKA-0722600"="Fam-b2 (Ring)","PBANKA-0711900"=paste("(HSP70; Reporter)","\n", "PBANKA_0711900"))
 
-marker_gene_plot_AP2G <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-1437500", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("AP2G (Commitment)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
 
-marker_gene_plot_MSP1 <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-0831000", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("MSP1 (Schizont)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
 
-marker_gene_plot_MSP8 <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-1102200", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("MSP8 (Asexual)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
 
-marker_gene_plot_SBP1 <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-1101300", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("SBP1 (Ring)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
-
-marker_gene_plot_FAMB <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-0722600", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("Fam-b2 (Ring)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
-
-marker_gene_plot_HSP70 <- FeaturePlot(tenx.mutant.integrated, features = "PBANKA-0711900", coord.fixed = TRUE, min.cutoff = "q1", dims = c(2,1), reduction = "DIM_UMAP", pt.size = 1, order = TRUE) + 
-  theme_void() + 
-  labs(title = paste("(HSP70; Reporter)","\n", "PBANKA_0711900")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) + 
-  scale_colour_gradientn(colours=c("#DCDCDC", plasma(30)))
-
-##original label:
-# labs(title = paste("(CCP2; Female)","\n", "PBANKA_1319500"))
-
-## plot
-## cowplot method
-marker_gene_plot_all <- plot_grid(marker_gene_plot_FAMB, marker_gene_plot_MSP8, marker_gene_plot_MSP1, marker_gene_plot_AP2G, marker_gene_plot_CCP2, marker_gene_plot_MG1, marker_gene_plot_HSP70, nrow=3)
+plots = purrr::imap(markers,plot_marker)
+marker_gene_plot_all <- wrap_plots(plots,nrow=3)
 
 marker_gene_plot_all
 
-## patchwork method
-#marker_gene_plot_FAMB + marker_gene_plot_MSP8 + marker_gene_plot_MSP1 + marker_gene_plot_AP2G + marker_gene_plot_CCP2 + marker_gene_plot_MG1 + marker_gene_plot_HSP70
+
 ```
 
 ```{r, fig.height = 15, fig.width = 15}
@@ -578,7 +542,7 @@ markers_list <- c("PBANKA-1319500", "PBANKA-0416100", "PBANKA-1437500", "PBANKA-
 
 list_of_density_plots <- plot_density(tenx.mutant.integrated, markers_list, joint = FALSE, combine = FALSE, dims = c(2,1), pal = "plasma")
 
-list_of_density_plots[[1]] + coord_fixed() + list_of_density_plots[[2]] + list_of_density_plots[[3]] + list_of_density_plots[[4]] + list_of_density_plots[[5]] + list_of_density_plots[[6]] + list_of_density_plots[[7]] + list_of_density_plots[[8]]
+wrap_plots(list_of_density_plots) + coord_fixed()
 
 #plot_density(tenx.mutant.integrated, "PBANKA-0416100")
 ```
@@ -598,9 +562,7 @@ tenx.mutant.integrated@meta.data$genotype_combined[cells_10x] <- "WT"
 table(tenx.mutant.integrated@meta.data$genotype_combined)
 ```
 
-```{r, fig.height = 15, fig.width = 15}
-plot_density(tenx.mutant.integrated.wt, markers_list, joint = FALSE, dims = c(2,1), pal = "plasma")
-```
+
 
 
 Then define each cluster as Male, Female or Asexual:
@@ -622,10 +584,15 @@ bipotential_clusters <- c("11")
 paste("Is the total number of clusters in the list the same as the number of clusters in the slot?", identical(length(unique(c(male_clusters, female_clusters, asex_clusters, bipotential_clusters))), length(levels(tenx.mutant.integrated@meta.data$seurat_clusters))))
 
 ## change the column IDs
-tenx.mutant.integrated@meta.data$cluster_colours_figure[which(tenx.mutant.integrated@meta.data$seurat_clusters %in% male_clusters)] <- "Male"
-tenx.mutant.integrated@meta.data$cluster_colours_figure[which(tenx.mutant.integrated@meta.data$seurat_clusters %in% female_clusters)] <- "Female"
-tenx.mutant.integrated@meta.data$cluster_colours_figure[which(tenx.mutant.integrated@meta.data$seurat_clusters %in% asex_clusters)] <- "Asexual"
-tenx.mutant.integrated@meta.data$cluster_colours_figure[which(tenx.mutant.integrated@meta.data$seurat_clusters %in% bipotential_clusters)] <- "Bipotential"
+tenx.mutant.integrated@meta.data = tenx.mutant.integrated@meta.data %>% mutate(cluster_colours_figure=case_when( seurat_clusters %in% male_clusters ~ "Male",
+                                                seurat_clusters %in% female_clusters ~ "Female",
+                                                seurat_clusters %in% asex_clusters ~ "Asexual",
+                                                seurat_clusters %in% bipotential_clusters ~ "Bipotential",
+                                                TRUE ~ NA
+                                              
+                                                ))
+
+
 
 table(tenx.mutant.integrated@meta.data$cluster_colours_figure)
 ```
