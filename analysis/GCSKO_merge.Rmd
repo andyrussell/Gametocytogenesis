@@ -435,7 +435,7 @@ wrap_plots(list_UMAPs_by_cluster)
 
 ### Pick final resolution 
 
-We will look in more detail at cells as they enter the sexual trajecotry later. The PCA clustering will be more appropriate in this high-resolution view. In order to subset these cells, we will use the UMAP clustering. 
+We will look in more detail at cells as they enter the sexual trajectory later. The PCA clustering will be more appropriate in this high-resolution view. In order to subset these cells, we will use the UMAP clustering. 
 
 ```{r, fig.height = 5, fig.width = 5}
 ## generate final clusters which will be written into the 'seurat.clusters' slot in meta data
