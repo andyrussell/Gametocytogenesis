@@ -1,0 +1,30 @@
+---
+title: "Plot picking lists"
+output: html_notebook
+---
+
+```{r, message=FALSE}
+library(tidyverse)
+dir = "./superpools_picking_list/"
+files = list.files(dir)
+
+open_file = function(file){
+  file_path = paste0(dir,file)
+  df <- read_csv(file_path)
+  df$file = file
+  return(df)
+}
+
+picking_lists = map(files,open_file) %>% bind_rows()
+```
+```{r}
+
+distinct_colors = c('#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080', '#ffffff', '#000000')
+asexual = read_csv("supporting_data/asexual_screen/asexualscreendata2.csv") %>% filter(phenotype %in% c("Dispensable","Slow"))
+joint = inner_join(asexual, picking_lists, by=c("cloneid"="PbGEM-ID"))
+
+ggplot(joint,aes(x=normd6toinputA+normd6toinputB+normd6toinputC ,y=Relative.Growth.Rate,color=substr(file,1,11)))+geom_point()+facet_wrap(~phenotype)+scale_x_log10()+scale_color_manual(values=distinct_colors)+theme_bw()
+
+
+```
+
