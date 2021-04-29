@@ -1,9 +1,18 @@
 ---
-title: "Gametocyte analysis"
+title: "![](../GCSKO_logo.jpg){width=300px}"
+author: 'Theo Sanderson'
 output:
-  pdf_document: 
-    latex_engine: xelatex
-  html_notebook: default
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '3'
+  html_notebook:
+    df_print: paged
+    theme: cosmo
+    toc: yes
+    toc_depth: 3
+subtitle: Barseq analysis
+institute: Wellcome Sanger Institute
 ---
 
 ```{r load_packages_and_predata}
@@ -55,67 +64,52 @@ narrow$value[is.na(narrow$value)] <- 0
 narrow <- narrow %>%
   group_by(Pool, Condition, Mouse, Replicate) %>%
   mutate(proportion = value / sum(value))
+
 wellrepresentedinpassage <- narrow %>%
   filter(Condition == "control" || Condition == "Negsort") %>%
   group_by(gene, Pool) %>%
   filter(max(proportion) > 0.0001) %>%
   summarise(toinclude = T)
+
 narrow <- narrow %>%
   left_join(wellrepresentedinpassage) %>%
   filter(toinclude == T)
+
 narrow <- narrow %>% mutate(value = value + 0.5)
+
 narrow <- narrow %>%
   group_by(Pool, Condition, Mouse, Replicate) %>%
   mutate(proportion = (value) / sum(value))
+
 narrow <- narrow %>% mutate(logprop = log2(proportion))
+
 totals <- narrow %>%
   group_by(Pool, Condition, Mouse, Replicate, Run) %>%
   summarise(sum = sum(value))
+```
+
+
+Plot out how many total barcode reads we have from each condition in each sequencing run to check for relatively even coverage:
+```{r}
 ggplot(totals, aes(x = paste(Pool, Condition, Mouse, Replicate), fill = Pool, y = sum)) +
   geom_bar(stat = "identity") +
   facet_wrap(~Run, scales = "free", ncol = 3) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 2))
 ```
-##Demonstration that superpools are useful
+## Examining the success of the super-pooling strategy
 
-It's nice to have some sort of demonstration that our superpooling strategy has had an effect. The simplest way to do this might be to display the proportions in our superpool as compared to hypothetical proportions from mixing together the pools in the asexual screen. This turns out not to show much of an effect, possibly because the superpools have been in culture longer I think. But another way to get at this is to show that we have removed/reduced biases due to integration efficiency and fitness. That's what we do below.
-```{r superpool}
-proportions <- narrow %>%
-  filter(Pool == "PbSTM101", Condition == "control") %>%
-  group_by(gene) %>%
-  summarise(proportion = mean(proportion))
-olddisp <- asexual_screen_data # %>% filter(phenotype=="Dispensable")
-merge <- inner_join(proportions, olddisp, by = "gene")
+We observed that in the previous asexual screen (Bushell, Gomes, Sanderson, et al.), the integration efficiency of a vector was proportional to its geometric mean homology arm length. There were also reproducible elements of integration efficiency, which may have reflected epigenetic factors. As a result, to construct our superpool we matched vectors targeting dispensable genes according to their normalised abundance. And we matched vectors targeting slow genes according to their growth rate and normalised abundance.
 
+Here we analyse whether this matching resulted in a superpool with more even vector abundance than would be expected in unmatched transfections.
 
-ggplot(merge, aes(x = proportion, y = normd6toinputA)) +
-  geom_point() +
-  scale_x_log10() +
-  scale_y_log10()
-
-merge$normd6toinputA <- log10(merge$normd8toinputA)
-merge$proportion <- log10(merge$proportion)
-merge$normd6toinputA <- merge$normd6toinputA - mean(merge$normd6toinputA, na.rm = T)
-merge$proportion <- merge$proportion - mean(merge$proportion)
-narrower <- merge %>%
-  dplyr::select(gene, proportion, normd6toinputA) %>%
-  gather("key", "value", -gene)
-# ggplot(narrower,aes(x=value,color=key))+geom_density(alpha=0.5)
-
-# gplot(merge,aes(x=log10(sqrt(left_arm_length^2+right_arm_length^2)),y=proportion))+geom_point()+geom_smooth(method="lm")
-# ggplot(merge,aes(x=log10(sqrt(left_arm_length^2+right_arm_length^2)),y=normd6toinputA))+geom_point()+geom_smooth(method="lm")
-
-# ggplot(merge,aes(x=Relative.Growth.Rate,y=proportion))+geom_point()+geom_smooth(method="lm")
-# ggplot(merge,aes(x=Relative.Growth.Rate,y=normd6toinputA))+geom_point()+geom_smooth(method="lm")
-```
 ```{r}
 proportions <- narrow %>%
   filter(Pool == "SP3", Condition == "control") %>%
   group_by(gene) %>%
   summarise(proportion = mean(proportion))
-olddisp <- asexual_screen_data %>% filter(phenotype %in% c("Slow", "Fast", "Dispensable"))
-merge <- inner_join(proportions, olddisp, by = "gene")
+asex <- asexual_screen_data %>% filter(phenotype %in% c("Slow", "Fast", "Dispensable"))
+merge <- inner_join(proportions, asex, by = "gene")
 
 
 ggplot(merge, aes(x = proportion, y = normd6toinputA)) +
@@ -159,14 +153,19 @@ print(f)
 ggsave("output/superpool.pdf", f)
 ```
 
+It is clear that relative proportion is much more independent of relative growth rate, and of geometric mean homology arm length, indicating the success of the matched-transfection approach.
+
 ```{r}
 library(zoo)
+
 variance <- narrow %>%
   group_by(Pool, Condition, Mouse, gene) %>%
   summarise(sd = sd(logprop), val1 = logprop[1], val2 = logprop[2], meanlogprop = mean(logprop))
+
 cors <- variance %>%
   group_by(Condition, Mouse, Pool) %>%
   summarise(cor = cor(val1, val2), n = n())
+
 ggplot(variance, aes(x = val1, y = val2, color = Condition)) +
   geom_rect(data = cors, xmin = -50, xmax = 50, ymin = -50, ymax = 50, aes(fill = -cor, x = NA, y = NA, group = paste(Pool, Condition, Mouse))) +
   geom_point(alpha = 0.4, size = 0.1) +
@@ -284,11 +283,11 @@ joint <- mutate(joint,
 )
 ```
 
-```{r, eval=FALSE}
+```{r}
 library(tidyverse)
-counts <- read_tsv("/Users/theo/gametocytes/gametocyteBarseq/ap2gtimecourse/counts.txt", col_names = T)
+counts <- read_tsv("./ap2gtimecourse/counts.txt", col_names = T)
 
-phenodata <- read_tsv("/Users/theo/gametocytes/gametocyteBarseq/ap2gtimecourse/phenodata.txt", col_names = T)
+phenodata <- read_tsv("./ap2gtimecourse/phenodata.txt", col_names = T)
 phenodata$X1 <- gsub("X820", "820", phenodata$X1)
 
 narrow <- counts %>% gather("sample", "count", -X1)
@@ -301,10 +300,6 @@ both <- both %>%
   mutate(proportion = count / sum(count))
 
 
-
-
-library(DESeq)
-
 counts2 <- as.matrix(select(counts, -X1))
 rownames(counts2) <- counts$X1
 
@@ -312,6 +307,7 @@ rownames(counts2) <- counts$X1
 timepoints <- unique(phenodata$time)
 i <- 9
 cols <- colnames(counts2)
+library(DESeq2)
 
 performDE <- function(filter) {
   abc <- tibble()
@@ -319,19 +315,22 @@ performDE <- function(filter) {
   filter2 <- filter %>% filter(Strain == "AP2Goe")
   print(unique(filter$time))
   if (length(unique(filter2$rapamycin)) > 1) {
+    
+    
     counttable <- counts2[, base::match(filter2$X1, cols)]
-    condition <- filter2$rapamycin
-    cds <- newCountDataSet(counttable, condition)
-    cds <- estimateSizeFactors(cds)
-    cds <- estimateDispersions(cds)
-    res <- nbinomTest(cds, "YES", "NO")
-    abc <- as.tibble(res) %>% arrange(pval)
+    dds <- DESeqDataSetFromMatrix(countData = counttable,
+                              colData = filter2,
+                              design= ~  rapamycin)
+    dds <- DESeq(dds)
+    
+
+    res <- results(dds)
+    abc <- as.tibble(res) 
+    abc$id = rownames(results(dds))
     abc$timepoint <- unique(filter$time)
   }
   return(abc)
 }
-
-
 
 
 new <- phenodata %>%
@@ -341,14 +340,14 @@ new <- phenodata %>%
 
 
 oneversion <- joint
-asexual <- read_csv("/Users/theo/gametocytes/gametocyteBarseq/otherdata/asexualscreendata.csv", col_names = T)
+asexual <- read_csv("./otherdata/asexualscreendata.csv", col_names = T)
 merge <- right_join(oneversion, asexual)
 new$id <- gsub(".1$", "", new$id)
 new$time2 <- as.numeric(gsub("h", "", new$time))
 merge2 <- inner_join(new, merge, by = c("id" = "current_version_ID"))
 filt <- merge2 %>%
   group_by(timepoint) %>%
-  arrange(pval) %>%
+  arrange(pvalue) %>%
   filter(row_number() < 50) %>%
   mutate(n = row_number())
 ggplot(filt, aes(y = -n, x = time2, fill = class)) +
@@ -358,36 +357,19 @@ ggplot(filt, aes(y = -n, x = time2, fill = class)) +
 
 filt <- merge2 %>%
   group_by(timepoint) %>%
-  arrange(log2FoldChange) %>%
-  filter(row_number() < 25) %>%
+  arrange(pvalue) %>%
   mutate(n = row_number())
-pal <- c("white", "red", "blue", "green", "gray", "gray")
-ggplot(filt, aes(y = -n, x = time2, fill = class)) +
-  geom_tile() +
-  geom_line(data = filter(filt, !is.na(class), class != "No change"), aes(group = id, color = class, alpha = 0.5)) +
-  labs(y = "Genes ranked at each timepoint by log2-fold change", x = "Timepoint (hours)") +
-  scale_fill_manual(values = pal) +
-  scale_color_manual(values = pal)
 
-pal <- c("red", "blue", "green", "gray", "gray")
-filt <- merge2 %>%
-  group_by(timepoint) %>%
-  arrange(pval) %>%
-  filter(row_number() < 2500) %>%
-  mutate(n = row_number())
-library(viridis)
-ggplot(filt, aes(y = -n, x = time2, fill = minmax)) +
-  geom_tile() +
-  geom_line(data = filter(filt, !is.na(class), class != "No change"), aes(group = id, color = class, alpha = 0.5)) +
-  labs(y = "Genes ranked at each timepoint by p-value", x = "Timepoint (hours)") +
-  scale_fill_viridis()
+ggplot(filt %>% filter(class !="No change", n<50), aes(y = n, x = time2, fill = class,color=class, group=id)) + geom_point(data=filt %>% filter(class =="No change", n<50) ,color="gray",alpha=0.2) + geom_line(data=filt %>% filter(class =="No change", n<50) ,color="gray",alpha=0.2)+
+  geom_point() +geom_line()+theme_bw()+
+  labs(y = "Genes ranked at each timepoint by p-value", x = "Timepoint (hours) after AP2-G induction")
 ```
 
-```{r}
+```{r, fig.width=18,fig.height=10}
 library(tidyverse)
-counts <- read_tsv("/Users/theo/gametocytes/gametocyteBarseq/ap2gtimecourse/counts.txt", col_names = T)
+counts <- read_tsv("./ap2gtimecourse/counts.txt", col_names = T)
 
-phenodata <- read_tsv("/Users/theo/gametocytes/gametocyteBarseq/ap2gtimecourse/phenodata.txt", col_names = T)
+phenodata <- read_tsv("./ap2gtimecourse/phenodata.txt", col_names = T)
 phenodata$X1 <- gsub("X820", "820", phenodata$X1)
 
 narrow <- counts %>% gather("sample", "count", -X1)
@@ -406,14 +388,14 @@ both$current_version_ID <- gsub(".1$", "", both$gene)
 
 
 oneversion <- joint
-asexual <- read_csv("/Users/theo/gametocytes/gametocyteBarseq/otherdata/asexualscreendata.csv", col_names = T)
+asexual <- read_csv("./otherdata/asexualscreendata.csv", col_names = T)
 merge <- inner_join(oneversion, asexual)
 newmerge <- filter(merge, class %in% c("lossOfMales", "lossOfFemales", "lossOfBoth")) %>% mutate(transcript = paste0(current_version_ID, ".1"))
 
 
 
 gois <- newmerge$current_version_ID
-sextranscriptomes <- read_tsv("/Users/theo/gametocytes/gametocyteBarseq/otherdata/sextranscriptomes.tsv")
+sextranscriptomes <- read_tsv("./otherdata/sextranscriptomes.tsv")
 sextranscriptomes <- sextranscriptomes %>%
   gather("typerep", "count", -GeneID) %>%
   separate(typerep, c("type", "rep"), sep = -2) %>%
@@ -516,7 +498,7 @@ tallied <- m2 %>%
   group_by(interpro, class) %>%
   summarise(n = n()) %>%
   spread(class, n, fill = 0)
-totals <- m2 %>% count(class)
+totals <- m2 %>% group_by(class) %>% summarise(n=n())
 
 
 tallied <- tallied %>%
@@ -678,7 +660,7 @@ comb <- inner_join(comb, tally, by = c("X3" = "Group"))
 
 ggplot(filter(comb, gene %in% analysedindetail), aes(x = Tax, y = texter, fill = n)) +
   geom_tile() +
-  scale_fill_viridis()
+  scale_fill_viridis_c()
 ```
 ```{r paintercomparison}
 asexual <- read_csv("otherdata/asexualscreendata.csv", col_names = T)
