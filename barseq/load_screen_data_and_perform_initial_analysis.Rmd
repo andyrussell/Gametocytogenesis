@@ -1,0 +1,76 @@
+---
+title: "Load screen data"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r }
+library(tidyverse)
+loadAndCollapse <- function(file) {
+  counts <- read.csv(paste0("./barcode_counts/", file), header = T, stringsAsFactors = FALSE)
+  counts <- counts[counts$barcode != "no_match", ]
+  fcounts <- as.matrix(counts [grep("\\.1$", names(counts))]) # forward
+  rcounts <- as.matrix(counts [grep("\\.2$", names(counts))]) # reverse
+  alltcounts <- fcounts + rcounts
+  colnames(alltcounts) <- gsub("\\.1", "", colnames(alltcounts))
+  rownames(alltcounts) <- counts$gene
+  alltcounts <- as.data.frame(t(alltcounts))
+  alltcounts$Index <- 1:nrow(alltcounts)
+  alltcounts$file <- file
+  row.names(alltcounts) <- NULL
+  return(alltcounts)
+}
+
+
+metadata <- read_csv("./metadata/SampleAssignments.csv")
+files <- unique(metadata$Run)
+files <- files[!is.na(files)]
+files <- paste0(files, ".csv")
+dfs <- lapply(files, loadAndCollapse)
+abundances <- plyr::rbind.fill(dfs) %>%
+  mutate(Run = gsub(".csv", "", file))
+
+abundances <- inner_join(abundances, metadata, by = c("Index", "Run"), how = "left")
+
+abundances <- abundances %>% filter(Condition != "DoNotAnalyse")
+
+abundances <- abundances %>% pivot_longer(cols = starts_with("PBANKA"), names_to = "gene", values_to = "count")
+
+# Set previously implicit 0 values for barcodes not found.
+abundances <- abundances %>% replace_na(list(count = 0))
+
+# Calculate barcode proportions per sample
+abundances <- abundances %>%
+  group_by(Pool, Condition, Mouse, Replicate) %>%
+  mutate(proportion = count / sum(count))
+
+# If this barcode isn't really in the pool at all, we shouldn't analyse it. Here we identify barcodes at least sometimes present at greater than 0.01% on a per-pool basis:
+wellrepresentedinpassage <- abundances %>%
+  filter(Condition == "control" || Condition == "Negsort") %>%
+  group_by(gene, Pool) %>%
+  filter(max(proportion) > 0.0001) %>%
+  summarise(toinclude = T)
+
+# Filter in only these cases
+abundances<-abundances %>% left_join(wellrepresentedinpassage) %>% filter(toinclude==T)
+
+# Recalculate proportions, adding 0.5 to each count to make logarithmic calculations possible by avoiding zero (this is reasonable since these values might in fact be 0.4 reads)
+abundances <- abundances %>% mutate(count=count+0.5)
+
+abundances<-abundances %>% group_by(Pool,Condition,Mouse,Replicate) %>% mutate(proportion=(count)/sum(count))
+
+#We'll use log-2 proportions for most downsread calculations
+abundances<- abundances %>% mutate(logprop=log2(proportion))
+```
+
+Diagnostic plot to verify reasonable coverage in each sample, grouped by sequencing run.
+```{r}
+totals<-abundances%>% group_by(Pool,Condition,Mouse,Replicate,Run)%>% summarise(sum=sum(count))
+
+ggplot(totals,aes(x=paste(Pool,Condition,Mouse,Replicate),fill=Pool,y=sum))+geom_bar(stat="identity")+facet_wrap(~Run,scales="free",ncol=3) +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,size=5))
+
+
+```
