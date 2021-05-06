@@ -4,6 +4,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
+theme_set(theme_bw())
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -37,7 +38,7 @@ abundances <- inner_join(abundances, metadata, by = c("Index", "Run"), how = "le
 
 abundances <- abundances %>% filter(Condition != "DoNotAnalyse")
 
-abundances <- abundances %>% pivot_longer(cols = starts_with("PBANKA"), names_to = "gene", values_to = "count")
+abundances <- abundances %>% pivot_longer(cols = c(starts_with("PBANKA"),`PC_API0037`,`p230p-tag` ), names_to = "gene", values_to = "count")
 
 # Set previously implicit 0 values for barcodes not found.
 abundances <- abundances %>% replace_na(list(count = 0))
@@ -64,6 +65,8 @@ abundances<-abundances %>% group_by(Pool,Condition,Mouse,Replicate) %>% mutate(p
 
 #We'll use log-2 proportions for most downsread calculations
 abundances<- abundances %>% mutate(logprop=log2(proportion))
+
+abundances <- abundances %>% mutate(Mouse = as.character(case_when(Mouse=='A' ~ 1,Mouse=='B' ~ 2,Mouse=='C' ~ 3,TRUE ~ as.numeric(Mouse))))
 ```
 
 Diagnostic plot to verify reasonable coverage in each sample, grouped by sequencing run.
@@ -73,4 +76,94 @@ totals<-abundances%>% group_by(Pool,Condition,Mouse,Replicate,Run)%>% summarise(
 ggplot(totals,aes(x=paste(Pool,Condition,Mouse,Replicate),fill=Pool,y=sum))+geom_bar(stat="identity")+facet_wrap(~Run,scales="free",ncol=3) +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,size=5))
 
 
+```
+
+Diagnostic plot of reproducibility of technical replicates:
+
+```{r}
+
+for_scatter <- abundances %>% select(Pool,Condition,Mouse,Replicate,gene,logprop) %>% pivot_wider(names_from="Replicate",values_from="logprop",names_prefix ="replicate")
+
+ggplot(for_scatter,aes(x=replicate1,y=replicate2,color=Pool))+facet_wrap(~paste(Pool,Mouse,Condition))+geom_point(size=0.01)
+```
+
+Plot correlations. (Sorts 2 and 4 represented a sort of low intensity marker genes to investigate their potential and were not used further.) Negsort represents a sort of GFP- and RFP- negative parasites (DNA positive) whilst control represents a sample from the Histodenz gradient.
+```{r,fig.height=30,fig.width=10}
+library(zoo)
+
+variance <- abundances %>%
+  group_by(Pool, Condition, Mouse, gene) %>%
+  summarise(sd = sd(logprop), val1 = logprop[1], val2 = logprop[2], meanlogprop = mean(logprop))
+
+cors <- variance %>%
+  group_by(Condition, Mouse, Pool) %>%
+  summarise(cor = cor(val1, val2), n = n())
+
+ggplot(cors, aes(x=Condition,y=cor,color=Mouse))+facet_wrap(~Pool)+geom_point() + theme(axis.text.x = element_text(angle = 90))
+
+
+variance <- variance %>%
+  group_by(Pool, Condition, Mouse) %>%
+  arrange(-meanlogprop) %>%
+  mutate(medsd = rollmean(x = sd, k = 11, fill = "extend"))
+variance <- variance %>% mutate(monotonicmedsd = cummax(medsd))
+
+
+ggplot(variance, aes(x=meanlogprop,y=sd,color=Pool))+facet_grid(Mouse+Condition~Pool)+geom_point() + theme(axis.text.x = element_text(angle = 90))+geom_smooth(color="gray") + geom_line(aes(y=monotonicmedsd), color="black")
+
+
+```
+
+For some experiments a negative sorted population was not collected. Instead we use as a negative control the Nycodenz-purified parasite pellet
+```{r}
+variance <- variance %>%
+  ungroup() %>%
+  mutate(Condition = case_when(Pool=="SP3" & Condition=="control" ~ "Control",
+                               Pool!="SP3" & Condition=="Negsort" ~ "Control",
+                               TRUE ~ Condition
+                               )
+           )  %>% filter(Condition %in% c("RFPsort","GFPsort","Control"))
+ggplot(variance, aes(x=meanlogprop,y=sd,color=Pool))+facet_grid(Mouse+Condition~Pool)+geom_point() + theme(axis.text.x = element_text(angle = 90))+geom_smooth(color="gray") + geom_line(aes(y=monotonicmedsd), color="black")
+
+
+noncontrol <- variance %>% filter(Condition != "Control")
+control <- variance %>% filter(Condition == "Control")
+
+comparison <- inner_join(ungroup(control), ungroup(noncontrol), by = c("Mouse", "gene", "Pool") , suffixes=c("Control","Other"))
+
+
+```
+
+
+```{r}
+gaussianMeanAndVariance <- function(vals, variances, return) {
+  df <- data.frame(value = vals, variance = variances)
+  df <- df[complete.cases(df), ]
+
+  vals <- df$value
+  variances <- df$variance
+  if (length(vals) == 1) {
+    var <- variances[1]
+    mean <- vals[1]
+  }
+  else {
+    precs <- 1 / variances
+
+    mean <- sum(vals * precs) / sum(precs)
+    var1 <- (1 / sum(precs)) * (1 / (length(vals) - 1)) * sum((vals - mean)**2 / variances)
+    var2 <- 1 / sum(precs)
+    if (is.na(var1)) {
+      var1 <- 0
+    }
+    var <- max(var1, var2)
+  }
+  return(list("mean"=mean,"variance"=variance))
+}
+```
+
+
+```{r}
+comparison <- comparison %>% mutate(difference = meanlogprop.y - meanlogprop.x)
+comparison <- comparison %>% mutate(differencesd = sqrt(monotonicmedsd.y^2 + monotonicmedsd.x^2))
+comparison <- comparison %>% mutate(Condition = Condition.y)
 ```

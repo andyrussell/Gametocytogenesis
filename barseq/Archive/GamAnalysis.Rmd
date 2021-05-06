@@ -417,7 +417,7 @@ sextranscriptomesaverage <- mutate(sextranscriptomesaverage,
   )
 )
 
-
+  
 
 ggplot(sextranscriptomes %>% filter(GeneID %in% gois), aes(x = type, y = proportion, color = type)) +
   geom_point(alpha = 0.5) +
