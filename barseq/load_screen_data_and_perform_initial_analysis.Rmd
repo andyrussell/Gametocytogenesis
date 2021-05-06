@@ -4,12 +4,13 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
+library(tidyverse)
 theme_set(theme_bw())
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r }
-library(tidyverse)
+
 loadAndCollapse <- function(file) {
   counts <- read.csv(paste0("./barcode_counts/", file), header = T, stringsAsFactors = FALSE)
   counts <- counts[counts$barcode != "no_match", ]
@@ -129,7 +130,7 @@ ggplot(variance, aes(x=meanlogprop,y=sd,color=Pool))+facet_grid(Mouse+Condition~
 noncontrol <- variance %>% filter(Condition != "Control")
 control <- variance %>% filter(Condition == "Control")
 
-comparison <- inner_join(ungroup(control), ungroup(noncontrol), by = c("Mouse", "gene", "Pool") , suffixes=c("Control","Other"))
+comparison <- inner_join(ungroup(control), ungroup(noncontrol), by = c("Mouse", "gene", "Pool") , suffix=c("Control","Other"))
 
 
 ```
@@ -162,8 +163,125 @@ gaussianMeanAndVariance <- function(vals, variances, return) {
 ```
 
 
+Calculate the difference in log2 proportions and propagate its uncertainty through
 ```{r}
-comparison <- comparison %>% mutate(difference = meanlogprop.y - meanlogprop.x)
-comparison <- comparison %>% mutate(differencesd = sqrt(monotonicmedsd.y^2 + monotonicmedsd.x^2))
-comparison <- comparison %>% mutate(Condition = Condition.y)
+comparison <- comparison %>% mutate(difference = meanlogpropOther-meanlogpropControl)
+comparison <- comparison %>% mutate(differencesd = sqrt(monotonicmedsdOther^2 + monotonicmedsdControl^2))
+comparison <- comparison %>% mutate(Condition = ConditionOther)
+
+```
+
+
+```{r}
+comparisonmerge <- comparison
+
+
+comparisonmerge <- comparisonmerge %>% mutate(p = 1 - pnorm(0, mean = difference, sd = differencesd))
+comparisonmerge <- comparisonmerge %>% mutate(diffmax = difference + 2 * differencesd)
+comparisonmerge <- comparisonmerge %>% mutate(diffmin = difference - 2 * differencesd)
+comparisonmerge <- comparisonmerge %>% mutate(power = ifelse(diffmin > -1, "notreduced", ifelse(diffmax < (-1), "reduced", "nopower")))
+GFP <- filter(comparisonmerge, Condition == "GFPsort")
+GFP$gene <- as.character(GFP$gene)
+RFP <- filter(comparisonmerge, Condition == "RFPsort")
+RFP$gene <- as.character(RFP$gene)
+# joint=full_join(GFP,RFP,by=c("gene","Pool"))
+joint <- full_join(GFP, RFP, by = c("gene"), suffix = c(".gfp", ".rfp"))
+joint$minmax <- pmin(joint$diffmax.gfp, joint$diffmax.rfp)
+joint <- mutate(joint,
+  class = case_when(
+    diffmax.gfp < -1 & diffmax.rfp < -1 ~ "lossOfBoth",
+    diffmax.gfp < -1 ~ "lossOfMales",
+    diffmax.rfp < -1 ~ "lossOfFemales",
+    diffmin.rfp > 1 & diffmin.gfp > 1 ~ "gainOfBoth",
+    diffmin.rfp > 1 ~ "gainOfFemales",
+    diffmin.gfp > 1 ~ "gainOfMales",
+    diffmax.gfp > -1 & diffmax.rfp > -1 ~ "No change",
+    TRUE ~ "Unsure"
+  )
+)
+```
+
+
+
+
+```{r}
+library(tidyverse)
+counts <- read_tsv("./ap2gtimecourse/counts.txt", col_names = T)
+
+phenodata <- read_tsv("./ap2gtimecourse/phenodata.txt", col_names = T)
+phenodata$X1 <- gsub("X820", "820", phenodata$X1)
+
+narrow <- counts %>% gather("sample", "count", -X1)
+colnames(narrow) <- c("gene", "X1", "count")
+narrow <- narrow %>% filter(count > 0)
+
+both <- inner_join(phenodata, narrow)
+both <- both %>%
+  group_by(X1) %>%
+  mutate(proportion = count / sum(count))
+
+
+counts2 <- as.matrix(select(counts, -X1))
+rownames(counts2) <- counts$X1
+
+
+timepoints <- unique(phenodata$time)
+i <- 9
+cols <- colnames(counts2)
+library(DESeq2)
+
+performDE <- function(filter) {
+  abc <- tibble()
+
+  filter2 <- filter %>% filter(Strain == "AP2Goe")
+  print(unique(filter$time))
+  if (length(unique(filter2$rapamycin)) > 1) {
+    
+    
+    counttable <- counts2[, base::match(filter2$X1, cols)]
+    dds <- DESeqDataSetFromMatrix(countData = counttable,
+                              colData = filter2,
+                              design= ~  rapamycin)
+    dds <- DESeq(dds)
+    
+
+    res <- results(dds)
+    abc <- as.tibble(res) 
+    abc$id = rownames(results(dds))
+    abc$timepoint <- unique(filter$time)
+  }
+  return(abc)
+}
+
+
+new <- phenodata %>%
+  group_by(time) %>%
+  filter(time != "3h") %>%
+  do(performDE(.))
+
+
+oneversion <- joint
+asexual <- read_csv("./otherdata/asexualscreendata.csv", col_names = T)
+merge <- right_join(oneversion, asexual)
+new$id <- gsub(".1$", "", new$id)
+new$time2 <- as.numeric(gsub("h", "", new$time))
+merge2 <- inner_join(new, merge, by = c("id" = "current_version_ID"))
+filt <- merge2 %>%
+  group_by(timepoint) %>%
+  arrange(pvalue) %>%
+  filter(row_number() < 50) %>%
+  mutate(n = row_number())
+ggplot(filt, aes(y = -n, x = time2, fill = class)) +
+  geom_tile() +
+  geom_line(data = filter(filt, !is.na(class)), aes(group = id, color = class, alpha = 0.5))
+
+
+filt <- merge2 %>%
+  group_by(timepoint) %>%
+  arrange(pvalue) %>%
+  mutate(n = row_number())
+
+ggplot(filt %>% filter(class !="No change", n<50), aes(y = n, x = time2, fill = class,color=class, group=id)) + geom_point(data=filt %>% filter(class =="No change", n<50) ,color="gray",alpha=0.2) + geom_line(data=filt %>% filter(class =="No change", n<50) ,color="gray",alpha=0.2)+
+  geom_point() +geom_line()+theme_bw()+
+  labs(y = "Genes ranked at each timepoint by p-value", x = "Timepoint (hours) after AP2-G induction")
 ```
