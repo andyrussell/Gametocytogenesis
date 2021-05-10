@@ -78,6 +78,8 @@ DefaultAssay(tenx.justwt.integrated.sex) <- "RNA"
 
 ## subset cluster 11 cells
 cells_bipot <- rownames(tenx.justwt.integrated.sex@meta.data[tenx.justwt.integrated.sex@meta.data$seurat_clusters == 11 & tenx.justwt.integrated.sex@meta.data$experiment == "tenx_5k", ])
+## then remove the outlier cell
+cells_bipot <- cells_bipot[cells_bipot %ni% rownames(as.data.frame(seurat_bipot@reductions$umap@cell.embeddings)[as.data.frame(seurat_bipot@reductions$umap@cell.embeddings)$UMAP_1 > 3.5, ])]
 
 ## subset cluster
 seurat_bipot <- subset(tenx.justwt.integrated.sex, cells = cells_bipot)
@@ -89,7 +91,7 @@ seurat_bipot <- RunPCA(seurat_bipot, npcs = 30, verbose = FALSE)
 ElbowPlot(seurat_bipot, ndims = 30, reduction = "pca")
 
 ## recluster
-seurat_bipot <- FindNeighbors(seurat_bipot, dims = 1:5)
+seurat_bipot <- FindNeighbors(seurat_bipot, dims = 1:7)
 seurat_bipot <- FindClusters(seurat_bipot, resolution = 0.5, random.seed = 42, algorithm = 2)
 DimPlot(seurat_bipot, reduction = "pca",  dims = c(1,2), label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "seurat_clusters")
 
@@ -100,13 +102,84 @@ DimPlot(seurat_bipot, reduction = "umap",  dims = c(1,2), label = TRUE, repel = 
   theme_void() +
   theme(legend.position = "bottom") +
   guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+```
 
-DimPlot(seurat_bipot, reduction = "umap",  dims = c(1,2), label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "experiment") +
+```{r}
+## extract metadata
+df_plot <- tenx.justwt.integrated@meta.data
+
+## add umap - merge on row names and then make sure row names are not dropped or added
+df_plot <- transform(merge(df_plot, tenx.justwt.integrated@reductions[["umap"]]@cell.embeddings, by=0, all=TRUE), row.names=Row.names, Row.names=NULL)
+
+## make new col for colours - and make everything grey
+df_plot$hex <- "#e7e7e7"
+
+## extract colours for highlighted cells 
+df_plot_2 <- as.data.frame(seurat_bipot@meta.data[,"seurat_clusters", drop = FALSE])
+
+## then merge this back into the colour column, whilst matching the rows
+rownames_to_match <- rownames(df_plot[rownames(df_plot) %in% rownames(df_plot_2), ])
+
+df_plot$hex[rownames(df_plot) %in% rownames(df_plot_2)] <- df_plot_2[match(rownames_to_match, rownames(df_plot_2)), , drop = FALSE][ ,1]
+
+## add cols for the clusters
+df_plot[(df_plot$hex == "1"), ]$hex <- qualitative_hcl("Set 3", n = 2)[1]
+df_plot[(df_plot$hex == "2"), ]$hex <- qualitative_hcl("Set 3", n = 2)[2]
+
+### make character so ggplot2 recognises them
+df_plot$hex <- as.character(df_plot$hex)
+
+## reorder so that the voloured points are on top
+## this is a bit hacky but you can split the data frame and then remerge, since the command commented out will still put E above other values - this command was just order by the col hex
+df_plot_1 <- df_plot[!(df_plot$hex == "#e7e7e7"), ]
+df_plot_2 <- df_plot[(df_plot$hex == "#e7e7e7"), ]
+df_plot <- rbind(df_plot_2, df_plot_1)
+rm(df_plot_2, df_plot_1)
+
+
+clusters_plot <- ggplot(df_plot, aes(x = UMAP_1, y = UMAP_2, colour = hex)) +
+                         geom_point(size = 2) +
+                        ## need this to tell ggplot2 to map to values
+                         scale_colour_identity(labels = c("1", "NA", "0"), guide = guide_legend(override.aes = list(size = 5))) +
+                        ## fix coordinates
+                         coord_fixed() +
+                         theme_void() #+ 
+                         #theme(legend.position = "none")
+  
+  
+clusters_plot
+
+ggsave("../images_to_export/branch_p_clusters.png", plot = clusters_plot, device = "png", path = NULL, scale = 1, width = 20, height = 20, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+```{r}
+pt_umap <- FeaturePlot(seurat_bipot, reduction = "umap",  dims = c(1,2), features = "old_pt_values", pt.size = 0.5) +
   coord_fixed() +
   theme_void() +
-  theme(legend.position = "bottom") +
-  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+  scale_color_viridis_c(option = "plasma")
+
+pt_umap
 ```
+
+```{r}
+ggsave("../images_to_export/branch_p_pt.png", plot = pt_umap, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+
+```{r}
+branch_p_pca <- DimPlot(seurat_bipot, reduction = "pca",  dims = c(1,2), label = FALSE, repel = TRUE, label.size = 5, pt.size = 2, group.by = "seurat_clusters", cols = qualitative_hcl("Set 3", n = 2)) +
+  coord_fixed() +
+  theme_void() +
+  #theme(panel.border = element_rect(colour = "black", fill=NA, size=1)) +
+  labs(x = "PC 1", y = "PC 2")
+
+branch_p_pca
+```
+
+```{r}
+ggsave("../images_to_export/branch_p_pca.png", plot = branch_p_pca, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
 
 2 and 1 are superimposed on the branch, lets find markers for each cluster
 
@@ -135,27 +208,395 @@ seurat_bipot_markers <- FindAllMarkers(seurat_bipot, only.pos = FALSE, min.pct =
 markers_subset <- seurat_bipot_markers %>%filter(p_val_adj < 0.05)
 markers_subset <- markers_subset[order(-markers_subset$avg_logFC), ]
 markers_subset
+markers_subset_annotated <- merge(markers_subset, gene_annotations,  by.x = "gene", by.y = "Gene.ID", all = FALSE)
+View(markers_subset_annotated)
 
 ## find markers
-markers_subset[which(markers_subset$gene %in% list_of_mutant_genes), ]
+markers_subset_mutant <- markers_subset[which(markers_subset$gene %in% list_of_mutant_genes), ]
+markers_subset_mutant
+```
+
+screen hits
+```{r}
+markers_subset[which(markers_subset$gene %in% screen_hits), ]
+```
+
+```{r}
+## plot
+VlnPlot(seurat_bipot, features = c(markers_subset_mutant$gene, "PBANKA-1437500"), assay = "RNA")
+```
+
+```{r}
+## get labels for all genes 
+marks <- markers_subset_annotated[!duplicated(markers_subset_annotated[,c('gene')]),]
+marks <- marks[order(marks$p_val_adj), ]
+marks <- marks[ ,c("gene", "Product.Description", "Gene.Name.or.Symbol")]
+marks
+```
+
+
+```{r, fig.height = 7}
+## dot plot
+dotplot_1 <- DotPlot(seurat_bipot, features = c(marks$gene, "PBANKA-1437500"), assay = "RNA") +
+  theme_classic() +
+  coord_fixed() +
+  coord_flip() +
+  # change appearance and remove axis elements, and make room for arrows
+  theme(axis.text.x = element_text(size=16, angle = 45, hjust=1,vjust=1, family = "Arial"), 
+        axis.text.y = element_text(size=16, face="italic"), 
+        text=element_text(size=16, family="Arial", colour="black"), 
+        legend.position = "bottom", 
+        legend.direction = "horizontal", 
+        legend.box = "vertical", 
+        plot.title = element_blank(), 
+        plot.margin = unit(c(1,3,1,3), "lines"), 
+        axis.line = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=0.5)
+        ) +
+  labs(x = "", y = "Sub-cluster") + 
+  scale_x_discrete(labels=c(
+    "PBANKA_1302700 (md1)",
+    "PBANKA_1113000 (pnp)",
+    "PBANKA_1235600 (sahh)",
+    "PBANKA_0818900 (bip)",
+    "PBANKA_1321000",
+    "PBANKA_1345600 (Ef-Tu)",
+    "PBANKA_0706800 (dnaj)",
+    "PBANKA_1437500 (ap2-g)"
+  ))
+
+dotplot_1
+```
+
+```{r}
+## get legend and draw it and then convert it to a ggplot object
+dotplot_1_legend <- as_ggplot(get_legend(dotplot_1))
+dotplot_1_legend
+```
+
+```{r}
+ggsave("../images_to_export/branch_p_dotplot.png", plot = dotplot_1, device = "png", path = NULL, scale = 1, width = 14, height = 14, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+```{r}
+ggsave("../images_to_export/branch_p_dotplot_legend.png", plot = dotplot_1_legend, device = "png", path = NULL, scale = 1, width = 15, height = 5, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+"PBANKA-1447900" - md2
+```{r, fig.width=10, fig.height=10}
+VlnPlot(seurat_bipot, features = c(marks$gene, "PBANKA-1437500"), assay = "RNA", slot = "data", cols = qualitative_hcl("Set 3", n = 2), ncol= 4)
+```
+
+```{r, fig.width=10, fig.height=10}
+FeaturePlot(seurat_bipot, features = unique(markers_subset$gene), reduction = "umap",  dims = c(1,2), coord.fixed = TRUE)
+```
+
+
+```{r}
+FeaturePlot(tenx.justwt.integrated,
+                                   dims = c(1,2), 
+                                   reduction = "umap",
+                                   features = unique(markers_subset$gene),
+                                   coord.fixed = TRUE,
+                                   min.cutoff = "q05", 
+                                   max.cutoff = "q95", 
+                                   pt.size = 0.5, 
+                                   order = TRUE, 
+                                   slot = 'scale.data') #+ 
+                       # theme_void() + 
+                       # theme(plot.title = element_text(hjust = 0.5), 
+                       #          legend.text = element_text(size = 5), 
+                       #          text=element_text(size=7), 
+                       #          plot.margin = unit(c(0, 0, 0, 0), "cm")
+                       #          ) + 
+                       #    scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                       #    guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+```
+
+```{r, fig.height = 15, fig.width = 15}
+marker_gene_plot_DNAJ <- FeaturePlot(tenx.justwt.integrated, 
+                                      features = "PBANKA-0706800", 
+                                      coord.fixed = TRUE, 
+                                      min.cutoff = "q05", 
+                                      max.cutoff = "q95", 
+                                      dims = c(1,2), 
+                                      reduction = "umap", 
+                                      pt.size = 0.5, 
+                                      order = TRUE, 
+                                      slot = 'scale.data') +
+                          coord_fixed() +
+                          theme_void() + 
+                          labs(title = expression(italic(dnaj)~(PBANKA_0706800))) + 
+                          theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 6), text=element_text(size=8.0), plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+
+marker_gene_plot_EFTU <- FeaturePlot(tenx.justwt.integrated, 
+                                      features = "PBANKA-1345600", 
+                                      coord.fixed = TRUE, 
+                                      min.cutoff = "q05", 
+                                      max.cutoff = "q95", 
+                                      dims = c(1,2), 
+                                      reduction = "umap", 
+                                      pt.size = 0.5, 
+                                      order = TRUE, 
+                                      slot = 'scale.data') +
+                          coord_fixed() +
+                          theme_void() + 
+                          labs(title = expression(italic(Ef-Tu)~(PBANKA_1345600))) + 
+                          theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 6), text=element_text(size=8.0), plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+
+marker_gene_plot_132100 <- FeaturePlot(tenx.justwt.integrated, 
+                                      features = "PBANKA-1321000", 
+                                      coord.fixed = TRUE, 
+                                      min.cutoff = "q05", 
+                                      max.cutoff = "q95", 
+                                      dims = c(1,2), 
+                                      reduction = "umap", 
+                                      pt.size = 0.5, 
+                                      order = TRUE, 
+                                      slot = 'scale.data') +
+                          coord_fixed() +
+                          theme_void() + 
+                          labs(title = expression((PBANKA_1321000))) + 
+                          theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 6), text=element_text(size=8.0), plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+
+marker_gene_plot_BIP <- FeaturePlot(tenx.justwt.integrated, 
+                                      features = "PBANKA-0818900", 
+                                      coord.fixed = TRUE, 
+                                      min.cutoff = "q05", 
+                                      max.cutoff = "q95", 
+                                      dims = c(1,2), 
+                                      reduction = "umap", 
+                                      pt.size = 0.5, 
+                                      order = TRUE, 
+                                      slot = 'scale.data') +
+                          coord_fixed() +
+                          theme_void() + 
+                          labs(title = expression(italic(bip)~(PBANKA_0818900))) + 
+                          theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 6), text=element_text(size=8.0), plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+
+marker_gene_plot_SAHH <- FeaturePlot(tenx.justwt.integrated, 
+                                      features = "PBANKA-1235600", 
+                                      coord.fixed = TRUE, 
+                                      min.cutoff = "q05", 
+                                      max.cutoff = "q95", 
+                                      dims = c(1,2), 
+                                      reduction = "umap", 
+                                      pt.size = 0.5, 
+                                      order = TRUE, 
+                                      slot = 'scale.data') +
+                          coord_fixed() +
+                          theme_void() + 
+                          labs(title = expression(italic(sahh)~(PBANKA_1235600))) + 
+                          theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 6), text=element_text(size=8.0), plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+
+marker_gene_plot_SAHH <- FeaturePlot(tenx.justwt.integrated, 
+                                      features = "PBANKA-1235600", 
+                                      coord.fixed = TRUE, 
+                                      min.cutoff = "q05", 
+                                      max.cutoff = "q95", 
+                                      dims = c(1,2), 
+                                      reduction = "umap", 
+                                      pt.size = 0.5, 
+                                      order = TRUE, 
+                                      slot = 'scale.data') +
+                          coord_fixed() +
+                          theme_void() + 
+                          labs(title = expression(italic(sahh)~(PBANKA_1235600))) + 
+                          theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 6), text=element_text(size=8.0), plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+
+marker_gene_plot_PNP <- FeaturePlot(tenx.justwt.integrated, 
+                                      features = "PBANKA-1113000", 
+                                      coord.fixed = TRUE, 
+                                      min.cutoff = "q05", 
+                                      max.cutoff = "q95", 
+                                      dims = c(1,2), 
+                                      reduction = "umap", 
+                                      pt.size = 0.5, 
+                                      order = TRUE, 
+                                      slot = 'scale.data') +
+                          coord_fixed() +
+                          theme_void() + 
+                          labs(title = expression(italic(pnp)~(PBANKA_1113000))) + 
+                          theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 6), text=element_text(size=8.0), plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+
+marker_gene_plot_MD1 <- FeaturePlot(tenx.justwt.integrated, 
+                                      features = "PBANKA-1302700", 
+                                      coord.fixed = TRUE, 
+                                      min.cutoff = "q05", 
+                                      max.cutoff = "q95", 
+                                      dims = c(1,2), 
+                                      reduction = "umap", 
+                                      pt.size = 0.5, 
+                                      order = TRUE, 
+                                      slot = 'scale.data') +
+                          coord_fixed() +
+                          theme_void() + 
+                          labs(title = expression(italic(md1)~(PBANKA_1302700))) + 
+                          theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 6), text=element_text(size=8.0), plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
 
 ## plot
-VlnPlot(seurat_bipot, features = c(markers_subset_mutant$gene, "PBANKA-1211700"), assay = "RNA")
+## cowplot method
+marker_gene_plot_all <- plot_grid(marker_gene_plot_DNAJ, marker_gene_plot_EFTU, marker_gene_plot_132100, marker_gene_plot_BIP, marker_gene_plot_SAHH, marker_gene_plot_PNP, marker_gene_plot_MD1, nrow=2)
+
+marker_gene_plot_all
 ```
 
-Specifically look for markers between 0 and 2
+save
 ```{r}
-cluster_1_2_markers <- FindMarkers(seurat_bipot, ident.1 = 0, ident.2 = 2, only.pos = FALSE, min.pct = 0.25, logfc.threshold = 0.25)
-
-cluster_1_2_markers_subset <- cluster_1_2_markers %>% filter(p_val_adj < 0.05)
-cluster_1_2_markers_subset <- cluster_1_2_markers_subset[order(-cluster_1_2_markers_subset$avg_logFC), ]
-cluster_1_2_markers_subset
+ggsave("../images_to_export/branch_p_markers.png", plot = marker_gene_plot_all, device = "png", path = NULL, scale = 1, width = 21, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 ```
+
+To confirm this, we can look at md1 cells that are in the branch and see if they express any of these genes
+
+```{r, fig.height = 12, fig.width=12}
+md1_cells_branch <- rownames(tenx.mutant.integrated.sex@meta.data[tenx.mutant.integrated.sex@meta.data$identity_combined == "md1" & tenx.mutant.integrated.sex@meta.data$seurat_clusters %in% c(1, 2, 3, 6), ])
+seurat_md1 <- subset(tenx.mutant.integrated.sex, cells = md1_cells_branch)
+VlnPlot(seurat_md1, features = c(marks$gene, "PBANKA-1447900"), assay = "RNA", group.by = "experiment")
+```
+
+```{r}
+marker_gene_plot_crmp3 <- FeaturePlot(tenx.justwt.integrated,
+                                   dims = c(1,2), 
+                                   reduction = "umap",
+                                   features = "PBANKA-0606700",
+                                   coord.fixed = TRUE,
+                                   min.cutoff = "q05", 
+                                   max.cutoff = "q95", 
+                                   pt.size = 0.5, 
+                                   order = TRUE, 
+                                   slot = 'scale.data') + 
+                       theme_void() + 
+                       labs(title = expression(italic(crmp3))) + 
+                       theme(plot.title = element_text(hjust = 0.5), 
+                                legend.text = element_text(size = 5), 
+                                text=element_text(size=7), 
+                                plot.margin = unit(c(0, 0, 0, 0), "cm")
+                                ) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+                       ## add sex symbols
+                       #annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
+                       #annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
+
+marker_gene_plot_crmp3
+```
+
+
+
+Checking gene expression over pt
+
+```{r}
+df_seurat_bipot <- merge(as.data.frame(seurat_bipot@meta.data), as.data.frame(t(seurat_bipot@assays$RNA@data)), by.x = 0, by.y = 0)
+
+## run GAM to look at smoothed values over pt
+library(mgcv)
+## tutorial here: http://environmentalcomputing.net/intro-to-gams/ 
+## run model
+df <- df_seurat_bipot[df_seurat_bipot$seurat_clusters == 0, ]
+df <- df[,c('old_pt_values', 'PBANKA-1302700')]
+names(df) <- c("y", "x")
+gam_y <- gam(y ~ s(x), data = df, method = "REML")
+summary(gam_y)
+df <- df_seurat_bipot[df_seurat_bipot$seurat_clusters == 1, ]
+df <- df[,c('old_pt_values', 'PBANKA-1302700')]
+names(df) <- c("y", "x")
+gam_y <- gam(y ~ s(x), data = df, method = "REML")
+summary(gam_y)
+
+
+pt_plot_1 <- ggplot(df_seurat_bipot, aes(x = old_pt_values, y = `PBANKA-1302700`, colour = seurat_clusters)) + 
+  geom_point() + 
+  #scale_y_continuous(limit=c(0.00001,NA),oob=censor) +
+  geom_smooth(method = "gam", formula = y ~s(x)) +
+  theme_classic() +
+  ylim(-1, 6) + 
+  stat_cor(method = "spearman", 
+           aes(color = seurat_clusters), 
+           label.x.npc = 'left', 
+    label.y.npc = "top") +
+  labs(x = "Pseudotime", y = "Expression level", title = "md1 (PBANKA_1302700)") +
+  scale_fill_discrete_qualitative(palette = "Set 3")+
+  scale_colour_discrete_qualitative(palette = "Set 3") +
+  theme(legend.position = "none", plot.title = element_text(face = "italic"))
+
+pt_plot_1
+```
+
+```{r}
+ggsave("../images_to_export/branch_p_ptplot_md1.png", plot = pt_plot_1, device = "png", path = NULL, scale = 1, width = 7, height = 9, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+```{r}
+## run model
+df <- df_seurat_bipot[df_seurat_bipot$seurat_clusters == 0, ]
+df <- df[,c('old_pt_values', 'PBANKA-1437500')]
+names(df) <- c("y", "x")
+gam_y <- gam(y ~ s(x), data = df, method = "REML")
+summary(gam_y)
+df <- df_seurat_bipot[df_seurat_bipot$seurat_clusters == 1, ]
+df <- df[,c('old_pt_values', 'PBANKA-1437500')]
+names(df) <- c("y", "x")
+gam_y <- gam(y ~ s(x), data = df, method = "REML")
+summary(gam_y)
+
+pt_plot_2 <- ggplot(df_seurat_bipot, aes(x = old_pt_values, y = `PBANKA-1437500`, colour = seurat_clusters)) + 
+  geom_point() + 
+  #scale_y_continuous(limit=c(0.00001,NA),oob=censor) +
+  geom_smooth(method = "gam", formula = y ~s(x)) +
+  theme_classic() +
+  ylim(-1, 5) +
+  stat_cor(method = "pearson", aes(color = seurat_clusters), label.x.npc = 'left', label.y.npc = 'top') +
+  labs(x = "Pseudotime", y = "Expression level", title = "ap2-g (PBANKA_1437500)") +
+  scale_fill_discrete_qualitative(palette = "Set 3")+
+  scale_colour_discrete_qualitative(palette = "Set 3") +
+  theme(legend.position = "none", plot.title = element_text(face = "italic"))
+
+pt_plot_2
+```
+
+```{r}
+ggsave("../images_to_export/branch_p_ptplot_ap2g.png", plot = pt_plot_2, device = "png", path = NULL, scale = 1, width = 7, height = 9, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+```{r}
+pt_plot_2 <- ggplot(df_seurat_bipot, aes(x = old_pt_values, y = `PBANKA-0706800`, colour = seurat_clusters)) + 
+  geom_point() + 
+  #scale_y_continuous(limit=c(0.00001,NA),oob=censor) +
+  geom_smooth(method = "gam", formula = y ~s(x)) +
+  theme_classic() +
+  ylim(-1, 5) +
+  stat_cor(method = "pearson", aes(color = seurat_clusters), label.x.npc = 'left', label.y.npc = 'top') +
+  labs(x = "Pseudotime", y = "Expression level", title = "dna-j (PBANKA_0706800)") +
+  scale_fill_discrete_qualitative(palette = "Set 3")+
+  scale_colour_discrete_qualitative(palette = "Set 3") +
+  theme(legend.position = "none", plot.title = element_text(face = "italic"))
+
+pt_plot_2
+```
+
 
 
 ```{r}
- 
+## remove large object from memory
+rm(df_seurat_bipot)
 ```
+
 
 ## Cluster 0 vs. 6
 
@@ -204,6 +645,107 @@ DimPlot(seurat_bipot, reduction = "umap",  dims = c(1,2), label = TRUE, repel = 
 ```{r}
 
 ```
+
+
+
+Make individual plots highlighting where cells in each cluster fall
+```{r}
+## these get defined later on, but are replicated above here for plotting
+asexual_early_clusters <- c(9, 4, 15, 8, 1, 14, 2, 10, 3, 0, 6, 5)
+asexual_late_clusters <- c(7, 12, 18, 20, 23)
+bipotentional_early_clusters <- # 0?
+bipotential_clusters <- c(11) 
+male_clusters <- c(16, 13)
+female_clusters <- c(21, 22, 17, 19)
+
+## copy the clusters so you don't permanently edit the master
+tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting <- tenx.justwt.integrated@meta.data$seurat_clusters
+
+## reorder the levels so you can plot the cluters as you wish
+my_levels <- c(asexual_early_clusters,asexual_late_clusters, bipotential_clusters, male_clusters, female_clusters)
+
+## reorder the levels
+tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting <- factor(x = tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting, levels = my_levels)
+
+## rename clusters so that they are intuitive
+# this trick is from here: http://www.cookbook-r.com/Manipulating_data/Renaming_levels_of_a_factor/
+levels(tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting) <- list(Asexual_1="9", 
+                                                                              Asexual_2="4", 
+                                                                              Asexual_3="15", 
+                                                                              Asexual_4 = "8", 
+                                                                              Asexual_5 = "1",
+                                                                              Asexual_6=  "14", 
+                                                                              Asexual_7 = "2", 
+                                                                              Asexual_8 = "10",
+                                                                              Asexual_9 = "3",
+                                                                              Asexual_10 = "0",
+                                                                              Asexual_11 = "6",
+                                                                              Asexual_12 = "5",
+                                                                              Asexual_13 = "7",
+                                                                              Asexual_14 = "12",
+                                                                              Asexual_15 = "18",
+                                                                              Asexual_16 = "20",
+                                                                              Asexual_17 = "23",
+                                                                              Progenitor = "11",
+                                                                              Male_1 = "16",
+                                                                              Male_2 = "13",
+                                                                              Female_1 = "21",
+                                                                              Female_2 = "22",
+                                                                              Female_3 = "19",
+                                                                              Female_3 = "17"
+                                                                              )
+```
+
+
+```{r, echo = FALSE, message=FALSE}
+## for loop which takes each cluster and makes a list of cells and then plots a highlighted plot and adds it to a list
+
+## make a blank list
+list_UMAPs_by_cluster <- vector(mode = "list", length = length(levels(tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting)))
+
+## for loop
+for(i in seq_along(levels(tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting))){
+  ## make a list of cells
+  list_of_cells <- rownames(tenx.justwt.integrated@meta.data[which(tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting == levels(tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting)[i]), ])
+  umap_plot <- DimPlot(tenx.justwt.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = list_of_cells, dims = c(1,2), reduction = "umap") +
+    ## fix coordinates
+    coord_fixed() + 
+  scale_color_manual(values=c("#D3D3D3", "#1D1564")) + 
+  theme_void() + 
+  labs(title = paste(levels(tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting)[i])) + 
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
+  ## add to the list
+  list_UMAPs_by_cluster[[i]] <- umap_plot
+}
+
+## check number of clusters
+length(list_UMAPs_by_cluster)
+```
+
+plot
+```{r, fig.height = 10, fig.width = 10}
+## this function writes the next bit of code for you
+## put it into the console and paste the response
+#ploty <- c()
+#for(i in seq_along(levels(tenx.justwt.integrated@meta.data$seurat_clusters))){
+#  ploty <- paste0(ploty, "list_UMAPs_by_cluster[[", i, "]]", " + ")
+#}
+
+## plot
+composite_plot <- plot_grid(list_UMAPs_by_cluster[[1]], list_UMAPs_by_cluster[[2]], list_UMAPs_by_cluster[[3]], list_UMAPs_by_cluster[[4]], list_UMAPs_by_cluster[[5]], list_UMAPs_by_cluster[[6]], list_UMAPs_by_cluster[[7]], list_UMAPs_by_cluster[[8]], list_UMAPs_by_cluster[[9]], list_UMAPs_by_cluster[[10]], list_UMAPs_by_cluster[[11]], list_UMAPs_by_cluster[[12]], list_UMAPs_by_cluster[[13]], list_UMAPs_by_cluster[[14]], list_UMAPs_by_cluster[[15]], list_UMAPs_by_cluster[[16]], list_UMAPs_by_cluster[[17]], list_UMAPs_by_cluster[[18]], list_UMAPs_by_cluster[[19]], list_UMAPs_by_cluster[[20]], list_UMAPs_by_cluster[[21]], list_UMAPs_by_cluster[[22]], list_UMAPs_by_cluster[[23]], ncol = 8)
+
+composite_plot
+```
+
+save
+```{r}
+ggsave("../images_to_export/clusters_composite_plot.png", plot = composite_plot, device = "png", path = NULL, scale = 1, width = 21, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+```{r}
+list_UMAPs_by_cluster[[18]]
+```
+
 
 
 
