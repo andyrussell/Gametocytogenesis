@@ -1,0 +1,221 @@
+---
+subtitle: 'Gametocyte Development in <i>Plasmodium berghei</i>'
+title: |
+  ![](../GCSKO_logo.jpg){width=300px}  
+  Branch Investigation
+author: "[Andrew Russell](https://ajcrussell.wixsite.com/mysite/about)"
+institute: Wellcome Sanger Institute
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output:
+  html_notebook:
+    theme: cosmo
+    toc: yes
+    toc_depth: 3
+    #toc_float: yes
+    df_print: paged
+---
+***
+# 1. Introduction and Aims {.tabset}
+
+We have subsetted the combined wild-type data:
+
+tenx.justwt.integrated.sex
+
+Now we will investigate if we can see patterns of sex/asex prior to the branch and/or male/female by subclustering these clusters and looking for markers
+
+# 2. Read in the data  {.tabset}
+
+## Load/Install the Required Packages
+
+
+## load data
+
+```{r}
+## load sex branch dataset
+tenx.justwt.integrated.sex <- readRDS("../data_to_export/tenx.justwt.integrated.sex.RDS")
+```
+
+make a metadata column where the 10X data is classified as a WT genotype
+```{r}
+## get cells that are filtered out
+cells_10x <- which(tenx.justwt.integrated.sex@meta.data$experiment == "tenx_5k")
+
+## make extra column in plotting df
+tenx.justwt.integrated.sex@meta.data$genotype_combined <- tenx.justwt.integrated.sex@meta.data$genotype
+tenx.justwt.integrated.sex@meta.data$genotype_combined[cells_10x] <- "WT"
+
+## inspect
+table(tenx.justwt.integrated.sex@meta.data$genotype_combined)
+```
+
+Read in gene annotations
+```{r}
+gene_annotations <- read.table("../data/Reference/GenesByTaxon_Summary.csv", header = TRUE, sep = ",", stringsAsFactors = TRUE)
+dim(gene_annotations)
+
+## convert _ to -
+gene_annotations$Gene.ID <- gsub("_", "-", gene_annotations$Gene.ID)
+```
+
+# 3. Investigation {.tabset}
+
+```{r}
+DimPlot(tenx.justwt.integrated.sex, label = TRUE, group.by = "seurat_clusters") +
+  coord_fixed()
+```
+
+```{r}
+
+```
+
+
+## Cluster 3
+
+
+
+```{r}
+DefaultAssay(tenx.justwt.integrated.sex) <- "RNA"
+
+## subset cluster 11 cells
+cells_bipot <- rownames(tenx.justwt.integrated.sex@meta.data[tenx.justwt.integrated.sex@meta.data$seurat_clusters == 11 & tenx.justwt.integrated.sex@meta.data$experiment == "tenx_5k", ])
+
+## subset cluster
+seurat_bipot <- subset(tenx.justwt.integrated.sex, cells = cells_bipot)
+seurat_bipot
+
+## re-PCA
+seurat_bipot <- FindVariableFeatures(seurat_bipot)
+seurat_bipot <- RunPCA(seurat_bipot, npcs = 30, verbose = FALSE)
+ElbowPlot(seurat_bipot, ndims = 30, reduction = "pca")
+
+## recluster
+seurat_bipot <- FindNeighbors(seurat_bipot, dims = 1:5)
+seurat_bipot <- FindClusters(seurat_bipot, resolution = 0.5, random.seed = 42, algorithm = 2)
+DimPlot(seurat_bipot, reduction = "pca",  dims = c(1,2), label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "seurat_clusters")
+
+## plot cluster resolution = 1
+## plot
+DimPlot(seurat_bipot, reduction = "umap",  dims = c(1,2), label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "seurat_clusters") +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+
+DimPlot(seurat_bipot, reduction = "umap",  dims = c(1,2), label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "experiment") +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+```
+
+2 and 1 are superimposed on the branch, lets find markers for each cluster
+
+```{r}
+
+# PBANKA-0828000         GCSKO-3  GD1
+
+# PBANKA-1302700       GCSKO-oom  MD1 
+# PBANKA-1447900        GCSKO-29  MD2
+# PBANKA-0102400         GCSKO-2  MD3 
+# PBANKA-0716500        GCSKO-19  MD4 
+# PBANKA-0413400    GCSKO-10_820  MD5
+
+# PBANKA-1454800        GCSKO-21  FD1
+# PBANKA-0902300        GCSKO-13  FD2
+# PBANKA-1418100        GCSKO-17  FD3   
+# PBANKA-1435200        GCSKO-20  FD4 
+
+# PBANKA-1437500 - AP2G - commitment
+
+## find markers
+seurat_bipot_markers <- FindAllMarkers(seurat_bipot, only.pos = FALSE, min.pct = 0.25, logfc.threshold = 0.25, test.use = "MAST")
+
+## inspect result
+#markers_subset <- seurat_bipot_markers %>% group_by(cluster) %>% top_n(n = 50, wt = avg_logFC) %>% filter(p_val_adj < 0.05)
+markers_subset <- seurat_bipot_markers %>%filter(p_val_adj < 0.05)
+markers_subset <- markers_subset[order(-markers_subset$avg_logFC), ]
+markers_subset
+
+## find markers
+markers_subset[which(markers_subset$gene %in% list_of_mutant_genes), ]
+
+## plot
+VlnPlot(seurat_bipot, features = c(markers_subset_mutant$gene, "PBANKA-1211700"), assay = "RNA")
+```
+
+Specifically look for markers between 0 and 2
+```{r}
+cluster_1_2_markers <- FindMarkers(seurat_bipot, ident.1 = 0, ident.2 = 2, only.pos = FALSE, min.pct = 0.25, logfc.threshold = 0.25)
+
+cluster_1_2_markers_subset <- cluster_1_2_markers %>% filter(p_val_adj < 0.05)
+cluster_1_2_markers_subset <- cluster_1_2_markers_subset[order(-cluster_1_2_markers_subset$avg_logFC), ]
+cluster_1_2_markers_subset
+```
+
+
+```{r}
+ 
+```
+
+## Cluster 0 vs. 6
+
+```{r}
+
+```
+
+## Cluster 6 
+
+```{r}
+
+```
+
+## Cluster 5
+
+```{r}
+#tenx.justwt.integrated.sex <- FindVariableFeatures(tenx.justwt.integrated.sex)
+## subset cluster 11 cells
+cells_bipot <- rownames(tenx.justwt.integrated.sex@meta.data[tenx.justwt.integrated.sex@meta.data$seurat_clusters == 0, ])
+
+## subset cluster
+seurat_bipot <- subset(tenx.justwt.integrated.sex, cells = cells_bipot)
+seurat_bipot
+
+## re-PCA
+seurat_bipot <- FindVariableFeatures(seurat_bipot)
+seurat_bipot <- RunPCA(seurat_bipot, npcs = 30, verbose = FALSE)
+ElbowPlot(seurat_bipot, ndims = 30, reduction = "pca")
+
+## recluster
+seurat_bipot <- FindNeighbors(seurat_bipot, dims = 1:15)
+seurat_bipot <- FindClusters(seurat_bipot, resolution = 1, random.seed = 42, algorithm = 2)
+DimPlot(seurat_bipot, reduction = "pca",  dims = c(1,2), label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "seurat_clusters") 
+
+## plot cluster resolution = 1
+## plot
+DimPlot(seurat_bipot, reduction = "umap",  dims = c(1,2), label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "seurat_clusters") +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+```
+
+## Cluster 11
+
+```{r}
+
+```
+
+
+
+# . Save and Export {.tabset}
+
+```{r}
+
+```
+
+# Appendix {.tabset}
+
+## Session Info 
+```{r, echo = FALSE}
+sessionInfo()
+```

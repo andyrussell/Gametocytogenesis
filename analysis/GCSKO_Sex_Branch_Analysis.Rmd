@@ -759,6 +759,178 @@ save
 ggsave("../images_to_export/Figure_4.png", plot = Figure_publication, device = "png", path = NULL, scale = 1, width = 21, height = 29.7, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
+## md3 only analysis figure 
+
+plot pseudotime vs. genotype
+```{r}
+## extract sexes
+male_df <- as.data.frame(monocle.object.sex@colData[which(monocle.object.sex@colData$Sexes_monocle == "Male"), ])
+female_df <- as.data.frame(monocle.object.sex@colData[which(monocle.object.sex@colData$Sexes_monocle == "Female"), ])
+
+## then only include cells that are:
+## 1. unbiasedly sorted
+## 2. in the right cluster
+female_df <- female_df[which(female_df$seurat_clusters %in% c(14, 15, 13, 8, 11, 7, 0)), ]
+male_df <- male_df[which(male_df$seurat_clusters %in% c(5, 10, 4, 9, 12, 16)), ]
+
+## define the dataframes
+male_df$identity_combined <- factor(male_df$identity_combined, levels = rev(c("md1", "md2", "md3", "md4", "md5", "gd1", "fd1", "fd2", "fd3", "fd4",  "wild-type (10x)", "wild-type (Smart-seq2)")))
+female_df$identity_combined <- factor(female_df$identity_combined, levels = rev(c("md1", "md2", "md3", "md4", "md5", "gd1", "fd1", "fd2", "fd3", "fd4", "wild-type (10x)", "wild-type (Smart-seq2)")))
+```
+
+```{r, fig.width = 10, fig.height = 5}
+library(ggridges)
+
+combined_df <- rbind(male_df, female_df)
+
+combined_ridge_plots <- ggplot(combined_df, aes(x = pseudotime, y =  identity_combined, fill = stat(x))) +
+  geom_density_ridges_gradient(scale = 0.9, rel_min_height = 0.03,  quantile_lines = TRUE, quantiles = 2, point_alpha = 0.5, alpha = 0.8) +
+  theme_classic() +
+  scale_y_discrete(drop=FALSE) +
+  labs(title = '', x = "Pseudotime", y = "") +
+  scale_fill_viridis_c(name = "pseudotime", option = "C", alpha = 1) +
+  theme(legend.position = "none", 
+        panel.grid.major.y = element_line(size = (0.2), colour="grey"),
+        axis.title.x=element_blank()) + 
+  facet_grid(cols = vars(Sexes_monocle))
+
+combined_ridge_plots
+```
+
+The only genotypes this plot includes that the other didn't is:
+```{r}
+table(monocle.object.sex@colData$exclude_for_sex_ratio, monocle.object.sex@colData$identity_name_updated)
+```
+
+Get the numbers for this plot too
+
+```{r}
+table(combined_df$identity_combined, combined_df$Sexes_monocle)
+```
+
+```{r}
+combined_ridge_plots <- ggplot(combined_df[which(combined_df$identity_combined %in% c("wild-type (Smart-seq2)", "wild-type (10x)", "md3") & combined_df$Sexes_monocle == "Male"),], aes(x = pseudotime, y =  identity_combined, fill = stat(x))) +
+  geom_density_ridges_gradient(scale = 0.9, rel_min_height = 0.03,  quantile_lines = TRUE, quantiles = 2, point_alpha = 0.5, alpha = 0.8) +
+  theme_classic() +
+  scale_y_discrete(drop=TRUE) +
+  labs(title = '', x = "Pseudotime", y = "") +
+  scale_fill_viridis_c(name = "pseudotime", option = "C", alpha = 1) +
+  theme(legend.position = "none", 
+        panel.grid.major.y = element_line(size = (0.2), colour="grey"),
+        axis.title.x=element_blank()) + 
+  facet_grid(cols = vars(Sexes_monocle))
+
+combined_ridge_plots
+```
+
+```{r}
+ggsave("../images_to_export/MD3_ridge.png", plot = combined_ridge_plots, device = "png", path = NULL, scale = 1, width = 10, height = 5, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+```{r, fig.height = 4, fig.width = 4}
+## for this plot, I will add an extra column to the dataframe called md3_plot
+## this will include a class for:
+## notmd3_male
+## notmd3_female
+## notmd3_progenitor
+## notmd3_unassigned
+## md3_enriched
+## md3_not_enriched
+
+## the work flow is excatly the same as the male ansd female plot above, except, we then need to add a new column for md3 cells
+
+## extract meta data
+df_pca <-tenx.mutant.integrated.sex@meta.data
+## make new col
+df_pca$assignment <- "notmd3_unassigned"
+
+## now add other annotations
+## correct for clusters
+## the problem with this approach is that cells that are na for unbiased sorting are excluded
+#df_pca$assignment[which(rownames(df_pca) %in% rownames(m_meta))] <- "male"
+#df_pca$assignment[which(rownames(df_pca) %in% rownames(f_meta))] <- "female"
+#df_pca$assignment[which(rownames(df_pca) %in% rownames(b_meta))] <- "bipoential"
+## correct for clusters
+m_meta_2 <- monocle.object_male@colData
+m_meta_2 <- m_meta_2[which(m_meta_2$seurat_clusters %in% c(5, 10, 4, 9, 12, 16)), ]
+
+f_meta_2 <- monocle.object_female@colData
+f_meta_2 <- f_meta_2[which(f_meta_2$seurat_clusters %in% c(14, 15, 13, 8, 11, 7, 0)), ]
+
+b_meta_2 <- monocle.object_bipot@colData
+b_meta_2 <- b_meta_2[which(b_meta_2$seurat_clusters %in% c(1, 2, 3, 6)), ]
+
+df_pca$assignment[which(rownames(df_pca) %in% rownames(m_meta_2))] <- "notmd3_male"
+df_pca$assignment[which(rownames(df_pca) %in% rownames(f_meta_2))] <- "notmd3_female"
+df_pca$assignment[which(rownames(df_pca) %in% rownames(b_meta_2))] <- "notmd3_progenitor"
+
+## then add md3 cells
+df_pca$assignment[which(df_pca$identity_combined == "md3" & df_pca$exclude_for_sex_ratio == TRUE)] <- "md3_enriched"
+df_pca$assignment[which(df_pca$identity_combined == "md3" & df_pca$exclude_for_sex_ratio == FALSE)] <- "md3_not_enriched"
+
+## extract pca coords
+df_umap_plot <- tenx.mutant.integrated.sex@reductions[["DIM_PCA"]]@cell.embeddings
+df_umap_plot <- merge(df_umap_plot, df_pca, by=0, all=TRUE)
+
+## reorder the table to plot md3 last
+row.order <- c("8", "3","4", "15", "2", "18", "11",
+               "7", "1", "13",
+               "10", "14", "12", "16", "9",
+               "5","6", "17",
+               "19", "20")
+## reorder using new order
+df_umap_plot <- df_umap_plot[c(which(df_umap_plot$assignment != "md3_enriched" & df_umap_plot$assignment != "md3_not_enriched"), which(df_umap_plot$assignment == "md3_enriched" | df_umap_plot$assignment == "md3_not_enriched")), ]
+
+## add back to meta data
+#tenx.mutant.integrated.sex <- AddMetaData(tenx.mutant.integrated.sex, df_pca$assignment, col.name = "md3_plot")
+
+## remove these objects to save space
+rm(m_meta_2, f_meta_2, b_meta_2)
+
+## make a custom pal
+# 1 = blue - "#0052c5"
+# 2 = red - "#a52b1e"
+# 3 = green - "#016c00"
+# 4 = yellow - "#ffe400"
+# grey - unassigned - "#E7E8EA"
+# purple - "#31206E" 
+pal_sex <- c("#31206E", "#31206E", "#016c00", "#a52b1e", "#ffe400", "#E7E8EA")
+
+UMAP_identity <- DimPlot(tenx.mutant.integrated.sex, label = FALSE, repel = TRUE, pt.size = 0.5, group.by = "md3_plot", dims = c(1,2), reduction = "DIM_PCA") +
+  coord_fixed() + 
+  scale_colour_manual(values=pal_sex) + 
+  scale_alpha_manual(values=c(1, 1, 0.2, 0.2, 0.2, 0.2)) +
+  theme_void() + 
+  #theme(legend.position = "none")
+  ## add sex symbols
+  annotate("text", x = 30, y = -50, label = male_symbol, size=7, color="#a52b1e") + 
+  annotate("text", x = 50, y = -10, label = female_symbol, size=7, color="#016c00") +
+  labs(title = '')
+
+
+UMAP_identity <- ggplot(df_umap_plot, aes(x = DIMPCA_1, y = DIMPCA_2, colour = assignment, alpha = assignment, shape = assignment, size = assignment)) +
+  geom_point() +
+  coord_fixed() + 
+  scale_colour_manual(values=pal_sex) + 
+  scale_alpha_manual(values=c(0.6, 0.6, 0.2, 0.2, 0.2, 0.2)) +
+  scale_shape_manual(values=c(17, 19, 20, 20, 20, 20)) +
+  scale_size_manual(values=c(4, 4, 2, 2, 2, 2), guide = guide_legend(override.aes = list(size = 3, alpha = 1))) +
+  theme_void() + 
+  #theme(legend.position = "none")
+  ## add sex symbols
+  annotate("text", x = 30, y = -50, label = male_symbol, size=7, color="#a52b1e") + 
+  annotate("text", x = 50, y = -10, label = female_symbol, size=7, color="#016c00") +
+  labs(title = '')
+
+## print
+UMAP_identity
+```
+
+```{r}
+ggsave("../images_to_export/MD3_pca.png", plot = UMAP_identity, device = "png", path = NULL, scale = 1, width = 15, height = 15, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+
 
 # Differential expression
 

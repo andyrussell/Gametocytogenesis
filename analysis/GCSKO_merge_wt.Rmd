@@ -492,10 +492,27 @@ list_UMAPs_by_cluster[[1]] + list_UMAPs_by_cluster[[2]] + list_UMAPs_by_cluster[
 ### Find Markers
 
 ```{r}
+# PBANKA-1418100        GCSKO-17  FD3   
+# PBANKA-0102400         GCSKO-2  MD4 
+# PBANKA-0716500        GCSKO-19  MD5 
+# PBANKA-1435200        GCSKO-20  FD4 
+# PBANKA-0902300        GCSKO-13  FD2
+# PBANKA-0413400    GCSKO-10_820  MD3
+# PBANKA-0828000         GCSKO-3  GD1
+# PBANKA-1302700       GCSKO-oom  MD1 
+# PBANKA-1447900        GCSKO-29  MD2
+# PBANKA-1454800        GCSKO-21  FD1
+# PBANKA-1144800        GCSKO-28  FD5
+
 DefaultAssay(tenx.justwt.integrated) <- "RNA"
 # find markers for every cluster compared to all remaining cells, report only the positive ones
-pb.markers <- FindAllMarkers(tenx.justwt.integrated, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+pb.markers <- FindAllMarkers(tenx.justwt.integrated, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25, test.use = "MAST")
 pb.markers %>% group_by(cluster) %>% top_n(n = 5, wt = avg_logFC)
+```
+
+```{r}
+markers_annotated <- merge(pb.markers, gene_annotations,  by.x = "gene", by.y = "Gene.ID", all = FALSE)
+View(markers_annotated)
 ```
 
 ```{r, R.options = list(width = 300)}
@@ -504,6 +521,11 @@ markers_subset_annotated <- merge(markers_subset, gene_annotations,  by.x = "gen
 markers_subset_annotated
 View(markers_subset_annotated)
 ```
+
+```{r}
+View(markers_annotated_mutant <- markers_annotated[which(markers_annotated$gene %in% list_of_mutant_genes), ])
+```
+
 
 ### visualise markers
 
@@ -1761,7 +1783,7 @@ levels(tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting) <- list(As
                                                                               Asexual_15 = "18",
                                                                               Asexual_16 = "20",
                                                                               Asexual_17 = "23",
-                                                                              Bipotential = "11",
+                                                                              Progenitor = "11",
                                                                               Male_1 = "16",
                                                                               Male_2 = "13",
                                                                               Female_1 = "21",
@@ -1944,6 +1966,52 @@ dot_plot
 save
 ```{r}
 ggsave("../images_to_export/dot_plot_all.png", plot = dot_plot, device = "png", path = NULL, scale = 1, width = 29.7, height = 21, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+Make individual plots highlighting where cells in each cluster fall
+```{r, echo = FALSE, message=FALSE}
+## for loop which takes each cluster and makes a list of cells and then plots a highlighted plot and adds it to a list
+
+## make a blank list
+list_UMAPs_by_cluster <- vector(mode = "list", length = length(levels(tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting)))
+
+## for loop
+for(i in seq_along(levels(tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting))){
+  ## make a list of cells
+  list_of_cells <- rownames(tenx.justwt.integrated@meta.data[which(tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting == levels(tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting)[i]), ])
+  umap_plot <- DimPlot(tenx.justwt.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = list_of_cells, dims = c(1,2), reduction = "umap") +
+    ## fix coordinates
+    coord_fixed() + 
+  scale_color_manual(values=c("#D3D3D3", "#1D1564")) + 
+  theme_void() + 
+  labs(title = paste(levels(tenx.justwt.integrated@meta.data$seurat_clusters_dot_plotting)[i])) + 
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
+  ## add to the list
+  list_UMAPs_by_cluster[[i]] <- umap_plot
+}
+
+## check number of clusters
+length(list_UMAPs_by_cluster)
+```
+
+plot
+```{r, fig.height = 10, fig.width = 10}
+## this function writes the next bit of code for you
+## put it into the console and paste the response
+#ploty <- c()
+#for(i in seq_along(levels(tenx.justwt.integrated@meta.data$seurat_clusters))){
+#  ploty <- paste0(ploty, "list_UMAPs_by_cluster[[", i, "]]", " + ")
+#}
+
+## plot
+composite_plot <- plot_grid(list_UMAPs_by_cluster[[1]], list_UMAPs_by_cluster[[2]], list_UMAPs_by_cluster[[3]], list_UMAPs_by_cluster[[4]], list_UMAPs_by_cluster[[5]], list_UMAPs_by_cluster[[6]], list_UMAPs_by_cluster[[7]], list_UMAPs_by_cluster[[8]], list_UMAPs_by_cluster[[9]], list_UMAPs_by_cluster[[10]], list_UMAPs_by_cluster[[11]], list_UMAPs_by_cluster[[12]], list_UMAPs_by_cluster[[13]], list_UMAPs_by_cluster[[14]], list_UMAPs_by_cluster[[15]], list_UMAPs_by_cluster[[16]], list_UMAPs_by_cluster[[17]], list_UMAPs_by_cluster[[18]], list_UMAPs_by_cluster[[19]], list_UMAPs_by_cluster[[20]], list_UMAPs_by_cluster[[21]], list_UMAPs_by_cluster[[22]], list_UMAPs_by_cluster[[23]], ncol = 8)
+
+composite_plot
+```
+
+save
+```{r}
+ggsave("../images_to_export/clusters_composite_plot.png", plot = composite_plot, device = "png", path = NULL, scale = 1, width = 21, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 # 9. Subset sexual cells {.tabset}
