@@ -199,10 +199,14 @@ joint <- mutate(joint,
     TRUE ~ "Unsure"
   )
 )
+
+joint$class
 ```
 
 
+```{r}
 
+```
 
 ```{r}
 library(tidyverse)
