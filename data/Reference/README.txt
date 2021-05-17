@@ -22,3 +22,5 @@ DOZI_regulated_genes describes genes that have been found to be associated with 
 GenesByTaxon_Summary.csv was created from PlasmoDB on 20/02/2021 and contains annotations from PlasmoDB for genes.It includes all transcripts (so can contain multiple transcripts for the same gene). Hence why the number of entries is 5254 rather than the 5245 listed in plasmoddb
 \
 Bushell_2017_data.csv was originally downloaded from the publication in cell (2017, https://doi.org/10.1016/j.cell.2017.06.030) Table S1. Updated gene IDs were separated where there were multiple and the information associated was duplicated from that entry. On 24 March 2021.
+\
+New_to_old_gene_ids.csv was downloaded from Plasmodb: https://plasmodb.org/plasmo/app/downloads/Current_Release/PbergheiANKA/txt/PlasmoDB-51_PbergheiANKA_GeneAliases.txt on Sunday, 11 April 2021 (release 51)

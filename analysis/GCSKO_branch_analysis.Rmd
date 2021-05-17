@@ -228,8 +228,9 @@ VlnPlot(seurat_bipot, features = c(markers_subset_mutant$gene, "PBANKA-1437500")
 
 ```{r}
 ## get labels for all genes 
-marks <- markers_subset_annotated[!duplicated(markers_subset_annotated[,c('gene')]),]
-marks <- marks[order(marks$p_val_adj), ]
+marks <- markers_subset_annotated
+marks <- marks[rev(order(marks$avg_logFC)), ]
+marks <- marks[!duplicated(marks[,c('gene')]),]
 marks <- marks[ ,c("gene", "Product.Description", "Gene.Name.or.Symbol")]
 marks
 ```
@@ -256,12 +257,12 @@ dotplot_1 <- DotPlot(seurat_bipot, features = c(marks$gene, "PBANKA-1437500"), a
   labs(x = "", y = "Sub-cluster") + 
   scale_x_discrete(labels=c(
     "PBANKA_1302700 (md1)",
+    "PBANKA_1345600 (Ef-Tu)",
     "PBANKA_1113000 (pnp)",
+    "PBANKA_0706800 (dnaj)",
+    "PBANKA_1321000",
     "PBANKA_1235600 (sahh)",
     "PBANKA_0818900 (bip)",
-    "PBANKA_1321000",
-    "PBANKA_1345600 (Ef-Tu)",
-    "PBANKA_0706800 (dnaj)",
     "PBANKA_1437500 (ap2-g)"
   ))
 
@@ -452,7 +453,7 @@ marker_gene_plot_MD1 <- FeaturePlot(tenx.justwt.integrated,
 
 ## plot
 ## cowplot method
-marker_gene_plot_all <- plot_grid(marker_gene_plot_DNAJ, marker_gene_plot_EFTU, marker_gene_plot_132100, marker_gene_plot_BIP, marker_gene_plot_SAHH, marker_gene_plot_PNP, marker_gene_plot_MD1, nrow=2)
+marker_gene_plot_all <- plot_grid(marker_gene_plot_BIP, marker_gene_plot_SAHH, marker_gene_plot_132100, marker_gene_plot_DNAJ, marker_gene_plot_PNP, marker_gene_plot_EFTU, marker_gene_plot_MD1, nrow=2)
 
 marker_gene_plot_all
 ```
@@ -747,12 +748,14 @@ list_UMAPs_by_cluster[[18]]
 ```
 
 
-
-
 # . Save and Export {.tabset}
 
+save object(s)
 ```{r}
-
+## save integrated object to file
+saveRDS(seurat_bipot, file = "../data_to_export/seurat_bipot.RDS") 
+## restore the object
+#seurat_bipot <- readRDS("../data_to_export/seurat_bipot.RDS")
 ```
 
 # Appendix {.tabset}
