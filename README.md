@@ -29,3 +29,9 @@ Please contact ar19@sanger.ac.uk with any questions, or if you would like to col
     - F. `sex_ratio`
 
 *optional - slow run time
+
+### Screen data
+
+located in `barseq` directory
+
+
