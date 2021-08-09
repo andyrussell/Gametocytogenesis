@@ -15,7 +15,7 @@ Please contact ar19@sanger.ac.uk with any questions, or if you would like to col
 
 ## Basic steps
 
-### Single-cell data
+### Single-cell RNA-seq data
 - 1. Run `quality_control` notebooks to generate QCed data files
     - `GCSKO_SS2_QC.Rmd`
     - `GCSKO_10X_QC.Rmd`
