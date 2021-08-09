@@ -4,7 +4,7 @@
 
 In this project, we explore the process of gametocytogenesis in *Plasmodium berghei*.
 
-Source code to reproduce the analysis of the paper:
+This repository contains source code to reproduce the analysis of the paper:
 
 >**Regulators of male and female sexual development critical for transmission of a malaria parasite**
 <br>Andrew J C Russell, Theo Sanderson, Ellen Bushell, Arthur M Talman, Burcu Anar, Gareth Girling, Mirjam Hunziker, Robyn S Kent, Tom Metcalf, Ruddy Montandon, Vikash Pandey, A Brett Roberts, Claire Sayers, Frank Schwach, Julian C Rayner, Thierry Voet, Katarzyna K Modrzynska, Andrew P. Waters, Mara K N Lawniczak, Oliver Billker<br>
