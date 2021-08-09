@@ -184,6 +184,17 @@ if(require("destiny")){
 set.seed(-92497)
 ```
 
+Extrafont stuff to plot Arial
+```{r}
+library("extrafont")
+## The first time
+#font_import()
+## for pdf()
+loadfonts()
+## and/or for postscript()
+loadfonts(device = "postscript") 
+```
+
 ## load data
 
 ```{r}
@@ -239,7 +250,6 @@ And determine what is male and female:
 FeaturePlot(tenx.mutant.integrated.sex, features = c("PBANKA-1319500", "PBANKA-0416100"), blend = TRUE, combine = TRUE, coord.fixed = TRUE, reduction = "pca")
 ```
 
-
 ```{r}
 ## extract the cell embeddings from the pca
 mds <- as.data.frame(tenx.mutant.integrated.sex@reductions$pca@cell.embeddings)
@@ -262,6 +272,7 @@ tenx.mutant.integrated.sex[["DIM_PCA"]] <- CreateDimReducObject(embeddings = mds
 ## check
 DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = FALSE, pt.size = 0.05, dims = c(1,2), reduction = "DIM_PCA") + coord_fixed()
 ```
+
 Calculate new clusters 
 ```{r, fig.height = 3, fig.width = 5}
 ## generate new clusters at mid resolution
@@ -276,10 +287,22 @@ HoverLocator(plot = pca_plot, information = FetchData(tenx.mutant.integrated.sex
 ```
 
 ```{r}
-umap_clusters <- DimPlot(tenx.mutant.integrated.sex, label = TRUE, repel = TRUE, pt.size = 0.5, dims = c(1,2), reduction = "DIM_PCA")+
-  coord_fixed() +
-      theme_void() + 
-scale_color_discrete_qualitative(palette = "Dark 3")
+umap_clusters <- DimPlot(tenx.mutant.integrated.sex, 
+                         label = TRUE, 
+                         repel = TRUE, 
+                         pt.size = 0.5, 
+                         dims = c(1,2), 
+                         reduction = "DIM_PCA", 
+                         label.box = TRUE) +
+                  coord_fixed() +
+                  ## remove axes etc.
+                  theme_void() + 
+                  ## change colour of points
+                  scale_color_discrete_qualitative(palette = "Dark 3") +
+                  ## change background colour of labels
+                  scale_fill_discrete_qualitative(palette = "Dark 3") + 
+                  guides(colour = guide_legend(override.aes = list(size=5))) + 
+                  theme(legend.text=element_text(size=10))
 
 umap_clusters
 ```
@@ -340,7 +363,6 @@ composite_cell_locations <- plot_grid(list_plots_sex_highlight[[1]] + theme(plot
 
 composite_cell_locations
 ```
-
 save
 ```{r}
 ggsave("../images_to_export/ALLCELLS_mutant_cell_locations.png", plot = composite_cell_locations, device = "png", path = NULL, scale = 1, width = 30, height = 20, units = "cm", dpi = 300, limitsize = TRUE)
@@ -498,7 +520,7 @@ umap_pt <- plot_cells(monocle.object.sex, color_cells_by = "pseudotime", label_c
 umap_pt
 ```
 
-add pt to monocle
+add pt to monocle and seurat
 ```{r}
 ## extract pt values
 pt_values <- as.data.frame(pseudotime(monocle.object.sex, reduction_method = "UMAP"))
@@ -506,9 +528,8 @@ pt_values <- as.data.frame(pseudotime(monocle.object.sex, reduction_method = "UM
 ## add to monocle
 monocle.object.sex@colData$pseudotime <- pt_values[ ,1]
 
-
 ## add to seurat
-#tenx.mutant.integrated.sex <- AddMetaData(tenx.mutant.integrated.sex, pt_values, "pt_values")
+tenx.mutant.integrated.sex <- AddMetaData(tenx.mutant.integrated.sex, pt_values, "pt_values_branch_all")
 ```
 
 ```{r}
@@ -710,20 +731,20 @@ plot_grid(combined_ridge_plots, ss, nrow = 1, rel_widths = c(3, 1))
 
 ```{r, fig.height = 11.7, fig.width = 8.3}
 ## A
-composite_cell_locations <- plot_grid((UMAP_identity + labs(title=" ") + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 12, face = "bold"), legend.position = "none")),
-                                      (umap_id_pt + theme(legend.position = "none")), 
-                                      list_plots_sex_highlight[[3]], 
-                                      list_plots_sex_highlight[[4]], 
-                                      list_plots_sex_highlight[[5]], 
-                                      list_plots_sex_highlight[[6]], 
-                                      list_plots_sex_highlight[[7]], 
-                                      list_plots_sex_highlight[[8]], 
-                                      list_plots_sex_highlight[[9]], 
-                                      list_plots_sex_highlight[[10]], 
-                                      list_plots_sex_highlight[[11]], 
-                                      list_plots_sex_highlight[[12]],
-                                      (list_plots_sex_highlight[[1]] + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 12, face = "bold"), plot.subtitle = element_text(hjust = 0.5, family="Arial", size = 12, face = "bold"), legend.position = "none") + labs(title="wild-type", subtitle="(10x)")), 
-                                      (list_plots_sex_highlight[[2]] + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 12, face = "bold"), plot.subtitle = element_text(hjust = 0.5, family="Arial", size = 12, face = "bold"), legend.position = "none") + labs(title="wild-type", subtitle="(Smart-seq2)")), 
+composite_cell_locations <- plot_grid((UMAP_identity + labs(title=" ") + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 12, face = "plain"), legend.position = "none")),
+                                      (umap_id_pt + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 12, face = "plain"), legend.position = "none")), 
+                                      list_plots_sex_highlight[[3]] + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 12, face = "italic")), 
+                                      list_plots_sex_highlight[[4]] + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 12, face = "italic")), 
+                                      list_plots_sex_highlight[[5]] + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 12, face = "italic")), 
+                                      list_plots_sex_highlight[[6]] + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 12, face = "italic")), 
+                                      list_plots_sex_highlight[[7]] + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 12, face = "italic")), 
+                                      list_plots_sex_highlight[[8]] + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 12, face = "italic")), 
+                                      list_plots_sex_highlight[[9]] + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 12, face = "italic")), 
+                                      list_plots_sex_highlight[[10]] + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 12, face = "italic")), 
+                                      list_plots_sex_highlight[[11]] + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 12, face = "italic")), 
+                                      list_plots_sex_highlight[[12]] + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 12, face = "italic")),
+                                      (list_plots_sex_highlight[[1]] + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 12, face = "plain"), plot.subtitle = element_text(hjust = 0.5, family="Arial", size = 12, face = "plain"), legend.position = "none") + labs(title="wild-type", subtitle="(10x)")), 
+                                      (list_plots_sex_highlight[[2]] + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 12, face = "plain"), plot.subtitle = element_text(hjust = 0.5, family="Arial", size = 12, face = "plain"), legend.position = "none") + labs(title="wild-type", subtitle="(Smart-seq2)")), 
                                       nrow = 2,
                                       axis = c("b")
                                       )
@@ -983,9 +1004,9 @@ From this, we should compare differential expression as such:
 md3 - 4
 md4 - 12
 md5 - 10
-gd1 - 12 or 16 (seems to be it's own cluster)?
+gd1 - 12 (used) or 16 (seems to be it's own cluster)?
 fd1 - 8
-fd2 - has it's own cluster of 15 - compare 15 to 8
+fd2 - has it's own cluster of 15 -> compare 15 to 8
 fd3 - 0 - not many cells
 fd4 - 0 - not many cells
 * for fd3 and fd4 you could do other clusters and look at changes along dev.
@@ -1003,9 +1024,10 @@ cells.4 <- subset(tenx.mutant.integrated.sex, idents = "4")
 DefaultAssay(cells.4) <- "RNA"
 Idents(cells.4) <- "identity_combined"
 md3_markers <- FindMarkers(cells.4, ident.1 = "md3", ident.2 = c("wild-type (10x)", "wild-type (Smart-seq2)"), test.use = "MAST", verbose = FALSE)
-md3_markers <- md3_markers[md3_markers$p_val_adj < 0.05, ]
-head(md3_markers, n = 15)
-md3_markers_annotated <- merge(gene_annotations, md3_markers, by.x = "Gene.ID", by.y = 0)
+md3_markers_annotated <- md3_markers
+md3_markers_annotated <- md3_markers_annotated[md3_markers_annotated$p_val_adj < 0.05, ]
+head(md3_markers_annotated, n = 15)
+md3_markers_annotated <- merge(gene_annotations, md3_markers_annotated, by.x = "Gene.ID", by.y = 0)
 View(md3_markers_annotated)
 ```
 
@@ -1028,9 +1050,10 @@ cells.12 <- subset(tenx.mutant.integrated.sex, idents = "12")
 DefaultAssay(cells.12) <- "RNA"
 Idents(cells.12) <- "identity_combined"
 md4_markers <- FindMarkers(cells.12, ident.1 = "md4", ident.2 = c("wild-type (10x)", "wild-type (Smart-seq2)"), test.use = "MAST", verbose = FALSE)
-md4_markers <- md4_markers[md4_markers$p_val_adj < 0.05, ]
-head(md4_markers, n = 15)
-md4_markers_annotated <- merge(gene_annotations, md4_markers, by.x = "Gene.ID", by.y = 0)
+md4_markers_annotated <- md4_markers
+md4_markers_annotated <- md4_markers[md4_markers_annotated$p_val_adj < 0.05, ]
+head(md4_markers_annotated, n = 15)
+md4_markers_annotated <- merge(gene_annotations, md4_markers_annotated, by.x = "Gene.ID", by.y = 0)
 View(md4_markers_annotated)
 ```
 
@@ -1045,9 +1068,10 @@ cells.10 <- subset(tenx.mutant.integrated.sex, idents = "10")
 DefaultAssay(cells.10) <- "RNA"
 Idents(cells.10) <- "identity_combined"
 md5_markers <- FindMarkers(cells.10, ident.1 = "md5", ident.2 = c("wild-type (10x)", "wild-type (Smart-seq2)"), test.use = "MAST", verbose = FALSE)
-md5_markers <- md5_markers[md5_markers$p_val_adj < 0.05, ]
-head(md5_markers, n = 15)
-md5_markers_annotated <- merge(gene_annotations, md5_markers, by.x = "Gene.ID", by.y = 0)
+md5_markers_annotated <- md5_markers
+md5_markers_annotated <- md5_markers_annotated[md5_markers_annotated$p_val_adj < 0.05, ]
+head(md5_markers_annotated, n = 15)
+md5_markers_annotated <- merge(gene_annotations, md5_markers_annotated, by.x = "Gene.ID", by.y = 0)
 View(md5_markers_annotated)
 ```
 
@@ -1058,9 +1082,10 @@ cells.12 <- subset(tenx.mutant.integrated.sex, idents = "12")
 DefaultAssay(cells.12) <- "RNA"
 Idents(cells.12) <- "identity_combined"
 gd1_markers <- FindMarkers(cells.12, ident.1 = "gd1", ident.2 = c("wild-type (10x)", "wild-type (Smart-seq2)"), test.use = "MAST", verbose = FALSE)
-gd1_markers <- gd1_markers[gd1_markers$p_val_adj < 0.05, ]
-head(gd1_markers, n = 15)
-gd1_markers_annotated <- merge(gene_annotations, gd1_markers, by.x = "Gene.ID", by.y = 0)
+gd1_markers_annotated <- gd1_markers
+gd1_markers_annotated <- gd1_markers_annotated[gd1_markers_annotated$p_val_adj < 0.05, ]
+head(gd1_markers_annotated, n = 15)
+gd1_markers_annotated <- merge(gene_annotations, gd1_markers_annotated, by.x = "Gene.ID", by.y = 0)
 View(gd1_markers_annotated)
 ```
 
@@ -1071,9 +1096,10 @@ cells.8 <- subset(tenx.mutant.integrated.sex, idents = "8")
 DefaultAssay(cells.8) <- "RNA"
 Idents(cells.8) <- "identity_combined"
 fd1_markers <- FindMarkers(cells.8, ident.1 = "fd1", ident.2 = c("wild-type (10x)", "wild-type (Smart-seq2)"), test.use = "MAST", verbose = FALSE)
-fd1_markers <- fd1_markers[fd1_markers$p_val_adj < 0.05, ]
-head(fd1_markers, n = 15)
-fd1_markers_annotated <- merge(gene_annotations, fd1_markers, by.x = "Gene.ID", by.y = 0)
+fd1_markers_annotated <-fd1_markers
+fd1_markers_annotated <- fd1_markers_annotated[fd1_markers_annotated$p_val_adj < 0.05, ]
+head(fd1_markers_annotated, n = 15)
+fd1_markers_annotated <- merge(gene_annotations, fd1_markers_annotated, by.x = "Gene.ID", by.y = 0)
 View(fd1_markers_annotated)
 ```
 
@@ -1083,10 +1109,14 @@ View(fd1_markers_annotated)
 cells.15.8 <- subset(tenx.mutant.integrated.sex, idents = c("15", "8"))
 DefaultAssay(cells.15.8) <- "RNA"
 Idents(cells.15.8) <- "identity_combined"
+## for fd2, because it sprawls, you have to take out pt < 40 too
+keep_cells <- rownames(cells.15.8@meta.data[cells.15.8@meta.data$pt_values_branch_all < 40, ])
+cells.15.8 <- subset(cells.15.8, cells = keep_cells)
 fd2_markers <- FindMarkers(cells.15.8, ident.1 = "fd2", ident.2 = c("wild-type (10x)", "wild-type (Smart-seq2)"), test.use = "MAST", verbose = FALSE)
-fd2_markers <- fd2_markers[fd2_markers$p_val_adj < 0.05, ]
-head(fd2_markers, n = 15)
-fd2_markers_annotated <- merge(gene_annotations, fd2_markers, by.x = "Gene.ID", by.y = 0)
+fd2_markers_annotated <- fd2_markers
+fd2_markers_annotated <- fd2_markers_annotated[fd2_markers_annotated$p_val_adj < 0.05, ]
+head(fd2_markers_annotated, n = 15)
+fd2_markers_annotated <- merge(gene_annotations, fd2_markers_annotated, by.x = "Gene.ID", by.y = 0)
 View(fd2_markers_annotated)
 ```
 
@@ -1097,9 +1127,10 @@ cells.0 <- subset(tenx.mutant.integrated.sex, idents = "0")
 DefaultAssay(cells.0) <- "RNA"
 Idents(cells.0) <- "identity_combined"
 fd3_markers <- FindMarkers(cells.0, ident.1 = "fd3", ident.2 = c("wild-type (10x)", "wild-type (Smart-seq2)"), test.use = "MAST", verbose = FALSE)
-fd3_markers <- fd3_markers[fd3_markers$p_val_adj < 0.05, ]
-head(fd3_markers, n = 15)
-fd3_markers_annotated <- merge(gene_annotations, fd3_markers, by.x = "Gene.ID", by.y = 0)
+fd3_markers_annotated <- fd3_markers
+fd3_markers_annotated <- fd3_markers_annotated[fd3_markers_annotated$p_val_adj < 0.05, ]
+head(fd3_markers_annotated, n = 15)
+fd3_markers_annotated <- merge(gene_annotations, fd3_markers_annotated, by.x = "Gene.ID", by.y = 0)
 View(fd3_markers_annotated)
 ```
 
@@ -1110,23 +1141,11 @@ cells.0 <- subset(tenx.mutant.integrated.sex, idents = "0")
 DefaultAssay(cells.0) <- "RNA"
 Idents(cells.0) <- "identity_combined"
 fd4_markers <- FindMarkers(cells.0, ident.1 = "fd4", ident.2 = c("wild-type (10x)", "wild-type (Smart-seq2)"), test.use = "MAST", verbose = FALSE)
-fd4_markers <- fd4_markers[fd4_markers$p_val_adj < 0.05, ]
-head(fd4_markers, n = 15)
-fd4_markers_annotated <- merge(gene_annotations, fd4_markers, by.x = "Gene.ID", by.y = 0)
+fd4_markers_annotated <- fd4_markers
+fd4_markers_annotated <- fd4_markers_annotated[fd4_markers_annotated$p_val_adj < 0.05, ]
+head(fd4_markers_annotated, n = 15)
+fd4_markers_annotated <- merge(gene_annotations, fd4_markers_annotated, by.x = "Gene.ID", by.y = 0)
 View(fd4_markers_annotated)
-```
-
-save results of DE into excel
-```{r}
-library(xlsx)
-write.xlsx(md3_markers_annotated, file="../data_to_export/DE_analysis.xlsx", sheetName="md3", row.names=FALSE)
-write.xlsx(md4_markers_annotated, file="../data_to_export/DE_analysis.xlsx", sheetName="md4", append=TRUE, row.names=FALSE)
-write.xlsx(md5_markers_annotated, file="../data_to_export/DE_analysis.xlsx", sheetName="md5", append=TRUE, row.names=FALSE)
-write.xlsx(gd1_markers_annotated, file="../data_to_export/DE_analysis.xlsx", sheetName="gd1", append=TRUE, row.names=FALSE)
-write.xlsx(fd1_markers_annotated, file="../data_to_export/DE_analysis.xlsx", sheetName="fd1", append=TRUE, row.names=FALSE)
-write.xlsx(fd2_markers_annotated, file="../data_to_export/DE_analysis.xlsx", sheetName="fd2", append=TRUE, row.names=FALSE)
-write.xlsx(fd3_markers_annotated, file="../data_to_export/DE_analysis.xlsx", sheetName="fd3", append=TRUE, row.names=FALSE)
-write.xlsx(fd4_markers_annotated, file="../data_to_export/DE_analysis.xlsx", sheetName="fd4", append=TRUE, row.names=FALSE)
 ```
 
 how many DE genes per condition?
@@ -1145,28 +1164,95 @@ dim(fd4_markers_annotated)[1]
 with filters of 2 fold change up or down (e.g. 0.5  > logFC > 1)
 
 ```{r}
-dim(md3_markers_annotated[md3_markers_annotated$avg_logFC > 1 | md3_markers_annotated$avg_logFC < 0.5, ])[1]
-dim(md4_markers_annotated[md4_markers_annotated$avg_logFC > 1 | md4_markers_annotated$avg_logFC < 0.5, ])[1]
-dim(md5_markers_annotated[md5_markers_annotated$avg_logFC > 1 | md5_markers_annotated$avg_logFC < 0.5, ])[1]
-dim(gd1_markers_annotated[gd1_markers_annotated$avg_logFC > 1 | gd1_markers_annotated$avg_logFC < 0.5, ])[1]
-dim(fd1_markers_annotated[fd1_markers_annotated$avg_logFC > 1 | fd1_markers_annotated$avg_logFC < 0.5, ])[1]
-dim(fd2_markers_annotated[fd2_markers_annotated$avg_logFC > 1 | fd2_markers_annotated$avg_logFC < 0.5, ])[1]
-dim(fd3_markers_annotated[fd3_markers_annotated$avg_logFC > 1 | fd3_markers_annotated$avg_logFC < 0.5, ])[1]
-dim(fd4_markers_annotated[fd4_markers_annotated$avg_logFC > 1 | fd4_markers_annotated$avg_logFC < 0.5, ])[1]
+dim(md3_markers_annotated[md3_markers_annotated$avg_logFC > log(2) | md3_markers_annotated$avg_logFC < log(0.5), ])[1]
+dim(md4_markers_annotated[md4_markers_annotated$avg_logFC > log(2) | md4_markers_annotated$avg_logFC < log(0.5), ])[1]
+dim(md5_markers_annotated[md5_markers_annotated$avg_logFC > log(2) | md5_markers_annotated$avg_logFC < log(0.5), ])[1]
+dim(gd1_markers_annotated[gd1_markers_annotated$avg_logFC > log(2) | gd1_markers_annotated$avg_logFC < log(0.5), ])[1]
+dim(fd1_markers_annotated[fd1_markers_annotated$avg_logFC > log(2) | fd1_markers_annotated$avg_logFC < log(0.5), ])[1]
+dim(fd2_markers_annotated[fd2_markers_annotated$avg_logFC > log(2) | fd2_markers_annotated$avg_logFC < log(0.5), ])[1]
+dim(fd3_markers_annotated[fd3_markers_annotated$avg_logFC > log(2) | fd3_markers_annotated$avg_logFC < log(0.5), ])[1]
+dim(fd4_markers_annotated[fd4_markers_annotated$avg_logFC > log(2) | fd4_markers_annotated$avg_logFC < log(0.5), ])[1]
 ```
 
 filter
 ```{r}
-md3_markers_annotated_filtered <- md3_markers_annotated[md3_markers_annotated$avg_logFC > 1 | md3_markers_annotated$avg_logFC < 0.5, ]
-md4_markers_annotated_filtered <- md4_markers_annotated[md4_markers_annotated$avg_logFC > 1 | md4_markers_annotated$avg_logFC < 0.5, ]
-md5_markers_annotated_filtered <- md5_markers_annotated[md5_markers_annotated$avg_logFC > 1 | md5_markers_annotated$avg_logFC < 0.5, ]
-gd1_markers_annotated_filtered <- gd1_markers_annotated[gd1_markers_annotated$avg_logFC > 1 | gd1_markers_annotated$avg_logFC < 0.5, ]
-fd1_markers_annotated_filtered <- fd1_markers_annotated[fd1_markers_annotated$avg_logFC > 1 | fd1_markers_annotated$avg_logFC < 0.5, ]
-fd2_markers_annotated_filtered <- fd2_markers_annotated[fd2_markers_annotated$avg_logFC > 1 | fd2_markers_annotated$avg_logFC < 0.5, ]
-fd3_markers_annotated_filtered <- fd3_markers_annotated[fd3_markers_annotated$avg_logFC > 1 | fd3_markers_annotated$avg_logFC < 0.5, ]
-fd4_markers_annotated_filtered <- fd4_markers_annotated[fd4_markers_annotated$avg_logFC > 1 | fd4_markers_annotated$avg_logFC < 0.5, ]
+md3_markers_annotated_filtered <- md3_markers_annotated[md3_markers_annotated$avg_logFC > log(2) | md3_markers_annotated$avg_logFC < log(0.5), ]
+md4_markers_annotated_filtered <- md4_markers_annotated[md4_markers_annotated$avg_logFC > log(2) | md4_markers_annotated$avg_logFC < log(0.5), ]
+md5_markers_annotated_filtered <- md5_markers_annotated[md5_markers_annotated$avg_logFC > log(2) | md5_markers_annotated$avg_logFC < log(0.5), ]
+gd1_markers_annotated_filtered <- gd1_markers_annotated[gd1_markers_annotated$avg_logFC > log(2) | gd1_markers_annotated$avg_logFC < log(0.5), ]
+fd1_markers_annotated_filtered <- fd1_markers_annotated[fd1_markers_annotated$avg_logFC > log(2) | fd1_markers_annotated$avg_logFC < log(0.5), ]
+fd2_markers_annotated_filtered <- fd2_markers_annotated[fd2_markers_annotated$avg_logFC > log(2) | fd2_markers_annotated$avg_logFC < log(0.5), ]
+fd3_markers_annotated_filtered <- fd3_markers_annotated[fd3_markers_annotated$avg_logFC > log(2) | fd3_markers_annotated$avg_logFC < log(0.5), ]
+fd4_markers_annotated_filtered <- fd4_markers_annotated[fd4_markers_annotated$avg_logFC > log(2) | fd4_markers_annotated$avg_logFC < log(0.5), ]
 ```
 
+```{r}
+## remove isoforms from annotation
+gene_annotations_no_isoforms <- gene_annotations[ ,-which(names(gene_annotations) %in% c("source_id"))]
+gene_annotations_no_isoforms <- gene_annotations_no_isoforms[!duplicated(gene_annotations_no_isoforms), ]
+md3_markers <- merge(gene_annotations_no_isoforms, md3_markers, by.x = "Gene.ID", by.y = 0, all.y = TRUE, all.x = FALSE)
+md4_markers <- merge(gene_annotations_no_isoforms, md4_markers, by.x = "Gene.ID", by.y = 0, all.y = TRUE, all.x = FALSE)
+md5_markers <- merge(gene_annotations_no_isoforms, md5_markers, by.x = "Gene.ID", by.y = 0, all.y = TRUE, all.x = FALSE)
+gd1_markers <- merge(gene_annotations_no_isoforms, gd1_markers, by.x = "Gene.ID", by.y = 0, all.y = TRUE, all.x = FALSE)
+fd1_markers <- merge(gene_annotations_no_isoforms, fd1_markers, by.x = "Gene.ID", by.y = 0, all.y = TRUE, all.x = FALSE)
+fd2_markers <- merge(gene_annotations_no_isoforms, fd2_markers, by.x = "Gene.ID", by.y = 0, all.y = TRUE, all.x = FALSE)
+fd3_markers <- merge(gene_annotations_no_isoforms, fd3_markers, by.x = "Gene.ID", by.y = 0, all.y = TRUE, all.x = FALSE)
+fd4_markers <- merge(gene_annotations_no_isoforms, fd4_markers, by.x = "Gene.ID", by.y = 0, all.y = TRUE, all.x = FALSE)
+```
+
+save results of DE into excel
+```{r}
+## make list of results
+list_of_de_results <- list(md3 = md3_markers, 
+                           md4 = md4_markers, 
+                           md5 = md5_markers, 
+                           gd1 = gd1_markers, 
+                           fd1 = fd1_markers, 
+                           fd2 = fd2_markers, 
+                           fd3 = fd3_markers, 
+                           fd4 = fd4_markers
+                           )
+
+for (i in seq_along(list_of_de_results)){
+  ## change the _ to -
+  list_of_de_results[[i]]$Gene.ID <- gsub("-", "_", list_of_de_results[[i]]$Gene.ID)
+  ## add proper column names
+  names(list_of_de_results[[i]]) <- c("Gene_ID", "Product_description", "Gene_type", "Is_pseudogene?", "Gene_name", "Transcript.Product.Description", "p_value", "average_logFC", "percent_cells_detected_1", "percent_cells_detected_2", "p_value_adjusted")
+  ## remove is_pseudo
+  list_of_de_results[[i]] <- list_of_de_results[[i]][ ,-which(names(list_of_de_results[[i]]) %in% "Transcript.Product.Description")]
+  ## reorder
+  list_of_de_results[[i]] <- list_of_de_results[[i]][ ,c(1, 5, 2, 3, 4, 8, 9, 6, 10, 7)]
+}
+
+library(openxlsx)
+write.xlsx(list_of_de_results, file = "../data_to_export/DE_analysis.xlsx")
+```
+
+check
+```{r}
+dim(md3_markers)[1]
+dim(md4_markers)[1]
+dim(md5_markers)[1]
+dim(gd1_markers)[1]
+dim(fd1_markers)[1]
+dim(fd2_markers)[1]
+dim(fd3_markers)[1]
+dim(fd4_markers)[1]
+```
+
+save results of DE into excel
+```{r}
+## another way to do it
+# library(xlsx)
+# write.xlsx(md3_markers_annotated, file="../data_to_export/DE_analysis.xlsx", sheetName="md3", row.names=FALSE)
+# write.xlsx(md4_markers_annotated, file="../data_to_export/DE_analysis.xlsx", sheetName="md4", append=TRUE, row.names=FALSE)
+# write.xlsx(md5_markers_annotated, file="../data_to_export/DE_analysis.xlsx", sheetName="md5", append=TRUE, row.names=FALSE)
+# write.xlsx(gd1_markers_annotated, file="../data_to_export/DE_analysis.xlsx", sheetName="gd1", append=TRUE, row.names=FALSE)
+# write.xlsx(fd1_markers_annotated, file="../data_to_export/DE_analysis.xlsx", sheetName="fd1", append=TRUE, row.names=FALSE)
+# write.xlsx(fd2_markers_annotated, file="../data_to_export/DE_analysis.xlsx", sheetName="fd2", append=TRUE, row.names=FALSE)
+# write.xlsx(fd3_markers_annotated, file="../data_to_export/DE_analysis.xlsx", sheetName="fd3", append=TRUE, row.names=FALSE)
+# write.xlsx(fd4_markers_annotated, file="../data_to_export/DE_analysis.xlsx", sheetName="fd4", append=TRUE, row.names=FALSE)
+```
 
 basic venn
 
@@ -1284,6 +1370,38 @@ for(i in seq_along(list_of_genotypes)){
   ## add to the list
   list_plots_de_highlight[[i]] <- pca_plot
 }
+
+## manually edit fd2 as we had a slightly different criteria here:
+
+for(i in 6){
+    ## make a list of cells to highlight - but for wild-type, include all cells of that genotype, not just ones excluded for sex ratio
+  umap_tx = tenx.mutant.integrated.sex@reductions[["DIM_PCA"]]@cell.embeddings
+  umap_tx <- merge(umap_tx, tenx.mutant.integrated.sex@meta.data[,c("seurat_clusters", "identity_combined", "pt_values_branch_all")], by=0, all=TRUE)
+  ## make a new blank column
+  umap_tx$col <- "not-profiled"
+  ## add colours for each highlighted class
+  umap_tx[umap_tx$seurat_clusters == list_of_clusters[[i]] & umap_tx$identity_combined == c("wild-type (10x)","wild-type (Smart-seq2)") & umap_tx$pt_values_branch_all < 40, ]$col <- "wild-type"
+  umap_tx[umap_tx$seurat_clusters == list_of_clusters[[i]] & umap_tx$identity_combined == list_of_genotypes[i] & umap_tx$pt_values_branch_all < 40, ]$col <- "mutant"
+  ## make a size column 
+  #umap_tx[umap_tx$col == "not-profiled", ]$pt_size <- "small"
+  #umap_tx[umap_tx$col == "wild-type" | umap_tx$col == "mutant", ]$pt_size <- "big"
+  ## order cells so that profiled cells are plotted last
+  umap_tx <- rbind(umap_tx[umap_tx$col == "not-profiled", ], umap_tx[umap_tx$col == "wild-type", ], umap_tx[umap_tx$col == "mutant", ])
+  ## make a plot
+  pca_plot <- ggplot(umap_tx, aes(x = DIMPCA_1, y = DIMPCA_2)) +
+              geom_point(aes(color = col, size = col, alpha = col)) +
+              scale_colour_manual(values=pal_de) +
+              scale_size_manual(values=c(3, 1, 3)) +
+              scale_alpha_manual(values=c(0.5, 1, 0.5)) +
+              coord_fixed() +
+              theme_void() + 
+              labs(title = paste(list_of_genotypes[i])) + 
+              theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold.italic"), legend.position = "none")
+  ## add to the list
+  list_plots_de_highlight[[6]] <- pca_plot
+  rm(umap_tx)
+  rm(pca_plot)
+}
 ```
 plot
 ```{r, fig.height = 10, fig.width = 10}
@@ -1315,10 +1433,567 @@ ggsave("../images_to_export/ALLCELLS_de_cell_locations.png", plot = composite_ce
 
 Assessing DE genes
 
+### 1. Look at whether screen hits are in the DE lists
+
 ```{r}
-## make a list of dataframes so one can run for loops on these
-list_of_DE_gene_lists <- 
+## read in screen hits
+## read in screen hits
+library("readxl")
+screen_hits <- read_excel("../data/Screen/Modules_Clusters_Phenotypes.xlsx")
+## get only hits
+screen_hits_selected <- screen_hits[which(screen_hits$`Gam phenotype screen` == "Both" | screen_hits$`Gam phenotype screen` == "Females" | screen_hits$`Gam phenotype screen` == "Males"), ]
+screen_hits_selected$`new gene ID` <- gsub("_", "-", screen_hits_selected$`new gene ID`)
+screen_hits_names <- screen_hits_selected$`new gene ID`
+screen_hits_names <- gsub("_", "-", screen_hits_names)
+
+## make a list of list of marker genes
+list_of_DE_gene_lists <- list(md3 = md3_markers_annotated_filtered,
+                              md4 = md4_markers_annotated_filtered,
+                              md5 = md5_markers_annotated_filtered,
+                              gd1 = gd1_markers_annotated_filtered,
+                              fd1 = fd1_markers_annotated_filtered,
+                              fd2 = fd2_markers_annotated_filtered,
+                              fd3 = fd3_markers_annotated_filtered,
+                              fd4 = fd4_markers_annotated_filtered
+                              )
+
+## make a blank list to save results to
+screen_hits_in_DE_genes <- list()
+
+## for loop that finds screen hits in DE lists
+for (i in 1:length(list_of_DE_gene_lists)){
+  screen_hits_in_DE_genes[[i]] <- list_of_DE_gene_lists[[i]][list_of_DE_gene_lists[[i]]$Gene.ID %in% screen_hits_names, ]
+  if (nrow(screen_hits_in_DE_genes[[i]]) > 0){
+  screen_hits_in_DE_genes[[i]]$mutant <- names(list_of_DE_gene_lists)[i]
+  }
+}
+
+## then bind these all together in one dataframe for ease of visualisation and view
+df_screen_hits_that_are_DE <- data.frame(matrix(ncol=13))
+names(df_screen_hits_that_are_DE) <- names(screen_hits_in_DE_genes[[2]])
+for (i in 1:length(list_of_DE_gene_lists)){
+  if (nrow(screen_hits_in_DE_genes[[i]]) == 0) next
+  df_screen_hits_that_are_DE <- rbind(df_screen_hits_that_are_DE, screen_hits_in_DE_genes[[i]])
+}
+## remove the na row that is added
+df_screen_hits_that_are_DE <- df_screen_hits_that_are_DE[!is.na(df_screen_hits_that_are_DE$Gene.ID), ]
+
+## add in screen phenotype
+df_screen_hits_that_are_DE <-merge(df_screen_hits_that_are_DE ,screen_hits_selected, by.x = "Gene.ID", by.y =  "new gene ID", all.x = TRUE, all.y = FALSE)
+
+head(df_screen_hits_that_are_DE)
+
+View(df_screen_hits_that_are_DE)
 ```
+
+n.b. negative means gene expression is lower in the mutant
+
+Ignore the name of the mutant column - this needs to be updated in the original input file
+
+### 2. Look at genes that are common between the lists
+
+```{r}
+## read in screen hits
+library("readxl")
+screen_hits <- read_excel("../data/Screen/Modules_Clusters_Phenotypes.xlsx")
+
+## change ID to - 
+screen_hits$`new gene ID` <- gsub("_", "-", screen_hits$`new gene ID`)
+```
+
+```{r}
+## this page was really helpful in making this function: https://stackoverflow.com/questions/23559371/get-the-list-of-items-in-venn-diagram 
+## it essentially makes a big list called elements that shows all the overlaps dor all combos
+# 
+# ## female
+# list_of_list_of_DE_genes_female <- list(
+#                               fd1 = fd1_markers_annotated_filtered$Gene.ID,
+#                               fd2 = fd2_markers_annotated_filtered$Gene.ID,
+#                               fd3 = fd3_markers_annotated_filtered$Gene.ID,
+#                               fd4 = fd4_markers_annotated_filtered$Gene.ID
+#                               )
+# 
+# 
+# # get all combination
+# # Create a list of all the combinations
+# combs <- 
+#   unlist(lapply(1:length(list_of_list_of_DE_genes_female), 
+#                 function(j) combn(names(list_of_list_of_DE_genes_female), j, simplify = FALSE)),
+#          recursive = FALSE)
+# names(combs) <- sapply(combs, function(i) paste0(i, collapse = ""))
+# str(combs)
+# 
+# library(prob)
+# elements_female <- lapply(combs, function(i) setdiff(list_of_list_of_DE_genes_female[i], list_of_list_of_DE_genes_female[setdiff(names(list_of_list_of_DE_genes_female), i)]))
+# 
+# list_of_list_of_DE_genes_male <- list(md3 = md3_markers_annotated_filtered$Gene.ID,
+#                               md4 = md4_markers_annotated_filtered$Gene.ID,
+#                               md5 = md5_markers_annotated_filtered$Gene.ID,
+#                               gd1 = gd1_markers_annotated_filtered$Gene.ID
+#                               )
+# 
+# 
+# # get all combination
+# # Create a list of all the combinations
+# combs <- 
+#   unlist(lapply(1:length(list_of_list_of_DE_genes_male), 
+#                 function(j) combn(names(list_of_list_of_DE_genes_male), j, simplify = FALSE)),
+#          recursive = FALSE)
+# names(combs) <- sapply(combs, function(i) paste0(i, collapse = ""))
+# str(combs)
+# 
+# library(prob)
+# elements_male <- lapply(combs, function(i) setdiff(list_of_list_of_DE_genes_male[i], list_of_list_of_DE_genes_male[setdiff(names(list_of_list_of_DE_genes_male), i)]))
+# 
+# n.elements.male <- sapply(elements_male, length)
+# print(n.elements.male)
+```
+
+
+```{r}
+## female
+list_of_list_of_DE_genes_female <- list(
+                              fd1 = fd1_markers_annotated_filtered$Gene.ID,
+                              fd2 = fd2_markers_annotated_filtered$Gene.ID,
+                              fd3 = fd3_markers_annotated_filtered$Gene.ID,
+                              fd4 = fd4_markers_annotated_filtered$Gene.ID
+                              )
+
+list_of_list_of_DE_genes_male <- list(md3 = md3_markers_annotated_filtered$Gene.ID,
+                              md4 = md4_markers_annotated_filtered$Gene.ID,
+                              md5 = md5_markers_annotated_filtered$Gene.ID,
+                              gd1 = gd1_markers_annotated_filtered$Gene.ID
+                              )
+
+library(gplots)
+ItemsList_female <- venn(list_of_list_of_DE_genes_female, show.plot = FALSE)
+ItemsList_male <- venn(list_of_list_of_DE_genes_male, show.plot = FALSE)
+```
+
+inspect
+```{r}
+## access a combo
+attributes(ItemsList_female)$intersections$`fd1:fd2`
+# access a particular combo another way
+# attributes(ItemsList_female)$intersections[i]
+## access all combos
+# names(attributes(ItemsList_female)$intersections)
+```
+
+make a long-format data frame summarising this
+```{r}
+df_intersect_DE_female <- data.frame(matrix(ncol = 2))
+names(df_intersect_DE_female) <- c("gene_id", "combination")
+for (i in 1:length(names(attributes(ItemsList_female)$intersections))){
+  df_1 <- data.frame(gene_id = attributes(ItemsList_female)$intersections[i], combination = names(attributes(ItemsList_female)$intersections)[i])
+  df_intersect_DE_female <- rbind(df_intersect_DE_female, setNames(df_1, names(df_intersect_DE_female)))
+}
+
+## clean-up
+##remove na row created at beginning
+df_intersect_DE_female <- df_intersect_DE_female[!is.na(df_intersect_DE_female$gene_id), ]
+## add in annotations
+df_intersect_DE_female <- merge(gene_annotations, df_intersect_DE_female, by.x = "Gene.ID", by.y = "gene_id", all.y = TRUE, all.x = FALSE)
+## add in screen phenotype
+df_intersect_DE_female <-merge(df_intersect_DE_female ,screen_hits, by.x = "Gene.ID", by.y =  "new gene ID", all.x = TRUE, all.y = FALSE)
+
+View(df_intersect_DE_female)
+```
+
+
+
+make a long-format data frame summarising this
+```{r}
+df_intersect_DE_male <- data.frame(matrix(ncol = 2))
+names(df_intersect_DE_male) <- c("gene_id", "combination")
+for (i in 1:length(names(attributes(ItemsList_male)$intersections))){
+  df_1 <- data.frame(gene_id = attributes(ItemsList_male)$intersections[i], combination = names(attributes(ItemsList_male)$intersections)[i])
+  df_intersect_DE_male <- rbind(df_intersect_DE_male, setNames(df_1, names(df_intersect_DE_male)))
+}
+
+## clean-up
+##remove na row created at beginning
+df_intersect_DE_male <- df_intersect_DE_male[!is.na(df_intersect_DE_male$gene_id), ]
+## add in annotations
+df_intersect_DE_male <- merge(gene_annotations, df_intersect_DE_male, by.x = "Gene.ID", by.y = "gene_id", all.y = TRUE, all.x = FALSE)
+## add in screen phenotype
+df_intersect_DE_male <-merge(df_intersect_DE_male ,screen_hits, by.x = "Gene.ID", by.y =  "new gene ID", all.x = TRUE, all.y = FALSE)
+
+View(df_intersect_DE_male)
+```
+
+What are the 12 genes that overlap all 3 knockouts?
+```{r}
+head(df_intersect_DE_male[df_intersect_DE_male$combination == "md4:md5:gd1", ])
+```
+
+
+
+inspect the genes of interest and see how it changes in the DE analyses
+```{r}
+## DEAD/DEAH box helicase = PBANKA-0312700 
+## ALBA1 = PBANKA-1423300
+gene <- "PBANKA-1423300"
+df_gene_of_interest_results <- data.frame(matrix(ncol=ncol(list_of_DE_gene_lists[[4]])))
+df_gene_of_interest_results$mutant_de <- NA
+names(df_gene_of_interest_results) <- c(names(list_of_DE_gene_lists[[4]]), "mutant_de")
+for (i in 1:length(list_of_DE_gene_lists)){
+  if (nrow(list_of_DE_gene_lists[[i]][list_of_DE_gene_lists[[i]]$Gene.ID %in% gene, ]) > 0){
+    df_1 <- list_of_DE_gene_lists[[i]][list_of_DE_gene_lists[[i]]$Gene.ID %in% gene, ]
+    df_1$mutant_de <- names(list_of_DE_gene_lists)[i]
+    names(df_1) <- c(names(list_of_DE_gene_lists[[4]]), "mutant_de")
+    df_gene_of_interest_results <- rbind(df_gene_of_interest_results, df_1)
+  }
+}
+df_gene_of_interest_results
+```
+
+Then visualise
+```{r}
+## split violin plot for each mutant and their wild-type
+## define functions as from: https://stackoverflow.com/questions/35717353/split-violin-plot-with-ggplot2
+GeomSplitViolin <- ggproto("GeomSplitViolin", GeomViolin, 
+                           draw_group = function(self, data, ..., draw_quantiles = NULL) {
+  data <- transform(data, xminv = x - violinwidth * (x - xmin), xmaxv = x + violinwidth * (xmax - x))
+  grp <- data[1, "group"]
+  newdata <- plyr::arrange(transform(data, x = if (grp %% 2 == 1) xminv else xmaxv), if (grp %% 2 == 1) y else -y)
+  newdata <- rbind(newdata[1, ], newdata, newdata[nrow(newdata), ], newdata[1, ])
+  newdata[c(1, nrow(newdata) - 1, nrow(newdata)), "x"] <- round(newdata[1, "x"])
+
+  if (length(draw_quantiles) > 0 & !scales::zero_range(range(data$y))) {
+    stopifnot(all(draw_quantiles >= 0), all(draw_quantiles <=
+      1))
+    quantiles <- ggplot2:::create_quantile_segment_frame(data, draw_quantiles)
+    aesthetics <- data[rep(1, nrow(quantiles)), setdiff(names(data), c("x", "y")), drop = FALSE]
+    aesthetics$alpha <- rep(1, nrow(quantiles))
+    both <- cbind(quantiles, aesthetics)
+    quantile_grob <- GeomPath$draw_panel(both, ...)
+    ggplot2:::ggname("geom_split_violin", grid::grobTree(GeomPolygon$draw_panel(newdata, ...), quantile_grob))
+  }
+  else {
+    ggplot2:::ggname("geom_split_violin", GeomPolygon$draw_panel(newdata, ...))
+  }
+})
+
+geom_split_violin <- function(mapping = NULL, data = NULL, stat = "ydensity", position = "identity", ..., 
+                              draw_quantiles = NULL, trim = TRUE, scale = "area", na.rm = FALSE, 
+                              show.legend = NA, inherit.aes = TRUE) {
+  layer(data = data, mapping = mapping, stat = stat, geom = GeomSplitViolin, 
+        position = position, show.legend = show.legend, inherit.aes = inherit.aes, 
+        params = list(trim = trim, scale = scale, draw_quantiles = draw_quantiles, na.rm = na.rm, ...))
+}
+```
+
+```{r}
+## extract data:
+## get clusters of interest:
+## paths
+# male:  c(5, 10, 4, 9, 12, 16)
+# female: c(14, 15, 13, 8, 11, 7, 0)
+# both: c(1, 2, 3, 6)
+df_violin <- tenx.mutant.integrated.sex@meta.data
+df_violin <- df_violin[df_violin$seurat_clusters %in% c(14, 15, 13, 8, 11, 7, 0), ]
+## get genotypes of interest:
+## cluster compared
+## male
+# md3 - 4
+# md4 - 12
+# md5 - 10
+# gd1 - 12 (used) or 16 (seems to be it's own cluster)?
+## female
+# fd1 - 8
+# fd2 - has it's own cluster of 15 -> compare 15 to 8
+# fd3 - 0 - not many cells
+# fd4 - 0 - not many cells
+df_violin <- df_violin[df_violin$identity_combined %in% c("wild-type (10x)", "wild-type (Smart-seq2)", "fd1", "fd2", "fd3", "fd4"), ]
+
+## extract expression values
+df_1 <- as.data.frame(t(tenx.mutant.integrated.sex@assays$RNA@data))
+df_1 <- df_1[rownames(df_1) %in% rownames(df_violin), ]
+df_violin <- merge(df_violin, df_1, by.x = 0, by.y = 0)
+
+pt_plot_a <- ggplot(df_violin, aes(x = pt_values_branch_all, y = `PBANKA-0312700`, colour = identity_combined)) + 
+  geom_point() + 
+  #scale_y_continuous(limit=c(0.00001,NA),oob=censor) +
+  geom_smooth(method = "gam", formula = y ~s(x)) +
+  theme_classic() +
+  ylim(-1, 6) + 
+  stat_cor(method = "spearman", 
+           aes(color = identity_combined), 
+           label.x.npc = 'left', 
+    label.y.npc = "top") +
+  labs(x = "Pseudotime", y = "Expression level", title = "DEAD/DEAH box helicase (PBANKA_0312700)") +
+  scale_fill_discrete_qualitative(palette = "Set 3")+
+  scale_colour_discrete_qualitative(palette = "Set 3") +
+  theme(legend.position = "right", plot.title = element_text(face = "italic"))
+
+pt_plot_a
+```
+
+```{r}
+pt_plot_b <- ggplot(df_violin, aes(x = pt_values_branch_all, y = `PBANKA-0827500`, colour = identity_combined)) + 
+  geom_point() + 
+  #scale_y_continuous(limit=c(0.00001,NA),oob=censor) +
+  geom_smooth(method = "gam", formula = y ~s(x)) +
+  theme_classic() +
+  ylim(-1, 6) + 
+  stat_cor(method = "spearman", 
+           aes(color = identity_combined), 
+           label.x.npc = 'left', 
+    label.y.npc = "top") +
+  labs(x = "Pseudotime", y = "Expression level", title = "glutamine-dependent NAD(+) synthetase (PBANKA_0827500)") +
+  scale_fill_discrete_qualitative(palette = "Set 3")+
+  scale_colour_discrete_qualitative(palette = "Set 3") +
+  theme(legend.position = "right", plot.title = element_text(face = "italic"))
+
+pt_plot_b
+```
+
+
+```{r}
+## cluster compared
+## male
+# md3 - 4
+# md4 - 12
+# md5 - 10
+# gd1 - 12 (used) or 16 (seems to be it's own cluster)?
+## female
+# fd1 - 8
+# fd2 - has it's own cluster of 15 -> compare 15 to 8
+# fd3 - 0 - not many cells
+# fd4 - 0 - not many cells
+
+## extract cells of interest
+df_violin$violin_group <- NA
+df_violin[which(df_violin$identity_combined %in% c("wild-type (10x)", "wild-type (Smart-seq2)", "fd1") & df_violin$seurat_clusters %in% c(8)), ]$violin_group <- "fd1"
+df_violin[which(df_violin$identity_combined %in% c("wild-type (10x)", "wild-type (Smart-seq2)", "fd2") & df_violin$seurat_clusters %in% c(8, 15) & df_violin$pt_values_branch_all < 40), ]$violin_group <- "fd2"
+df_violin[which(df_violin$identity_combined %in% c("wild-type (10x)", "wild-type (Smart-seq2)", "fd3") & df_violin$seurat_clusters %in% c(0)), ]$violin_group <- "fd3"
+df_violin[which(df_violin$identity_combined %in% c("wild-type (10x)", "wild-type (Smart-seq2)", "fd4") & df_violin$seurat_clusters %in% c(0)), ]$violin_group <- "fd4"
+df_violin_subset <-df_violin[!is.na(df_violin$violin_group), ]
+
+## plot
+ggplot(df_violin_subset, aes(violin_group, `PBANKA-0312700`, fill = genotype_combined)) + geom_split_violin()
+```
+
+### 3. Look at highest fold-change
+
+```{r}
+## make a list of list of marker genes
+list_of_DE_gene_lists <- list(md3 = md3_markers_annotated_filtered,
+                              md4 = md4_markers_annotated_filtered,
+                              md5 = md5_markers_annotated_filtered,
+                              gd1 = gd1_markers_annotated_filtered,
+                              fd1 = fd1_markers_annotated_filtered,
+                              fd2 = fd2_markers_annotated_filtered,
+                              fd3 = fd3_markers_annotated_filtered,
+                              fd4 = fd4_markers_annotated_filtered
+                              )
+
+## make a blank list to save results to
+top_of_DE_genes <- list()
+
+## for loop that finds screen hits in DE lists
+for (i in 1:length(list_of_DE_gene_lists)){
+  top_of_DE_genes[[i]] <- list_of_DE_gene_lists[[i]][list_of_DE_gene_lists[[i]]$avg_logFC > log(4) | list_of_DE_gene_lists[[i]]$avg_logFC < log(0.25), ]
+  if (nrow(top_of_DE_genes[[i]]) > 0){
+  top_of_DE_genes[[i]]$mutant <- names(list_of_DE_gene_lists)[i]
+  }
+}
+
+## then bind these all together in one dataframe for ease of visualisation and view
+top_DE_genes <- data.frame(matrix(ncol=13))
+names(top_DE_genes) <- names(top_of_DE_genes[[2]])
+for (i in 1:length(list_of_DE_gene_lists)){
+  if (nrow(top_of_DE_genes[[i]]) == 0) next
+  top_DE_genes <- rbind(top_DE_genes, top_of_DE_genes[[i]])
+}
+## remove the na row that is added
+top_DE_genes <- top_DE_genes[!is.na(top_DE_genes$Gene.ID), ]
+
+View(top_DE_genes)
+```
+
+
+MALE VISUALISE
+```{r}
+## extract data:
+## get clusters of interest:
+## paths
+# male:  c(5, 10, 4, 9, 12, 16)
+# female: c(14, 15, 13, 8, 11, 7, 0)
+# both: c(1, 2, 3, 6)
+df_violin <- tenx.mutant.integrated.sex@meta.data
+df_violin <- df_violin[df_violin$seurat_clusters %in% c(5, 10, 4, 9, 12, 16), ]
+## get genotypes of interest:
+## cluster compared
+## male
+# md3 - 4
+# md4 - 12
+# md5 - 10
+# gd1 - 12 (used) or 16 (seems to be it's own cluster)?
+## female
+# fd1 - 8
+# fd2 - has it's own cluster of 15 -> compare 15 to 8
+# fd3 - 0 - not many cells
+# fd4 - 0 - not many cells
+df_violin <- df_violin[df_violin$identity_combined %in% c("wild-type (10x)", "wild-type (Smart-seq2)", "md3", "md4", "md5", "gd1"), ]
+
+## extract expression values
+df_1 <- as.data.frame(t(tenx.mutant.integrated.sex@assays$RNA@data))
+df_1 <- df_1[rownames(df_1) %in% rownames(df_violin), ]
+df_violin <- merge(df_violin, df_1, by.x = 0, by.y = 0)
+
+pt_plot_b <- ggplot(df_violin, aes(x = pt_values_branch_all, y = `PBANKA-1206900`, colour = identity_combined)) + 
+  geom_point() + 
+  #scale_y_continuous(limit=c(0.00001,NA),oob=censor) +
+  geom_smooth(method = "gam", formula = y ~s(x)) +
+  theme_classic() +
+  ylim(-1, 6) + 
+  stat_cor(method = "spearman", 
+           aes(color = identity_combined), 
+           label.x.npc = 'left', 
+    label.y.npc = "top") +
+  labs(x = "Pseudotime", y = "Expression level", title = "tubulin beta chain (PBANKA_1206900)") +
+  scale_fill_discrete_qualitative(palette = "Set 3")+
+  scale_colour_discrete_qualitative(palette = "Set 3") +
+  theme(legend.position = "right", plot.title = element_text(face = "italic"))
+
+pt_plot_b
+```
+
+```{r}
+pt_plot_b <- ggplot(df_violin, aes(x = pt_values_branch_all, y = `PBANKA-0211500`, colour = identity_combined)) + 
+  geom_point() + 
+  #scale_y_continuous(limit=c(0.00001,NA),oob=censor) +
+  geom_smooth(method = "gam", formula = y ~s(x)) +
+  theme_classic() +
+  ylim(-1, 6) + 
+  stat_cor(method = "spearman", 
+           aes(color = identity_combined), 
+           label.x.npc = 'left', 
+    label.y.npc = "top") +
+  labs(x = "Pseudotime", y = "Expression level", title = "md4 non-expresing (PBANKA_0211500)") +
+  scale_fill_discrete_qualitative(palette = "Set 3")+
+  scale_colour_discrete_qualitative(palette = "Set 3") +
+  theme(legend.position = "right", plot.title = element_text(face = "italic"))
+
+pt_plot_b
+```
+
+```{r}
+pt_plot_b <- ggplot(df_violin, aes(x = pt_values_branch_all, y = `PBANKA-1423300`, colour = identity_combined)) + 
+  geom_point() + 
+  #scale_y_continuous(limit=c(0.00001,NA),oob=censor) +
+  geom_smooth(method = "gam", formula = y ~s(x)) +
+  theme_classic() +
+  ylim(-1, 6) + 
+  stat_cor(method = "spearman", 
+           aes(color = identity_combined), 
+           label.x.npc = 'left', 
+    label.y.npc = "top") +
+  labs(x = "Pseudotime", y = "Expression level", title = "ALBA1 (PBANKA_1423300)") +
+  scale_fill_discrete_qualitative(palette = "Set 3")+
+  scale_colour_discrete_qualitative(palette = "Set 3") +
+  theme(legend.position = "right", plot.title = element_text(face = "italic"))
+
+pt_plot_b
+```
+
+### 3. GO-term enrichment
+
+```{r}
+
+```
+
+## MCA Core Genes
+
+
+```{r, fig.height = 10, fig.width = 10}
+    ## subset males and females
+
+mutant_male_cells <- rownames(tenx.mutant.integrated.sex@meta.data[tenx.mutant.integrated.sex@meta.data$assignment == "male" & tenx.mutant.integrated.sex@meta.data$identity_combined %ni% c("wild-type (10x)", "fd1", "fd2", "fd3", "fd4"), ])
+mutant_female_cells <- rownames(tenx.mutant.integrated.sex@meta.data[tenx.mutant.integrated.sex@meta.data$assignment == "female" & tenx.mutant.integrated.sex@meta.data$identity_combined %ni% c("wild-type (10x)", "gd1", "md1", "md2", "md3", "md4", "md5"), ])
+
+## subset males 
+mutant_male_seurat <- subset(tenx.mutant.integrated.sex, cells = mutant_male_cells)
+
+## subset females <- 
+mutant_female_seurat <- subset(tenx.mutant.integrated.sex, cells = mutant_female_cells)
+
+   ## mca dataset of core genes
+## read in data
+df_mca_core_genes <- as.data.frame(read.csv("../data/Reference/mca_core_genes.csv",header = TRUE))
+
+## subset male core genes
+mca_male_core_genes <- df_mca_core_genes[which(df_mca_core_genes$Unique_Core == "Male"), ]$feature_symbol
+## change underscore to dash
+mca_male_core_genes <- gsub("_", "-", mca_male_core_genes)
+mca_male_core_genes <- mca_male_core_genes[which(mca_male_core_genes %in% rownames(mutant_male_seurat@assays$RNA@data))]
+
+## subset female core genes
+mca_female_core_genes <- df_mca_core_genes[which(df_mca_core_genes$Unique_Core == "Female"), ]$feature_symbol
+## change underscore to dash
+mca_female_core_genes <- gsub("_", "-", mca_female_core_genes)
+mca_female_core_genes <- mca_female_core_genes[which(mca_female_core_genes %in% rownames(mutant_female_seurat@assays$RNA@data))]
+
+    ## plot
+
+## reorder the levels so you can plot the clusters as you wish
+#my_levels_male <- c("GCSKO-3", "GCSKO-2", "GCSKO-19", "GCSKO-10_820", "GCSKO-21", "GCSKO-13", "GCSKO-17", "GCSKO-20")
+my_levels_male <- c("gd1", "md3", "md4", "md5", "fd1", "fd2", "fd3", "fd4")
+#my_levels_female <- c("GCSKO-21", "GCSKO-13", "GCSKO-17", "GCSKO-20", "GCSKO-oom", "GCSKO-29", "GCSKO-2", "GCSKO-19", "GCSKO-10_820")
+my_levels_female <- c("gd1", "fd1", "fd2", "fd3", "fd4", "md1", "md2", "md3", "md4", "md5")
+
+## reorder the levels
+mutant_male_seurat@meta.data$identity_name_updated <- factor(x = mutant_male_seurat@meta.data$identity_name_updated, levels = my_levels_male)
+mutant_female_seurat@meta.data$identity_name_updated <- factor(x = mutant_female_seurat@meta.data$identity_name_updated, levels = my_levels_female)
+
+## plot male
+dot_plot_male <- DotPlot(mutant_male_seurat, assay = "RNA", features = mca_male_core_genes, group.by = "identity_combined") +
+  theme_classic() +
+  # change appearance and remove axis elements, and make room for arrows
+  theme(axis.text.x = element_text(size=16, angle = 45, hjust=1,vjust=1, family = "Arial"), text=element_text(size=16, family="Arial"), legend.position = "bottom", legend.direction = "horizontal", legend.box = "vertical", plot.title = element_blank(), plot.margin = unit(c(1,3,1,3), "lines")) +
+  #change the colours
+  scale_colour_viridis(option = "inferno", guide = "colourbar", na.value="white", begin = 0, end = 1, direction = 1) +
+  ## change x axis label
+  labs(x = "Malaria Cell Atlas Core Male Genes", y = "Genotype", title = "Expression of Male MCA Core Genes in Male Mutant Cells") +
+  ## change label on bottom of plot so we can indicate markers
+  scale_y_discrete(labels = c("gd1", "md3", "md4", "md5", "WT (SS2)")) +
+  scale_x_discrete(labels = gsub("-", "_", mca_male_core_genes)) +
+  coord_flip()
+
+## view
+print(dot_plot_male)
+
+
+## plot female
+dot_plot_female <- DotPlot(mutant_female_seurat, assay = "RNA", features = mca_female_core_genes, group.by = "identity_combined") +
+  theme_classic() +
+  # change appearance and remove axis elements, and make room for arrows
+  theme(axis.text.x = element_text(size=16, angle = 45, hjust=1,vjust=1, family = "Arial"), text=element_text(size=16, family="Arial"), legend.position = "bottom", legend.direction = "horizontal", legend.box = "vertical", plot.title = element_blank(), plot.margin = unit(c(1,3,1,3), "lines")) +
+  #change the colours
+  scale_colour_viridis(option = "inferno", guide = "colourbar", na.value="white", begin = 0, end = 1, direction = 1) +
+  ## change x axis label
+  labs(x = "Malaria Cell Atlas Core Female Genes", y = "Genotype", title = "Expression of Female MCA Core Genes in Feale Mutant Cells") +
+  ## change label on bottom of plot so we can indicate markers
+  scale_y_discrete(labels = c("fd1", "fd2", "fd3", "fd4", "WT (SS2)")) +
+  scale_x_discrete(labels = gsub("-", "_", mca_female_core_genes)) +
+coord_flip()
+
+## view
+print(dot_plot_female)
+```
+
+save
+```{r}
+ggsave("../images_to_export/GCSKO_sexbranch_dot_male_v2.png", plot = dot_plot_male, device = "png", path = NULL, scale = 1, width = 20, height = 60, units = "cm", dpi = 300, limitsize = TRUE)
+
+ggsave("../images_to_export/GCSKO_sexbranch_dot_female_v2.png", plot = dot_plot_female, device = "png", path = NULL, scale = 1, width = 20, height = 60, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+
+
+
 
 
 
@@ -4099,103 +4774,6 @@ dens1
 
 Put this in after you have decided what is actually male and female, also add a heatmap version below and figure out expression values (e.g. it's a Z-score at the moment)
 
-```{r, fig.height = 10, fig.width = 10}
-    ## subset males and females
-## from the merge script:
-#male_clusters <- c("22", "18", "9", "16")
-#female_clusters <- c("19","24","20","3")
-
-## subset males 
-mutant_male_seurat <- subset(mutant_only_seurat, idents = c("22", "18", "9", "16"))
-
-## subset females <- 
-mutant_female_seurat <- subset(mutant_only_seurat, idents = c("19","24","20","3"))
-
-   ## mca dataset of core genes
-
-## read in data
-df_mca_core_genes <- as.data.frame(read.csv("../data/Reference/mca_core_genes.csv",header = TRUE))
-
-## subset male core genes
-mca_male_core_genes <- df_mca_core_genes[which(df_mca_core_genes$Unique_Core == "Male"), ]$feature_symbol
-## change underscore to dash
-mca_male_core_genes <- gsub("_", "-", mca_male_core_genes)
-mca_male_core_genes <- mca_male_core_genes[which(mca_male_core_genes %in% rownames(mutant_male_seurat@assays$RNA@data))]
-
-## subset female core genes
-mca_female_core_genes <- df_mca_core_genes[which(df_mca_core_genes$Unique_Core == "Female"), ]$feature_symbol
-## change underscore to dash
-mca_female_core_genes <- gsub("_", "-", mca_female_core_genes)
-mca_female_core_genes <- mca_female_core_genes[which(mca_female_core_genes %in% rownames(mutant_female_seurat@assays$RNA@data))]
-
-    ## plot
-
-# PBANKA-0828000         GCSKO-3  GD1
-
-# PBANKA-1302700       GCSKO-oom  MD1 
-# PBANKA-1447900        GCSKO-29  MD2
-# PBANKA-0102400         GCSKO-2  MD3 
-# PBANKA-0716500        GCSKO-19  MD4 
-# PBANKA-0413400    GCSKO-10_820  MD5
-
-# PBANKA-1454800        GCSKO-21  FD1
-# PBANKA-0902300        GCSKO-13  FD2
-# PBANKA-1418100        GCSKO-17  FD3   
-# PBANKA-1435200        GCSKO-20  FD4 
-
-## reorder the levels so you can plot the clusters as you wish
-#my_levels_male <- c("GCSKO-3", "GCSKO-2", "GCSKO-19", "GCSKO-10_820", "GCSKO-21", "GCSKO-13", "GCSKO-17", "GCSKO-20")
-my_levels_male <- c("gd1", "md3", "md4", "md5", "fd1", "fd2", "fd3", "fd4")
-#my_levels_female <- c("GCSKO-21", "GCSKO-13", "GCSKO-17", "GCSKO-20", "GCSKO-oom", "GCSKO-29", "GCSKO-2", "GCSKO-19", "GCSKO-10_820")
-my_levels_female <- c("gd1", "fd1", "fd2", "fd3", "fd4", "md1", "md2", "md3", "md4", "md5")
-
-## reorder the levels
-mutant_male_seurat@meta.data$identity_name_updated <- factor(x = mutant_male_seurat@meta.data$identity_name_updated, levels = my_levels_male)
-#mutant_male_seurat@meta.data$identity_updated <- factor(x = mutant_male_seurat@meta.data$identity_updated, levels = my_levels_male)
-mutant_female_seurat@meta.data$identity_name_updated <- factor(x = mutant_female_seurat@meta.data$identity_name_updated, levels = my_levels_female)
-#mutant_female_seurat@meta.data$identity_updated <- factor(x = mutant_female_seurat@meta.data$identity_updated, levels = my_levels_female)
-
-## plot male
-dot_plot_male <- DotPlot(mutant_male_seurat, assay = "RNA", features = mca_male_core_genes, group.by = "identity_combined") +
-  theme_classic() +
-  # change appearance and remove axis elements, and make room for arrows
-  theme(axis.text.x = element_text(size=16, angle = 45, hjust=1,vjust=1, family = "Arial"), text=element_text(size=16, family="Arial"), legend.position = "bottom", legend.direction = "horizontal", legend.box = "vertical", plot.title = element_blank(), plot.margin = unit(c(1,3,1,3), "lines")) +
-  #change the colours
-  scale_colour_viridis(option = "inferno", guide = "colourbar", na.value="white", begin = 0, end = 1, direction = 1) +
-  ## change x axis label
-  labs(x = "MCA Core Genes", y = "Genotype", title = "Expression of Male MCA Core Genes in Male Mutant Cells") +
-  ## change label on bottom of plot so we can indicate markers
-  #scale_y_discrete(labels = c("gd1", "md3", "md4", "md5", "fd1", "fd2", "fd3", "fd4")) +
-  coord_flip()
-
-## view
-print(dot_plot_male)
-
-
-## plot female
-dot_plot_female <- DotPlot(mutant_female_seurat, assay = "RNA", features = mca_female_core_genes, group.by = "identity_combined") +
-  theme_classic() +
-  # change appearance and remove axis elements, and make room for arrows
-  theme(axis.text.x = element_text(size=16, angle = 45, hjust=1,vjust=1, family = "Arial"), text=element_text(size=16, family="Arial"), legend.position = "bottom", legend.direction = "horizontal", legend.box = "vertical", plot.title = element_blank(), plot.margin = unit(c(1,3,1,3), "lines")) +
-  #change the colours
-  scale_colour_viridis(option = "inferno", guide = "colourbar", na.value="white", begin = 0, end = 1, direction = 1) +
-  ## change x axis label
-  labs(x = "MCA Core Genes", y = "Genotype", title = "Expression of Female MCA Core Genes in Feale Mutant Cells") +
-  ## change label on bottom of plot so we can indicate markers
-  #scale_y_discrete(labels = c("fd1", "fd2", "fd3", "fd4","md1", "md2",  "md3", "md4", "md5")) +
-coord_flip()
-
-## view
-print(dot_plot_female)
-```
-
-save
-```{r}
-ggsave("../images_to_export/GCSKO_sexbranch_dot_male.png", plot = dot_plot_male, device = "png", path = NULL, scale = 1, width = 30, height = 60, units = "cm", dpi = 300, limitsize = TRUE)
-
-ggsave("../images_to_export/GCSKO_sexbranch_dot_female.png", plot = dot_plot_female, device = "png", path = NULL, scale = 1, width = 30, height = 60, units = "cm", dpi = 300, limitsize = TRUE)
-```
-
 
 
 
@@ -4307,3 +4885,30 @@ pheatmap::pheatmap(agg_mat_df,
   #                  annotation_colors = annotation_colours) + 
   # theme(legend.position = "bottom")
 ```
+
+## Write to excel - old
+
+```{r}
+## old way of writing to an excel
+# library(xlsx)
+## to increase memory
+# #options(java.parameters = "- Xmx1024m"
+# write.xlsx(list_of_de_results$md3, file="../data_to_export/DE_analysis.xlsx", sheetName="md3", row.names=FALSE)
+# write.xlsx(list_of_de_results$md4, file="../data_to_export/DE_analysis.xlsx", sheetName="md4", append=TRUE, row.names=FALSE)
+# write.xlsx(list_of_de_results$md5, file="../data_to_export/DE_analysis.xlsx", sheetName="md5", append=TRUE, row.names=FALSE)
+# write.xlsx(list_of_de_results$gd1, file="../data_to_export/DE_analysis.xlsx", sheetName="gd1", append=TRUE, row.names=FALSE)
+# write.xlsx(list_of_de_results$fd1, file="../data_to_export/DE_analysis.xlsx", sheetName="fd1", append=TRUE, row.names=FALSE)
+# write.xlsx(list_of_de_results$fd2, file="../data_to_export/DE_analysis.xlsx", sheetName="fd2", append=TRUE, row.names=FALSE)
+# write.xlsx(list_of_de_results$fd3, file="../data_to_export/DE_analysis.xlsx", sheetName="fd3", append=TRUE, row.names=FALSE)
+# write.xlsx(list_of_de_results$fd4, file="../data_to_export/DE_analysis.xlsx", sheetName="fd4", append=TRUE, row.names=FALSE)
+# 
+# write.xlsx(md3_markers, file="../data_to_export/DE_analysis.xlsx", sheetName="md3", row.names=FALSE)
+# write.xlsx(md4_markers, file="../data_to_export/DE_analysis.xlsx", sheetName="md4", append=TRUE, row.names=FALSE)
+# write.xlsx(md5_markers, file="../data_to_export/DE_analysis.xlsx", sheetName="md5", append=TRUE, row.names=FALSE)
+# write.xlsx(gd1_markers, file="../data_to_export/DE_analysis.xlsx", sheetName="gd1", append=TRUE, row.names=FALSE)
+# write.xlsx(fd1_markers, file="../data_to_export/DE_analysis.xlsx", sheetName="fd1", append=TRUE, row.names=FALSE)
+# write.xlsx(fd2_markers, file="../data_to_export/DE_analysis.xlsx", sheetName="fd2", append=TRUE, row.names=FALSE)
+# write.xlsx(fd3_markers, file="../data_to_export/DE_analysis.xlsx", sheetName="fd3", append=TRUE, row.names=FALSE)
+# write.xlsx(fd4_markers, file="../data_to_export/DE_analysis.xlsx", sheetName="fd4", append=TRUE, row.names=FALSE)
+```
+

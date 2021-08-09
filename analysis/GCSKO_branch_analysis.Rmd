@@ -451,9 +451,26 @@ marker_gene_plot_MD1 <- FeaturePlot(tenx.justwt.integrated,
                           scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
                           guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
 
+marker_gene_plot_AP2G <- FeaturePlot(tenx.justwt.integrated, 
+                                      features = "PBANKA-1437500", 
+                                      coord.fixed = TRUE, 
+                                      min.cutoff = "q05", 
+                                      max.cutoff = "q95", 
+                                      dims = c(1,2), 
+                                      reduction = "umap", 
+                                      pt.size = 0.5, 
+                                      order = TRUE, 
+                                      slot = 'scale.data') +
+                          coord_fixed() +
+                          theme_void() + 
+                          labs(title = expression(italic(ap2-g)~(PBANKA_1437500))) + 
+                          theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 6), text=element_text(size=8.0), plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+
 ## plot
 ## cowplot method
-marker_gene_plot_all <- plot_grid(marker_gene_plot_BIP, marker_gene_plot_SAHH, marker_gene_plot_132100, marker_gene_plot_DNAJ, marker_gene_plot_PNP, marker_gene_plot_EFTU, marker_gene_plot_MD1, nrow=2)
+marker_gene_plot_all <- plot_grid(marker_gene_plot_BIP, marker_gene_plot_SAHH, marker_gene_plot_132100, marker_gene_plot_DNAJ, marker_gene_plot_PNP, marker_gene_plot_EFTU, marker_gene_plot_MD1, marker_gene_plot_AP2G, nrow=2)
 
 marker_gene_plot_all
 ```
@@ -556,7 +573,7 @@ names(df) <- c("y", "x")
 gam_y <- gam(y ~ s(x), data = df, method = "REML")
 summary(gam_y)
 
-pt_plot_2 <- ggplot(df_seurat_bipot, aes(x = old_pt_values, y = `PBANKA-1437500`, colour = seurat_clusters)) + 
+pt_plot_ap2g <- ggplot(df_seurat_bipot, aes(x = old_pt_values, y = `PBANKA-1437500`, colour = seurat_clusters)) + 
   geom_point() + 
   #scale_y_continuous(limit=c(0.00001,NA),oob=censor) +
   geom_smooth(method = "gam", formula = y ~s(x)) +
@@ -568,30 +585,132 @@ pt_plot_2 <- ggplot(df_seurat_bipot, aes(x = old_pt_values, y = `PBANKA-1437500`
   scale_colour_discrete_qualitative(palette = "Set 3") +
   theme(legend.position = "none", plot.title = element_text(face = "italic"))
 
-pt_plot_2
+pt_plot_ap2g
 ```
 
 ```{r}
-ggsave("../images_to_export/branch_p_ptplot_ap2g.png", plot = pt_plot_2, device = "png", path = NULL, scale = 1, width = 7, height = 9, units = "cm", dpi = 300, limitsize = TRUE)
+ggsave("../images_to_export/branch_p_ptplot_ap2g.png", plot = pt_plot_ap2g, device = "png", path = NULL, scale = 1, width = 7, height = 9, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
 ```{r}
-pt_plot_2 <- ggplot(df_seurat_bipot, aes(x = old_pt_values, y = `PBANKA-0706800`, colour = seurat_clusters)) + 
+pt_plot_eftu <- ggplot(df_seurat_bipot, aes(x = old_pt_values, y = `PBANKA-1345600`, colour = seurat_clusters)) + 
   geom_point() + 
   #scale_y_continuous(limit=c(0.00001,NA),oob=censor) +
   geom_smooth(method = "gam", formula = y ~s(x)) +
   theme_classic() +
   ylim(-1, 5) +
   stat_cor(method = "pearson", aes(color = seurat_clusters), label.x.npc = 'left', label.y.npc = 'top') +
-  labs(x = "Pseudotime", y = "Expression level", title = "dna-j (PBANKA_0706800)") +
+  labs(x = "Pseudotime", y = "Expression level", title = "Ef-Tu (PBANKA_1345600)") +
   scale_fill_discrete_qualitative(palette = "Set 3")+
   scale_colour_discrete_qualitative(palette = "Set 3") +
   theme(legend.position = "none", plot.title = element_text(face = "italic"))
 
-pt_plot_2
+pt_plot_eftu
 ```
 
+```{r}
+ggsave("../images_to_export/branch_p_ptplot_eftu.png", plot = pt_plot_eftu, device = "png", path = NULL, scale = 1, width = 7, height = 9, units = "cm", dpi = 300, limitsize = TRUE)
+```
 
+```{r}
+pt_plot_pnp <- ggplot(df_seurat_bipot, aes(x = old_pt_values, y = `PBANKA-1113000`, colour = seurat_clusters)) + 
+  geom_point() + 
+  #scale_y_continuous(limit=c(0.00001,NA),oob=censor) +
+  geom_smooth(method = "gam", formula = y ~s(x)) +
+  theme_classic() +
+  ylim(-1, 5) +
+  stat_cor(method = "pearson", aes(color = seurat_clusters), label.x.npc = 'left', label.y.npc = 'top') +
+  labs(x = "Pseudotime", y = "Expression level", title = "pnp (PBANKA_1113000)") +
+  scale_fill_discrete_qualitative(palette = "Set 3")+
+  scale_colour_discrete_qualitative(palette = "Set 3") +
+  theme(legend.position = "none", plot.title = element_text(face = "italic"))
+
+pt_plot_pnp
+```
+
+```{r}
+ggsave("../images_to_export/branch_p_ptplot_pnp.png", plot = pt_plot_pnp, device = "png", path = NULL, scale = 1, width = 7, height = 9, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+```{r}
+pt_plot_dnaj <- ggplot(df_seurat_bipot, aes(x = old_pt_values, y = `PBANKA-0706800`, colour = seurat_clusters)) + 
+  geom_point() + 
+  #scale_y_continuous(limit=c(0.00001,NA),oob=censor) +
+  geom_smooth(method = "gam", formula = y ~s(x)) +
+  theme_classic() +
+  ylim(-1, 5) +
+  stat_cor(method = "pearson", aes(color = seurat_clusters), label.x.npc = 'left', label.y.npc = 'top') +
+  labs(x = "Pseudotime", y = "Expression level", title = "dnaj (PBANKA_0706800)") +
+  scale_fill_discrete_qualitative(palette = "Set 3")+
+  scale_colour_discrete_qualitative(palette = "Set 3") +
+  theme(legend.position = "none", plot.title = element_text(face = "italic"))
+
+pt_plot_dnaj
+```
+
+```{r}
+ggsave("../images_to_export/branch_p_ptplot_dnaj.png", plot = pt_plot_dnaj, device = "png", path = NULL, scale = 1, width = 7, height = 9, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+```{r}
+pt_plot_PBANKA_1321000 <- ggplot(df_seurat_bipot, aes(x = old_pt_values, y = `PBANKA-1321000`, colour = seurat_clusters)) + 
+  geom_point() + 
+  #scale_y_continuous(limit=c(0.00001,NA),oob=censor) +
+  geom_smooth(method = "gam", formula = y ~s(x)) +
+  theme_classic() +
+  ylim(-1, 5) +
+  stat_cor(method = "pearson", aes(color = seurat_clusters), label.x.npc = 'left', label.y.npc = 'top') +
+  labs(x = "Pseudotime", y = "Expression level", title = "(PBANKA_1321000)") +
+  scale_fill_discrete_qualitative(palette = "Set 3")+
+  scale_colour_discrete_qualitative(palette = "Set 3") +
+  theme(legend.position = "none", plot.title = element_text(face = "italic"))
+
+pt_plot_PBANKA_1321000
+```
+
+```{r}
+ggsave("../images_to_export/branch_p_ptplot_PBANKA_1321000.png", plot = pt_plot_PBANKA_1321000, device = "png", path = NULL, scale = 1, width = 7, height = 9, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+```{r}
+pt_plot_sahh <- ggplot(df_seurat_bipot, aes(x = old_pt_values, y = `PBANKA-1235600`, colour = seurat_clusters)) + 
+  geom_point() + 
+  #scale_y_continuous(limit=c(0.00001,NA),oob=censor) +
+  geom_smooth(method = "gam", formula = y ~s(x)) +
+  theme_classic() +
+  ylim(-1, 6) +
+  stat_cor(method = "pearson", aes(color = seurat_clusters), label.x.npc = 'left', label.y.npc = 'top') +
+  labs(x = "Pseudotime", y = "Expression level", title = "sahh (PBANKA_1235600)") +
+  scale_fill_discrete_qualitative(palette = "Set 3")+
+  scale_colour_discrete_qualitative(palette = "Set 3") +
+  theme(legend.position = "none", plot.title = element_text(face = "italic"))
+
+pt_plot_sahh
+```
+
+```{r}
+ggsave("../images_to_export/branch_p_ptplot_sahh.png", plot = pt_plot_sahh, device = "png", path = NULL, scale = 1, width = 7, height = 9, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+```{r}
+pt_plot_bip <- ggplot(df_seurat_bipot, aes(x = old_pt_values, y = `PBANKA-0818900`, colour = seurat_clusters)) + 
+  geom_point() + 
+  #scale_y_continuous(limit=c(0.00001,NA),oob=censor) +
+  geom_smooth(method = "gam", formula = y ~s(x)) +
+  theme_classic() +
+  ylim(-1, 6) +
+  stat_cor(method = "pearson", aes(color = seurat_clusters), label.x.npc = 'left', label.y.npc = 'top') +
+  labs(x = "Pseudotime", y = "Expression level", title = "bip (PBANKA_0818900)") +
+  scale_fill_discrete_qualitative(palette = "Set 3")+
+  scale_colour_discrete_qualitative(palette = "Set 3") +
+  theme(legend.position = "none", plot.title = element_text(face = "italic"))
+
+pt_plot_bip
+```
+
+```{r}
+ggsave("../images_to_export/branch_p_ptplot_bip.png", plot = pt_plot_bip, device = "png", path = NULL, scale = 1, width = 7, height = 9, units = "cm", dpi = 300, limitsize = TRUE)
+```
 
 ```{r}
 ## remove large object from memory

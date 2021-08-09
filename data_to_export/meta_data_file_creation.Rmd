@@ -1,0 +1,39 @@
+---
+title: "GCSKO Supplementary Meta Data"
+output: html_notebook
+---
+
+There are 4 objects of interest:
+```{r}
+tenx.justwt.integrated
+tenx.justwt.integrated.sex
+tenx.mutant.integrated
+tenx.mutant.integrated.sex
+```
+
+Save the meta data into an excel file
+```{r}
+## make list of results
+list_of_meta_data <- list(wt_cells_all = tenx.justwt.integrated@meta.data, 
+                           wt_cells_sex = tenx.justwt.integrated.sex@meta.data, 
+                           all_cells_all = tenx.mutant.integrated@meta.data, 
+                           all_cells_sex = tenx.mutant.integrated.sex@meta.data
+                           )
+
+# for (i in seq_along(list_of_meta_data)){
+#   ## change the _ to -
+#   list_of_meta_data[[i]]$Gene.ID <- gsub("-", "_", list_of_meta_data[[i]]$Gene.ID)
+#   ## add proper column names
+#   names(list_of_meta_data[[i]]) <- c("Gene_ID", "Product_description", "Gene_type", "Is_pseudogene?", "Gene_name", "Transcript.Product.Description", "p_value", "average_logFC", "percent_cells_detected_1", "percent_cells_detected_2", "p_value_adjusted")
+#   ## remove is_pseudo
+#   list_of_meta_data[[i]] <- list_of_meta_data[[i]][ ,-which(names(list_of_meta_data[[i]]) %in% "Transcript.Product.Description")]
+#   ## reorder
+#   list_of_meta_data[[i]] <- list_of_meta_data[[i]][ ,c(1, 5, 2, 3, 4, 8, 9, 6, 10, 7)]
+# }
+
+library(openxlsx)
+write.xlsx(list_of_meta_data, file = "./meta_data.xlsx")
+```
+
+
+

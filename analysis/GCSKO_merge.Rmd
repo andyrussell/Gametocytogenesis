@@ -678,16 +678,17 @@ ggsave("../images_to_export/ALLCELLS_merge_UMAP_identity.png", plot = UMAP_ident
 
 ```{r, fig.height = 7, fig.width = 7}
 ## Plot
-umap_cluster <- DimPlot(tenx.mutant.integrated, label = TRUE, label.size = 8, repel = FALSE, pt.size = 0.5, dims = c(2,1), reduction = "DIM_UMAP") + 
+umap_cluster <- DimPlot(tenx.mutant.integrated, label = TRUE, label.size = 8, repel = TRUE, pt.size = 0.5, dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() +
-  theme(legend.position="bottom", 
+  theme(legend.position="bottom",
+        legend.text=element_text(size=18),
         axis.line=element_blank(),
         axis.text.x=element_blank(),
         axis.text.y=element_blank(),
         axis.ticks=element_blank(),
         axis.title.x=element_blank(),
         axis.title.y=element_blank()) + 
-  guides(colour=guide_legend(nrow = 3, byrow = TRUE, override.aes = list(size=10)))
+  guides(colour=guide_legend(nrow = 3, byrow = TRUE, override.aes = list(size=8)))
 
 ## print
 umap_cluster
@@ -795,23 +796,23 @@ Make final plots:
 p1 <- plot.list$`10X_WT` + 
   coord_fixed() +
   theme_void() +
-  scale_color_manual(values=c(replicate(45, "#999999"))) +
+  scale_color_manual(values=c(replicate(45, "#1D1564"))) +
   labs(title = paste("10X (wild-type)")) +
-  theme(legend.position = "none", plot.title = element_text(hjust = 0.5, family="Arial", size = 13, face = "bold"))
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5, family="Arial", size = 13, face = "plain"))
 
 p2 <- plot.list$WT +
   coord_fixed() +
   theme_void() +
-  scale_color_manual(values=c(replicate(46, "#999999"))) +
+  scale_color_manual(values=c(replicate(46, "#1D1564"))) +
   labs(title = paste("Smart-seq2 (wild-type)")) +
-  theme(legend.position = "none", plot.title = element_text(hjust = 0.5, family="Arial", size = 13, face = "bold"))
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5, family="Arial", size = 13, face = "plain"))
 
 p3 <- plot.list$Mutant +
   coord_fixed() +
   theme_void() +
-  scale_color_manual(values=c(replicate(46, "#999999"))) +
+  scale_color_manual(values=c(replicate(46, "#1D1564"))) +
   labs(title = paste("Smart-seq2 (mutant)")) +
-  theme(legend.position = "none", plot.title = element_text(hjust = 0.5, family="Arial", size = 13, face = "bold"))
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5, family="Arial", size = 13, face = "plain"))
 
 composition_umap_all <- p1 + p2 + p3
 
@@ -881,102 +882,102 @@ cells_fd4 <- rownames(tenx.mutant.integrated@meta.data[which(tenx.mutant.integra
 
 ## make plots
 
-pm2 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_fd3, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
+pfd3 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_fd3, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
-  scale_color_manual(values=c("#E2E2E2", "#31206E")) + 
+  scale_color_manual(values=c("#D3D3D3", "#1D1564")) + 
   theme_void() + 
-  labs(title = paste("fd3","\n", "(PBANKA_1418100)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  labs(title = paste("fd3")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "italic"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-pm3 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_md4, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
+pmd4 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_md4, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
-  scale_color_manual(values=c("#E2E2E2", "#31206E")) + 
+  scale_color_manual(values=c("#D3D3D3", "#1D1564")) + 
   theme_void() + 
-  labs(title = paste("md4","\n", "(PBANKA_0102400)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  labs(title = paste("md4")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "italic"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-pm4 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_md5, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
+pmd5 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_md5, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
-  scale_color_manual(values=c("#E2E2E2", "#31206E")) +
+  scale_color_manual(values=c("#D3D3D3", "#1D1564")) +
   theme_void() + 
-  labs(title = paste("md5","\n", "(PBANKA_0716500)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  labs(title = paste("md5")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "italic"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-pm5 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_fd4, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
+pfd4 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_fd4, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
-  scale_color_manual(values=c("#E2E2E2", "#31206E")) + 
+  scale_color_manual(values=c("#D3D3D3", "#1D1564")) + 
   theme_void() + 
-  labs(title = paste("fd4","\n", "(PBANKA_1435200)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  labs(title = paste("fd4")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "italic"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-pm6 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_fd2, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
+pfd2 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_fd2, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
-  scale_color_manual(values=c("#E2E2E2", "#31206E")) + 
+  scale_color_manual(values=c("#D3D3D3", "#1D1564")) + 
   theme_void() + 
-  labs(title = paste("fd2","\n", "PBANKA_0902300")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  labs(title = paste("fd2")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "italic"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-pm7 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_md3, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
+pmd3 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_md3, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
-  scale_color_manual(values=c("#E2E2E2", "#31206E")) + 
+  scale_color_manual(values=c("#D3D3D3", "#1D1564")) + 
   theme_void() + 
-  labs(title = paste("md3","\n", "(PBANKA_0413400)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  labs(title = paste("md3")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "italic"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-pm8 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_gd1, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
+pgd1 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_gd1, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
-  scale_color_manual(values=c("#E2E2E2", "#31206E")) + 
+  scale_color_manual(values=c("#D3D3D3", "#1D1564")) + 
   theme_void() + 
-  labs(title = paste("gd1","\n", "(PBANKA_0828000)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  labs(title = paste("gd1")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "italic"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-pm9 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_md1, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
+pmd1 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_md1, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
-  scale_color_manual(values=c("#E2E2E2", "#31206E")) + 
+  scale_color_manual(values=c("#D3D3D3", "#1D1564")) + 
   theme_void() + 
-  labs(title = paste("md1","\n", "(PBANKA_1302700)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  labs(title = paste("md1")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "italic"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-pm10 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_md2, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
+pmd2 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_md2, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
-  scale_color_manual(values=c("#E2E2E2", "#31206E")) + 
+  scale_color_manual(values=c("#D3D3D3", "#1D1564")) + 
   theme_void() + 
-  labs(title = paste("md2","\n", "(PBANKA_1447900)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  labs(title = paste("md2")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "italic"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
 
-pm11 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_fd1, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
+pfd1 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, cells.highlight = cells_fd1, group.by = "exclude_for_sex_ratio", dims = c(2,1), reduction = "DIM_UMAP") + 
   coord_fixed() + 
-  scale_color_manual(values=c("#E2E2E2", "#31206E")) + 
+  scale_color_manual(values=c("#D3D3D3", "#1D1564")) + 
   theme_void() + 
-  labs(title = paste("fd1","\n", "(PBANKA_1454800)")) + 
-  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "bold"), legend.position = "none")  +
+  labs(title = paste("fd1")) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "italic"), legend.position = "none")  +
   ## add sex symbols
   annotate("text", x = 3.8, y = 1.5, label = male_symbol, size=7, color="gray") + 
   annotate("text", x = 2, y = 2.8, label = female_symbol, size=7, color="gray")
@@ -986,17 +987,17 @@ pm11 <- DimPlot(tenx.mutant.integrated, label = FALSE, repel = TRUE, pt.size = 0
 #pm1 + pm2 + pm4 + pm5 + pm11 + pm7 + pm6 + pm8 + pm9 + pm10 + pm3
 
 ## plot composite plot
-mutant_cell_locations <- plot_grid(pm8 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
-                                   pm9 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
-                                   pm10 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
-                                   pm7 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
-                                   pm3 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")),
+mutant_cell_locations <- plot_grid(pmd1 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
+                                   pmd2 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
+                                   pmd3 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
+                                   pmd4 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
+                                   pmd5 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")),
                                    
-                                   pm11 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
-                                   pm6 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
-                                   pm2 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
-                                   pm5 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
-                                   pm4 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
+                                   pgd1 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
+                                   pfd1 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
+                                   pfd2 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
+                                   pfd3 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
+                                   pfd4 + theme(plot.margin = unit(c(0, 0, 0, 0), "cm")), 
                                    nrow = 2)
 
 ## print
@@ -1105,7 +1106,7 @@ scale_alpha(guide = 'none') +
 ## change x and y labels
 labs(y = "UMAP 1", x = "UMAP 2") +
 ## change guide titles  
-guides(color=guide_legend(title="Cluster"))  +
+guides(color=guide_legend(title="Cluster", override.aes = list(size=5)))  +
 theme(text = element_text(size = 10))
 
 subset_plot_B <- DimPlot(tenx.mutant.integrated.sex, 
@@ -1124,7 +1125,7 @@ scale_alpha(guide = 'none') +
 labs(y = "UMAP 1", x = "UMAP 2") + 
 scale_color_discrete_qualitative(palette = "Dark 3") +
 ## change guide titles  
-guides(color=guide_legend(title="Genotype")) +
+guides(color=guide_legend(title="Genotype", override.aes = list(size=5))) +
 theme(text = element_text(size = 10))
   
 subset_plot <- subset_plot_A + subset_plot_B
@@ -1163,7 +1164,6 @@ copy old clusters over
 ## copy old clusters
 tenx.mutant.integrated.sex <- AddMetaData(tenx.mutant.integrated.sex, tenx.mutant.integrated.sex@meta.data$seurat_clusters, col.name = "post_integration_clusters")
 ```
-
 
 # 10. Save and Export {.tabset}
 

@@ -434,6 +434,186 @@ umap_bulk <- wrap_plots(UMAP_hoo, UMAP_kasia, ncol = 2)
 umap_bulk
 ```
 
+## MCA Mapping
+
+## Build the index
+
+```{r}
+## load in mca data
+counts <- read.csv("../data/Reference/scmap/allpb10x_counts.csv", row.names = 1)
+pheno <- read.csv("../data/Reference/scmap/allpb10x_pheno.csv")
+
+## change dash
+rownames(counts) <- gsub("_", "-", rownames(counts))
+
+## load MCA pal
+mca_colors <- c("6"="#78C679",
+            "2"="#D1EC9F",
+            "0"="#FEB24C",
+            "1"="#F4CF63",
+            "3"="#FEEEAA",
+            "4"="#85B1D3",
+            "7"="#9ecae1",
+            "5"="#C9E8F1",
+            "M"= "#B7B7D8",
+            "F"="#9C96C6",
+            "unassigned"="darkgrey")
+
+## plot
+ggplot(pheno, aes(x=PC2_3d, y = PC3_3d, colour=absclust3)) + 
+  geom_point() +
+  theme_classic() +
+  scale_color_manual(values = mca_colors, labels = (c("0 - early troph", "1 - mid troph","2 - late ring", "3 - late troph","4 - early schizont", "5 - late schizont", "6 - early ring","7 - mid schizont", "female", "male", "unassigned")))
+```
+
+```{r}
+###Making an ortholog reference index
+
+## load required libraries
+library(scmap)
+library(SingleCellExperiment)
+
+#prep the SCE, if was originally a Suerat object need the dfs to be regular matrices
+#pb_filtered_sce_orth <- pb_filtered_sce_orth[, colData(pb_filtered_sce_orth)$absclust3 != "8"]
+#sce <- pb_filtered_sce_orth
+#pca <- plotPCA(sce)
+#pcs <- pca$data
+#table(rownames(pcs)==colnames(sce))
+#colData(sce) <- cbind(colData(sce), pcs)
+#rowData(sce)$feature_symbol <- rowData(sce)$gene
+sce <- SingleCellExperiment(list(counts=counts),
+    colData=DataFrame(label=pheno),
+    rowData=DataFrame(feature_symbol=rownames(counts)))
+sce
+counts_1 <- assay(sce, "counts")
+libsizes <- colSums(counts_1)
+size.factors <- libsizes/mean(libsizes)
+logcounts(sce) <- log2(t(t(counts_1)/size.factors) + 1)
+#counts(sce) <- as.matrix(counts(sce))
+#logcounts(sce) <- as.matrix(logcounts(sce))
+# remove features with duplicated names
+sce <- sce[!duplicated(rownames(sce)), ]
+
+#build scmap-cell reference index, save this rds
+sce <- selectFeatures(sce, suppress_plot = FALSE, n_features = 500)
+table(rowData(sce)$scmap_features)
+
+set.seed(1)
+sce <- indexCell(sce)
+names(metadata(sce)$scmap_cell_index)
+length(metadata(sce)$scmap_cell_index$subcentroids)
+dim(metadata(sce)$scmap_cell_index$subcentroids[[1]])
+metadata(sce)$scmap_cell_index$subcentroids[[1]][,1:5]
+dim(metadata(sce)$scmap_cell_index$subclusters)
+
+#saveRDS(pb_filtered_sce_orth, file="pb_filtered_sce_orthindex_20181109.rds")
+```
+
+## Map to the index
+
+```{r}
+## convert seurat object above into sce for this
+pf_field_counts <- as.matrix(tenx.justwt.integrated@assays$RNA@data)
+pf_field_pheno <- tenx.justwt.integrated@meta.data
+
+#prep the SCE, if was originally a Suerat object need the dfs to be regular matrices
+#pb_filtered_sce_orth <- pb_filtered_sce_orth[, colData(pb_filtered_sce_orth)$absclust3 != "8"]
+#sce <- pb_filtered_sce_orth
+#pca <- plotPCA(sce)
+#pcs <- pca$data
+#table(rownames(pcs)==colnames(sce))
+#colData(sce) <- cbind(colData(sce), pcs)
+#rowData(sce)$feature_symbol <- rowData(sce)$gene
+pf_live_field.sce.orth <- SingleCellExperiment(list(counts=pf_field_counts),
+    colData=DataFrame(label=pf_field_pheno),
+    rowData=DataFrame(feature_symbol=rownames(pf_field_counts)))
+pf_live_field.sce.orth
+counts_1 <- assay(pf_live_field.sce.orth, "counts")
+libsizes <- colSums(counts_1)
+size.factors <- libsizes/mean(libsizes)
+logcounts(pf_live_field.sce.orth) <- log2(t(t(counts_1)/size.factors) + 1)
+
+
+#Project query data set onto cell index
+scmapCell_results <- scmapCell(
+  pf_live_field.sce.orth, 
+  list(mca = metadata(sce)$scmap_cell_index
+  )
+)
+
+##Look into the results
+# For each dataset there are two matricies. cells matrix contains the top 10 (scmap default) cell IDs of the cells of the reference dataset that a given cell of the projection dataset is closest to:
+#   
+#   Give assignments in two ways:
+#   1. Take the top cell assignment abs clust, if cosine similarity is less than 0.4 (or adjust if needed) mark as unassigned
+# 2. For the top 3 nearest neighbors, get a mean of the PCA coordinates and snap to the nearest cell of those coordinates. If any of the top three cells are sim below 0.4 then mark as unassigned.
+
+
+##Top cell assignment method
+scmapCell_results$mca$cells[, 1:3]
+getcells <- scmapCell_results$mca$cells[1, ]
+cdsce <- colData(sce)[getcells, ]
+topsim <- scmapCell_results$mca$similarities[1, ]
+
+pf_live_field.sce.orth$topcell <- cdsce$label.sample_id
+pf_live_field.sce.orth$topcell_ac <- cdsce$label.absclust3
+pf_live_field.sce.orth$indexPC1 <- cdsce$label.PC1
+pf_live_field.sce.orth$indexPC2 <- cdsce$label.PC2
+#pf_live_field.sce.orth$pbpt <- cdsce$pseudotime
+#pf_live_field.sce.orth$pbbulk <- cdsce$bulk
+pf_live_field.sce.orth$topcell_sp <- pf_live_field.sce.orth$topcell_ac
+pf_live_field.sce.orth$topsim <- topsim
+pf_live_field.sce.orth$topcell_sp[pf_live_field.sce.orth$topsim < 0.3] <- "unassigned"
+table(pf_live_field.sce.orth$topcell_sp)
+```
+
+add these metrics back into the object 
+
+```{r}
+## add the meta data from scmap to the object
+# live
+## extract
+df_plot_live <- data.frame(topcell_sp = colData(pf_live_field.sce.orth)$topcell_sp, topsim = colData(pf_live_field.sce.orth)$topsim, row.names = rownames(colData(pf_live_field.sce.orth)))
+
+## add to object
+tenx.justwt.integrated <- AddMetaData(
+  object = tenx.justwt.integrated,
+  metadata = df_plot_live,
+  col.name = c('mca_topcell_sp', 'mca_topsim')
+)
+
+## need to fix the NA in topcell_sp
+# Un-factorize (as.numeric can be use for numeric values)
+#              (as.vector  can be use for objects - not tested)
+tenx.justwt.integrated@meta.data$mca_topcell_sp <- as.character(tenx.justwt.integrated@meta.data$mca_topcell_sp)
+## add unassigned
+tenx.justwt.integrated@meta.data$mca_topcell_sp[is.na(tenx.justwt.integrated@meta.data$mca_topcell_sp)] <- "unassigned"
+# Re-factorize with the as.factor function or simple factor(fixed$Type)
+tenx.justwt.integrated@meta.data$mca_topcell_sp <- as.factor(tenx.justwt.integrated@meta.data$mca_topcell_sp)
+## check
+table(tenx.justwt.integrated@meta.data$mca_topcell_sp)
+```
+
+```{r}
+## reorder levels
+tenx.justwt.integrated@meta.data$mca_topcell_sp <- factor(tenx.justwt.integrated@meta.data$mca_topcell_sp, levels = rev(c("M", "F", "5", "7", "4", "3", "1", "0", "2", "6")))
+
+UMAP_mca <- DimPlot(tenx.justwt.integrated, pt.size = 0.1, group.by = "mca_topcell_sp", dims = c(1,2)) +
+  coord_fixed() + 
+  theme_void() +
+  labs(title = paste("MCA Predicted Cell Type"), colour = "MCA Cell Type") + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 20, face = "bold")) +
+  scale_color_manual(values = mca_colors, labels = (c("6 - early ring", "2 - late ring", "0 - early troph", "1 - mid troph", "3 - late troph", "4 - early schizont", "7 - mid schizont", "5 - late schizont", "female", "male"))) +
+  theme(legend.position = "right", legend.title=element_text(size=15))
+
+UMAP_mca
+```
+
+save
+```{r}
+ggsave("../images_to_export/UMAP_mca.png", plot = UMAP_mca, device = "png", path = NULL, scale = 1, width = 15, height = 15, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
 # 5. Clustering {.tabset} 
 
 ### Generate clusters
@@ -1231,6 +1411,16 @@ ggsave("../images_to_export/UMAP_pt_wt.png", plot = umap_pt, device = "png", pat
 
 ### gganimnate GIF of pseuodtime
 
+Select appropriate cells
+```{r}
+plot <- DimPlot(tenx.justwt.integrated, label = FALSE, repel = TRUE, pt.size = 0.1, dims = c(1,2), reduction = "umap")
+HoverLocator(plot, information = FetchData(object = tenx.justwt.integrated, vars = 'monocle_sex'))
+```
+
+```{r}
+cells_to_remove <- c("SC26779_8_280", "CTGGTCTAGCAGATCG")
+```
+
 ```{r}
 #install.packages("gganimate")
 library(gganimate)
@@ -1281,6 +1471,65 @@ pt_values <- as.data.frame(pseudotime(monocle.object.all, reduction_method = "UM
 
 tenx.justwt.integrated <- AddMetaData(tenx.justwt.integrated, pt_values, "old_pt_values")
 ```
+
+```{r}
+library(gganimate)
+
+## make dataframe for plotting
+## extract data for GGplot version of this
+df_animation <- as.data.frame(tenx.justwt.integrated@reductions[["umap"]]@cell.embeddings)
+## add pt to this data frame:
+pt_values <- as.data.frame(tenx.justwt.integrated@meta.data[ ,c("old_pt_values", "pt_id_cols"), drop = FALSE])
+df_animation <- merge(df_animation, pt_values, by="row.names") 
+rownames(df_animation) <- df_animation$Row.names
+colnames(df_animation)[4] <- "pt"
+## remove outlier cells
+df_animation <- df_animation[which(df_animation$Row.names %ni% cells_to_remove), ]
+
+#df_animation <- df_animation[order(df_animation$pt, decreasing = TRUE), ]
+
+## make a category for animation
+#df_animation$group <- as.numeric(cut(df_animation$pt, 10, include.lowest = TRUE, labels = c(1:10)))
+
+## make the static plot
+p <- ggplot(df_animation, aes(x = UMAP_1, y = UMAP_2)) +
+  geom_point(col = df_animation$pt_id_cols) +
+  #scale_colour_viridis_c(option = "plasma") +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "none") +
+  view_static()
+## view plot
+plot(p)
+
+## make animated plot
+
+
+anim <- p +
+  transition_time(pt) +
+  shadow_mark() +
+  #shadow_wake(wake_length = 0.99) #+
+  enter_fade()
+
+animate(anim, 
+        height = 3, 
+        width = 3, 
+        units = "in", 
+        res = 300, 
+        bg = 'white', 
+        #duration = 6, 
+        fps = 20, 
+        device = "png",
+        #ref_frame = 1
+        end_pause = 10
+        )
+
+## save
+anim_save("animated_UMAP_highres.gif", path = "../images_to_export/")
+
+## to change the resolution - https://stackoverflow.com/questions/49058567/define-size-for-gif-created-by-gganimate-change-dimension-resolution 
+```
+
 
 #### Define cell identities with branches
 
@@ -1695,14 +1944,14 @@ head(df_cumsum)
 
 ## reverse the levels in Var1
 #df_cumsum$cluster <- factor(df_cumsum$cluster, levels = rev(c(levels(df_cumsum$cluster))))
-
+#df_cumsum <- df_cumsum[c(match(df_cumsum$cluster[1:23], c(levels(df_cumsum$cluster))), match(df_cumsum$cluster[1:23], c(levels(df_cumsum$cluster))) + 23), ]
 
 library(ggrepel)
 library(ggpubr)
 ## make plot
 plot_prop <- ggplot(data=df_cumsum, aes(x=experiment, y=pc, fill=cluster)) +
   geom_bar(stat="identity")+
-  geom_label_repel(aes(label = Freq,y=label_ypos, fill = factor(cluster)), color = 'black', size = 3.5, show.legend = FALSE) +
+  geom_label_repel(aes(label = Freq, y=label_ypos, fill = factor(cluster)), color = c(rep(c(rep(c("#ffffff"), 2), "#000000", "#ffffff", rep(c("#000000"), 2), rep(c("#ffffff"), 5), rep(c("#000000"), 12)), 2)), size = 3.5, show.legend = FALSE) +
   #geom_text(aes(y=label_ypos, label=Freq), vjust=0, color="black", size=3.5) +
   labs(fill = "Cell cluster", y= "Cell Proportions (%)", x = "Technology") +
   scale_fill_manual(labels = c("Asexual 1", "Asexual 2" , "Asexual 3", "Asexual 4", "Asexual 5", "Asexual 6", "Asexual 7", "Asexual 8",  "Asexual 9", "Asexual 10", "Asexual 11", "Asexual 12", "Asexual 13", "Asexual 14", "Asexual 15", "Asexual 16", "Asexual 17", "Progenitor", "Male 1", "Male 2", "Female 1", "Female 2", "Female 3"), values = pal_plot) +
@@ -1711,6 +1960,7 @@ plot_prop <- ggplot(data=df_cumsum, aes(x=experiment, y=pc, fill=cluster)) +
   scale_x_discrete(labels= rev(c("10x", "Smart-seq2"))) +
   coord_flip() +
   guides(fill=guide_legend(ncol=9))
+
 
 plot_prop
 ```

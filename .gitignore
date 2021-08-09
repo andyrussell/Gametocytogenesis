@@ -6,6 +6,8 @@
 .RDataTmp
 *.RDS
 *.html # TODO: remove this and publish the html files before publication. But useful to exclude during development.
+/images_to_export
+/archive
 images_to_export/QC_mito_violin.png
 images_to_export/QC_mito_graph.png
 images_to_export/QC_failed_position.png
@@ -26,3 +28,5 @@ quality_control/GCSKO_SS2_QC.nb.html
 data_to_export/ss2_mutants_final.RDS
 quality_control/GCSKO_SS2_QC.nb.html
 data/Genotyping/Coverage_plots.RData
+data_to_export/mca_website_combined.csv
+data_to_export/mca_website_counts.csv

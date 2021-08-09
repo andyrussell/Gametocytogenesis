@@ -180,6 +180,8 @@ if(require("destiny")){
     }
 }
 
+library(colorspace)
+
 #set the seed for both the mixture models and also for the sample function later on:
 set.seed(-92497)
 ```
@@ -615,24 +617,199 @@ screen_annotation
 ggsave("../images_to_export/screen_annotation.png", plot = screen_annotation, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
+### significance test
+
+test vikash vs my dataframe
+```{r}
+## kasia's table for comparison
+vikash <- read.delim("../bulk_rna-seq/enrichment/Kasia new cluster enrichment for Vikash.txt", sep = "\t", header = TRUE)
+dim(vikash)
+
+## read in screen hits
+library("readxl")
+screen_hits <- read_excel("../data/Screen/Modules_Clusters_Phenotypes.xlsx")
+dim(screen_hits)
+
+combined <- merge(screen_hits[which(screen_hits$`Gam phenotype screen` == "Both" | screen_hits$`Gam phenotype screen` == "Females" | screen_hits$`Gam phenotype screen` == "Males"), ], vikash[!vikash$cons.phenotype == "None", ], by.x = "new gene ID", by.y = "new.gene.ID", all.x = TRUE)
+dim(combined)
+```
+
+set up df for python
+```{r}
+## read in modules
+modules <- as.data.frame(gene_module_df_sex)
+## take cols of interest
+modules <- modules[ ,c("id", "module"), drop = FALSE]
+## change the underscore to a dash
+modules$id <- gsub("-", "_", modules$id)
+
+## read in phenotypes from screen
+screen_hits <- read_excel("../data/Screen/Modules_Clusters_Phenotypes.xlsx")
+screen_hits_to_merge <- as.data.frame(screen_hits)
+screen_hits_to_merge <- screen_hits_to_merge[ ,c("new gene ID", "Gam phenotype screen")]
+
+## merge togerther to create final df
+input_for_enrichment <- merge(modules, screen_hits_to_merge, by.x = "id", by.y = "new gene ID", all.x = TRUE)
+names(input_for_enrichment) <- c("new gene ID", "Cluster", "cons phenotype")
+## modify to match vikash table
+## remove NA values
+input_for_enrichment <- input_for_enrichment[!is.na(input_for_enrichment$`cons phenotype`), ]
+## change the malenot enough power to none 
+input_for_enrichment[input_for_enrichment$`cons phenotype` == "male not enough power", ]$`cons phenotype` <- "None"
+##clean up
+rm(screen_hits_to_merge)
+```
+
+do significance test in python - update this to R at a later date - Vikash wrote this for enrichment of screen hits in bulk data
+```{python}
+import os
+import pandas as pd
+from scipy.stats import hypergeom ## for hypergeomtric distributions
+import numpy as np
+import statsmodels.stats.multitest as mtest ## for multiple hypothesis testing
+current_folder = os.getcwd() ## current directory path
+
+def apply_enrich(tmp,sex_gene_list,outfile):
+    ## groupby along Phenotyepes
+    #First argumnet: temperory dataframe
+    #Second argument: list of male-specific genes
+    #Third argumnet: file where we store enrichment analysis
+
+
+    M=len(tmp.index) # total number of genes
+    pvals=[] # list for storing pvalues
+    n_list=[] # store number of genes in cluster
+    x_list=[] ## store number of sex-specific genes in cluster
+    genes=[] ## we store genes (sex-specifc gene ids)
+    clusters=[] ## store cluster number
+
+    ## group clusters
+    for k,v in tmp.groupby([ 'Cluster']).indices.items():
+        ## print(k, len(v))
+        clusters.append(k) ## store cluster number
+        clust_genes=set(tmp.index[v].to_list()) ## genes in the cluster
+
+        sex_gene_in_clust= set(sex_gene_list)& clust_genes ## how many sex-specific genes are found in cluster
+        ## how many are in phenoype
+        M=M ## total genes
+        N=len(sex_gene_list) ## sex-specific genes
+        n=len(clust_genes) ## total number of cluster genes
+
+        rv = hypergeom(M, n, N) ## hypergeometric  distributions
+        x=len(sex_gene_in_clust) ## number of sex-specific genes in cluster
+
+        ## for p-value we need to get summation of all probalities greater than > x
+        pval= 1-rv.cdf(x)
+        pvals.append(pval)
+        n_list.append(n)
+        x_list.append(x)
+        genes.append(', '.join(sex_gene_in_clust))
+    fdr=mtest.multipletests(pvals, alpha=0.05, method='fdr_bh')
+    enrich={'Cluster':clusters, 'pvals':pvals,'cluster_size':n_list,'# of genes found in cluster':x_list,'genes':genes,'FDR':fdr[1]}
+
+    ## create enrichment table
+    enrich_df=pd.DataFrame.from_dict(enrich)
+    enrich_soreted=enrich_df.sort_values(by=['pvals'],ascending=True)
+
+    enrich_soreted.to_csv(outfile,sep='\t',index=None)
+    
+
+
+
+def enrich_cluster_final():
+    ''' Calculate p-value and FDR using enrichment analysis. We used hypergeometric test'''
+
+    ### input file (provided by Oliver): this file has 3 columns
+    # First column: 'new gene ID'
+    # Second column: 'Cluster'
+    # Third column: 'cons phenotype'
+    ##
+    #input_file=current_folder+'/Kasia new cluster enrichment for Vikash.txt'
+    #df=pd.read_csv(input_file,sep='\t')## input file as a dataframe
+    df = r.input_for_enrichment
+    df
+    #df=df.fillna('NA') ## nan is fill with NA
+    # df['consensus phenotype']=df['consensus phenotype'].str.replace('None','NA')
+    tmp=df.copy() ## this is the temperory data frame same as a original dataframe
+    tmp.set_index('new gene ID',inplace=True) ## make gene ids as index
+
+    ## seprate the dataframes according sex-specific phenotypes
+    male_df=tmp[(tmp['cons phenotype']== 'Males')]
+    female_df=tmp[(tmp['cons phenotype']== 'Females')]
+    both_df=tmp[(tmp['cons phenotype']== 'Both')]
+
+
+    ## enrichment analysis for male
+    outfile=current_folder+'/../data_to_export/module_enrichment_results/Module_enrichment_gametocyte_male.txt'
+    #First argumnet: temperory dataframe
+    #Second argument: list of male-specific genes
+    #Third argumnet: file where we store enrichment analysis
+    apply_enrich(tmp,male_df.index.to_list(),outfile)
+
+    ## enrichment analysis for female: similar as male
+
+    outfile=current_folder+'/../data_to_export/module_enrichment_results/Module_enrichment_gametocyte_female.txt'
+    apply_enrich(tmp ,female_df.index.to_list(),outfile)
+
+    ## enrichment analysis for both sexes: : similar as male
+
+    outfile=current_folder+'/../data_to_export/module_enrichment_results/Module_enrichment_gametocyte_both.txt'
+    apply_enrich(tmp,both_df.index.to_list(),outfile)
+if __name__ == '__main__':
+
+   enrich_cluster_final()
+```
+
+
+
+
 #### DOZI-regulated genes
 
 Find out how many of the genes in each module has a DOZI-regulated gene
 
+OLD LIST FROM KENT PAPER
 ```{r}
-DOZI_regulated_genes <-
-read.csv(file = "../data/Reference/DOZI_regulated_genes.csv", header = TRUE)
+#DOZI_regulated_genes <- read.csv(file = "../data/Reference/DOZI_regulated_genes.csv", header = TRUE)
 
 ## extract gene IDs
-dozi_genes <- DOZI_regulated_genes[DOZI_regulated_genes$DOZI_regulated. == "YES", ]$Gene_ID_PB
+#dozi_genes <- DOZI_regulated_genes[DOZI_regulated_genes$DOZI_regulated. == "YES", ]$Gene_ID_PB
 ## change the underscore to a dash
-dozi_genes <- gsub("_", "-", dozi_genes)
+#dozi_genes <- gsub("_", "-", dozi_genes)
 
+## find out which modules they are in
+#df_dozi_gene_modules <- gene_module_df_sex[which(gene_module_df_sex$id %in% dozi_genes),]
+#print("dozi genes by module")
+#table(df_dozi_gene_modules$module)
+```
+
+```{r}
+## DOZI
+guerreiro <- read.csv(file = "../data/Reference/raw_data_and_merging_scripts/Guerreiro_2014.csv", header = TRUE)
+guerreiro <- guerreiro[, c(1, 9,10,11)]
+names(guerreiro) <- c("id", "CITH", "DOZI", "CITH_and_DOZI")
+## change old gene IDs
+old_ids <- read.csv(file = "../data/Reference/raw_data_and_merging_scripts/New_to_old_gene_ids.csv", header = FALSE)
+## Get only 1 to 1 conversions
+old_ids <- old_ids[old_ids$V3 == "",]
+old_ids <- old_ids[ , c(1,2)]
+names(old_ids) <- c("new", "old")
+guerreiro_new <- merge(guerreiro, old_ids, by.x = "id", by.y = "old", all.x = TRUE)
+guerreiro_new <- guerreiro_new[-which(is.na(guerreiro_new$new)), ]
+## change the underscore to a dash
+guerreiro_new$new <- gsub("_", "-", guerreiro_new$new)
+## if you want only discovered in both
+#guerreiro_hits <- guerreiro_new[guerreiro_new$CITH_and_DOZI == 2, ]
+## to get all genes with a pullldown
+guerreiro_hits <- guerreiro_new[!guerreiro_new$CITH_and_DOZI == 0, ]
+
+dozi_genes <- guerreiro_hits$new
 ## find out which modules they are in
 df_dozi_gene_modules <- gene_module_df_sex[which(gene_module_df_sex$id %in% dozi_genes),]
 print("dozi genes by module")
 table(df_dozi_gene_modules$module)
 ```
+
+
 get as a percentage
 ```{r}
 ## make a table with the total number of genes in each module
@@ -684,21 +861,161 @@ dozi_annotation
 ggsave("../images_to_export/dozi_annotation.png", plot = dozi_annotation, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
+set up df for python
+```{r}
+## read in modules
+modules <- as.data.frame(gene_module_df_sex)
+## take cols of interest
+modules <- modules[ ,c("id", "module"), drop = FALSE]
+## change the underscore to a dash
+modules$id <- gsub("-", "_", modules$id)
+
+## read in phenotypes from screen
+screen_hits_to_merge <- as.data.frame(guerreiro_hits)
+## create new col
+screen_hits_to_merge$phenotype <- NA
+screen_hits_to_merge[screen_hits_to_merge$CITH == 1, ]$phenotype <- "CITH"
+screen_hits_to_merge[screen_hits_to_merge$DOZI== 1, ]$phenotype <- "DOZI"
+screen_hits_to_merge[screen_hits_to_merge$CITH_and_DOZI == 2, ]$phenotype <- "CITH_and_DOZI"
+screen_hits_to_merge <- screen_hits_to_merge[ ,c("new", "phenotype")]
+## change the underscore to a dash
+screen_hits_to_merge$new <- gsub("-", "_", screen_hits_to_merge$new)
+
+## merge togerther to create final df
+input_for_enrichment <- merge(modules, screen_hits_to_merge, by.x = "id", by.y = "new", all.x = TRUE)
+names(input_for_enrichment) <- c("new gene ID", "Cluster", "cons phenotype")
+## modify to match vikash table
+## remove NA values
+input_for_enrichment <- input_for_enrichment[!is.na(input_for_enrichment$`cons phenotype`), ]
+##clean up
+rm(screen_hits_to_merge)
+```
+
+do significance test in python - update this to R at a later date - Vikash wrote this for enrichment of screen hits in bulk data
+```{python}
+import os
+import pandas as pd
+from scipy.stats import hypergeom ## for hypergeomtric distributions
+import numpy as np
+import statsmodels.stats.multitest as mtest ## for multiple hypothesis testing
+current_folder = os.getcwd() ## current directory path
+
+def apply_enrich(tmp,sex_gene_list,outfile):
+    ## groupby along Phenotyepes
+    #First argumnet: temperory dataframe
+    #Second argument: list of male-specific genes
+    #Third argumnet: file where we store enrichment analysis
+
+
+    M=len(tmp.index) # total number of genes
+    pvals=[] # list for storing pvalues
+    n_list=[] # store number of genes in cluster
+    x_list=[] ## store number of sex-specific genes in cluster
+    genes=[] ## we store genes (sex-specifc gene ids)
+    clusters=[] ## store cluster number
+
+    ## group clusters
+    for k,v in tmp.groupby([ 'Cluster']).indices.items():
+        ## print(k, len(v))
+        clusters.append(k) ## store cluster number
+        clust_genes=set(tmp.index[v].to_list()) ## genes in the cluster
+
+        sex_gene_in_clust= set(sex_gene_list)& clust_genes ## how many sex-specific genes are found in cluster
+        ## how many are in phenoype
+        M=M ## total genes
+        N=len(sex_gene_list) ## sex-specific genes
+        n=len(clust_genes) ## total number of cluster genes
+
+        rv = hypergeom(M, n, N) ## hypergeometric  distributions
+        x=len(sex_gene_in_clust) ## number of sex-specific genes in cluster
+
+        ## for p-value we need to get summation of all probalities greater than > x
+        pval= 1-rv.cdf(x)
+        pvals.append(pval)
+        n_list.append(n)
+        x_list.append(x)
+        genes.append(', '.join(sex_gene_in_clust))
+    fdr=mtest.multipletests(pvals, alpha=0.05, method='fdr_bh')
+    enrich={'Cluster':clusters, 'pvals':pvals,'cluster_size':n_list,'# of genes found in cluster':x_list,'genes':genes,'FDR':fdr[1]}
+
+    ## create enrichment table
+    enrich_df=pd.DataFrame.from_dict(enrich)
+    enrich_soreted=enrich_df.sort_values(by=['pvals'],ascending=True)
+
+    enrich_soreted.to_csv(outfile,sep='\t',index=None)
+    
+
+
+
+def enrich_cluster_final():
+    ''' Calculate p-value and FDR using enrichment analysis. We used hypergeometric test'''
+
+    ### input file (provided by Oliver): this file has 3 columns
+    # First column: 'new gene ID'
+    # Second column: 'Cluster'
+    # Third column: 'cons phenotype'
+    ##
+    #input_file=current_folder+'/Kasia new cluster enrichment for Vikash.txt'
+    #df=pd.read_csv(input_file,sep='\t')## input file as a dataframe
+    df = r.input_for_enrichment
+    df
+    #df=df.fillna('NA') ## nan is fill with NA
+    # df['consensus phenotype']=df['consensus phenotype'].str.replace('None','NA')
+    tmp=df.copy() ## this is the temperory data frame same as a original dataframe
+    tmp.set_index('new gene ID',inplace=True) ## make gene ids as index
+
+    ## seprate the dataframes according sex-specific phenotypes
+    male_df=tmp[(tmp['cons phenotype']== 'CITH')]
+    female_df=tmp[(tmp['cons phenotype']== 'DOZI')]
+    both_df=tmp[(tmp['cons phenotype']== 'CITH_and_DOZI')]
+
+
+    ## enrichment analysis for male
+    outfile=current_folder+'/../data_to_export/module_enrichment_results/Module_enrichment_guerreiro_cith.txt'
+    #First argumnet: temperory dataframe
+    #Second argument: list of male-specific genes
+    #Third argumnet: file where we store enrichment analysis
+    apply_enrich(tmp,male_df.index.to_list(),outfile)
+
+    ## enrichment analysis for female: similar as male
+
+    outfile=current_folder+'/../data_to_export/module_enrichment_results/Module_enrichment_guerreiro_dozi.txt'
+    apply_enrich(tmp ,female_df.index.to_list(),outfile)
+
+    ## enrichment analysis for both sexes: : similar as male
+
+    outfile=current_folder+'/../data_to_export/module_enrichment_results/Module_enrichment_guerreiro_both.txt'
+    apply_enrich(tmp,both_df.index.to_list(),outfile)
+if __name__ == '__main__':
+
+   enrich_cluster_final()
+```
+
 #### Essential genes
 
-Find out how many of the genes in each module has a DOZI-regulated gene
+Find out how many of the genes in each module has an asexual blood-stage phenotype gene
+
+```{r}
+essential_genes <- read.csv(file = "../data/Reference/bushell_2017_data.csv", header = TRUE)
+## extract info
+essential_genes <- essential_genes[, c("P..berghei.current.ID", "Phenotype" )]
+names(essential_genes) <- c("id", "phenotype")
+## change the underscore to a dash
+essential_genes$id <- gsub("_", "-", essential_genes$id)
+dim(essential_genes)
+```
+
 
 ```{r}
 essential_genes <-
 read.csv(file = "../data/Reference/bushell_2017_data.csv", header = TRUE)
-
 ## extract info
 essential_genes <- essential_genes[, c("P..berghei.current.ID", "Phenotype" )]
 names(essential_genes) <- c("id", "phenotype")
 ## change the underscore to a dash
 essential_genes$id <- gsub("_", "-", essential_genes$id)
 ## remove any transcript numbers
-essential_genes$id <- sub("\\..*", "", essential_genes$id)
+#essential_genes$id <- sub("\\..*", "", essential_genes$id)
 
 ## find out which modules all screened genes are in
 df_screened_gene_modules <- gene_module_df_sex[which(gene_module_df_sex$id %in% essential_genes$id),]
@@ -792,6 +1109,133 @@ bloodstage_annotation
 ggsave("../images_to_export/bloodstage_annotation.png", plot = bloodstage_annotation, device = "png", path = NULL, scale = 1, width = 10, height = 10, units = "cm", dpi = 300, limitsize = TRUE)
 ```
 
+set up df for python
+```{r}
+## read in modules
+modules <- as.data.frame(gene_module_df_sex)
+## take cols of interest
+modules <- modules[ ,c("id", "module"), drop = FALSE]
+## change the underscore to a dash
+modules$id <- gsub("-", "_", modules$id)
+
+## read in phenotypes from screen
+essential_genes <-
+read.csv(file = "../data/Reference/bushell_2017_data.csv", header = TRUE)
+## extract info
+essential_genes <- essential_genes[, c("P..berghei.current.ID", "Phenotype" )]
+names(essential_genes) <- c("id", "phenotype")
+screen_hits_to_merge <- essential_genes
+
+## merge togerther to create final df
+input_for_enrichment <- merge(modules, screen_hits_to_merge, by.x = "id", by.y = "id", all.x = TRUE)
+names(input_for_enrichment) <- c("new gene ID", "Cluster", "cons phenotype")
+## modify to match vikash table
+## remove NA values
+input_for_enrichment <- input_for_enrichment[!is.na(input_for_enrichment$`cons phenotype`), ]
+##clean up
+rm(screen_hits_to_merge)
+```
+
+do significance test in python - update this to R at a later date - Vikash wrote this for enrichment of screen hits in bulk data
+```{python}
+import os
+import pandas as pd
+from scipy.stats import hypergeom ## for hypergeomtric distributions
+import numpy as np
+import statsmodels.stats.multitest as mtest ## for multiple hypothesis testing
+current_folder = os.getcwd() ## current directory path
+
+def apply_enrich(tmp,sex_gene_list,outfile):
+    ## groupby along Phenotyepes
+    #First argumnet: temperory dataframe
+    #Second argument: list of male-specific genes
+    #Third argumnet: file where we store enrichment analysis
+
+
+    M=len(tmp.index) # total number of genes
+    pvals=[] # list for storing pvalues
+    n_list=[] # store number of genes in cluster
+    x_list=[] ## store number of sex-specific genes in cluster
+    genes=[] ## we store genes (sex-specifc gene ids)
+    clusters=[] ## store cluster number
+
+    ## group clusters
+    for k,v in tmp.groupby([ 'Cluster']).indices.items():
+        ## print(k, len(v))
+        clusters.append(k) ## store cluster number
+        clust_genes=set(tmp.index[v].to_list()) ## genes in the cluster
+
+        sex_gene_in_clust= set(sex_gene_list)& clust_genes ## how many sex-specific genes are found in cluster
+        ## how many are in phenoype
+        M=M ## total genes
+        N=len(sex_gene_list) ## sex-specific genes
+        n=len(clust_genes) ## total number of cluster genes
+
+        rv = hypergeom(M, n, N) ## hypergeometric  distributions
+        x=len(sex_gene_in_clust) ## number of sex-specific genes in cluster
+
+        ## for p-value we need to get summation of all probalities greater than > x
+        pval= 1-rv.cdf(x)
+        pvals.append(pval)
+        n_list.append(n)
+        x_list.append(x)
+        genes.append(', '.join(sex_gene_in_clust))
+    fdr=mtest.multipletests(pvals, alpha=0.05, method='fdr_bh')
+    enrich={'Cluster':clusters, 'pvals':pvals,'cluster_size':n_list,'# of genes found in cluster':x_list,'genes':genes,'FDR':fdr[1]}
+
+    ## create enrichment table
+    enrich_df=pd.DataFrame.from_dict(enrich)
+    enrich_soreted=enrich_df.sort_values(by=['pvals'],ascending=True)
+
+    enrich_soreted.to_csv(outfile,sep='\t',index=None)
+    
+
+
+
+def enrich_cluster_final():
+    ''' Calculate p-value and FDR using enrichment analysis. We used hypergeometric test'''
+
+    ### input file (provided by Oliver): this file has 3 columns
+    # First column: 'new gene ID'
+    # Second column: 'Cluster'
+    # Third column: 'cons phenotype'
+    ##
+    #input_file=current_folder+'/Kasia new cluster enrichment for Vikash.txt'
+    #df=pd.read_csv(input_file,sep='\t')## input file as a dataframe
+    df = r.input_for_enrichment
+    df
+    #df=df.fillna('NA') ## nan is fill with NA
+    # df['consensus phenotype']=df['consensus phenotype'].str.replace('None','NA')
+    tmp=df.copy() ## this is the temperory data frame same as a original dataframe
+    tmp.set_index('new gene ID',inplace=True) ## make gene ids as index
+
+    ## seprate the dataframes according sex-specific phenotypes
+    male_df=tmp[(tmp['cons phenotype']== 'Essential')]
+    female_df=tmp[(tmp['cons phenotype']== 'Dispensable')]
+    both_df=tmp[(tmp['cons phenotype']== 'Slow')]
+
+
+    ## enrichment analysis for male
+    outfile=current_folder+'/../data_to_export/module_enrichment_results/Module_enrichment_bushell_essential.txt'
+    #First argumnet: temperory dataframe
+    #Second argument: list of male-specific genes
+    #Third argumnet: file where we store enrichment analysis
+    apply_enrich(tmp,male_df.index.to_list(),outfile)
+
+    ## enrichment analysis for female: similar as male
+
+    outfile=current_folder+'/../data_to_export/module_enrichment_results/Module_enrichment_bushell_dispensable.txt'
+    apply_enrich(tmp ,female_df.index.to_list(),outfile)
+
+    ## enrichment analysis for both sexes: : similar as male
+
+    outfile=current_folder+'/../data_to_export/module_enrichment_results/Module_enrichment_bushell_slow.txt'
+    apply_enrich(tmp,both_df.index.to_list(),outfile)
+if __name__ == '__main__':
+
+   enrich_cluster_final()
+```
+
 #### Visualise module expression
 
 plot out modules
@@ -812,7 +1256,8 @@ UMAP_modules <- plot_cells(monocle.object, genes=gene_module_df_sex %>% filter(m
            label_cell_groups=FALSE,
            scale_to_range = TRUE,
            show_trajectory_graph=FALSE) +
-                          scale_colour_viridis_c(name = "expression", option = "C", alpha = 1) +
+                          #scale_colour_viridis_c(name = "expression", option = "C", alpha = 1) +
+                          scale_color_continuous_sequential(palette = "Purples 2") +
                           coord_fixed() +
                           theme_void() +
                           theme(legend.position = "bottom", strip.text.x = element_text(size = 15))
@@ -1381,3 +1826,46 @@ getAnywhere(aggregate_gene_expression)
 ```
 
 In conclusion, the plots will look different if scaling is done by heatmap as it does not do the relimiting - i.e. anything < -3 and 3 < for the z-scores. the scaling is done on the transformed columns (e.g. when applying 'scale' to a matrix, it does it in a column-wise manner) which in this case, the modules are columns and so it does the correct scaling required. This is because the input is normalised cell counts and so the cells have already been scaled. 
+
+## enrichment analysis in R first try
+didn't work 
+```{r}
+## this was derived from an answer here: https://stackoverflow.com/questions/64969842/how-to-calculate-hypergeometric-test-for-each-row-in-data-frame-with-bonferroni
+## the test dataset 
+# Total_mRNAs = Total_genes_in_screen = N (constant)
+# subset_mRNAs = Total_hits_in_screen = n (constant)
+# Total_targets_targets = Total_genes_in_module = K
+# subset_targets = Hits_in_module = k
+
+# Total_genes_in_screen <- nrow(screen_hits[!is.na(screen_hits$`Gam phenotype screen`), ])
+# ## this is if you take the screened genes in the cluster
+# #Total_genes_in_screen <- as.data.frame(pc_screened$screened)
+# Total_hits_in_screen <- nrow(screen_hits[which(screen_hits$`Gam phenotype screen` == "Both" | screen_hits$`Gam phenotype screen` == "Females" | screen_hits$`Gam phenotype screen` == "Males"), ] )
+# Hits_in_module <- as.data.frame(table(df_hits_gene_modules$module))$Freq
+# Total_genes_in_module <- as.data.frame(table(gene_module_df_sex$module))$Freq
+# Module_names <- as.data.frame(table(gene_module_df_sex$module))$Var1
+# 
+# df1 <- data.frame(Module_names = Module_names, Total_genes_in_module = Total_genes_in_module, Hits_in_module = Hits_in_module, Total_hits_in_screen = rep(Total_hits_in_screen, length(Module_names)), Total_genes_in_screen = rep(Total_genes_in_screen, length(Module_names)))
+# 
+# library(broom)
+# result = lapply(1:nrow(df1),function(i){
+#        not_target_subset = df1$Total_genes_in_module[i] - df1$Hits_in_module[i]
+#        not_subset = df1$Total_genes_in_screen[i] - df1$Total_hits_in_screen[i] - not_target_subset
+#        
+#        
+#        M = cbind(c(df1$Hits_in_module[i],df1$Total_hits_in_screen[i]-df1$Hits_in_module[i]),
+#              c(not_target_subset,not_subset))
+#       
+#        res = data.frame(Module_names=df1$Module_names[i],
+#                 tidy(fisher.test(M,alternative="greater")))
+# 
+#        return(res)
+# })
+# 
+# ## bind everything together
+# result = do.call(rbind,result)
+# ## Adjust p value using bonferoni multiple hypothesis correction
+# result$padj = p.adjust(result$p.value,"bonferroni")
+# 
+# result
+```

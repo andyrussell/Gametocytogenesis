@@ -1,0 +1,85 @@
+---
+title: "GCSKO Supplementary MCA Website"
+output: html_notebook
+---
+
+```{r}
+library(Seurat)
+library(ggplot2)
+library(colorspace)
+```
+
+
+We will export the wt integrated object for data visualisation on the website:
+
+```{r}
+## this is from the output of GCSKO_merge_wt.Rmd:
+tenx.justwt.integrated
+```
+
+We need to reformat the data into a single table with our categories of interest
+
+meta data
+```{r}
+## meta data
+mca_website_meta <- tenx.justwt.integrated@meta.data[ ,c("nFeature_RNA", "experiment", "old_pt_values", "monocle_sex", "pt_id_cols", "seurat_clusters_dot_plotting", "mca_topcell_sp")]
+## add host:
+mca_website_meta$Host <- "Mouse"
+
+## add coordinate reductions:
+mca_website_meta <- merge(mca_website_meta, tenx.justwt.integrated@reductions[["umap"]]@cell.embeddings, by = 0)
+
+## Clean up names etc.
+mca_website_meta$experiment[mca_website_meta$experiment == "tenx_5k"] <- "10x"
+mca_website_meta$experiment[mca_website_meta$experiment == "mutants"] <- "Smart-seq2"
+
+names(mca_website_meta) <- c("CELL_ID", "nGenes", "Technology", "Pseudotime", "Sex", "Sex_pseudotime", "Cluster", "MCA_assignment", "Host", "UMAP_1", "UMAP_2")
+
+rownames(mca_website_meta) <- mca_website_meta$CELL_ID
+
+## change MCA designations
+mca_website_meta$MCA_assignment_new <- mca_website_meta$MCA_assignment
+mca_website_meta$MCA_assignment_new[mca_website_meta$MCA_assignment == "mutants"] <- "Smart-seq2"
+```
+
+Expression data
+```{r}
+mca_website_counts <- tenx.justwt.integrated@assays$RNA@scale.data
+# change - to _
+rownames(mca_website_counts) <- gsub("-", "_", rownames(mca_website_counts))
+```
+
+both merged
+```{r}
+mca_website_combined <- merge(mca_website_meta, as.data.frame(t(mca_website_counts)), by = 0)
+```
+
+test
+```{r}
+ggplot(mca_website_combined, aes(x = UMAP_1, y = UMAP_2, col = PBANKA_0722600)) +
+  geom_point(size = 0.5) +
+                          coord_fixed() + 
+                          theme_void() + 
+                          labs(title = expression(italic(fam-b2)~(Ring))) + 
+                          theme(plot.title = element_text(hjust = 0.5), legend.text = element_text(size = 5), text=element_text(size=6.0), plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
+                          scale_color_continuous_sequential(palette = "Purples 2", labels = number_format(accuracy = 0.1)) +
+                          guides(colour = guide_colourbar(barwidth = 0.3, barheight = 3.0, title = ""))
+```
+
+Note - other plots use:
+                                    min.cutoff = "q05", 
+                                    max.cutoff = "q95", 
+                                    order = TRUE
+So website may look slightly different to figures due to this
+
+
+export
+```{r}
+## export
+write.csv(mca_website_meta, file = "./mca_website_meta.csv")
+write.csv(mca_website_counts, file = "./mca_website_counts.csv")
+write.csv(mca_website_combined, file = "./mca_website_combined.csv")
+```
+
+
+

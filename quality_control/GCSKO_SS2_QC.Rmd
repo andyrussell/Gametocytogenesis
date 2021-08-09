@@ -1292,6 +1292,127 @@ generate clusters:
 #ss2.mca.integrated <- FindClusters(ss2.mca.integrated, resolution = 1, random.seed = 42, algorithm = 2)
 ```
 
+## Cell x Gene
+
+```{r}
+# test <- ss2_mutants_final
+# ## re-run PCA
+# test <- RunPCA(test, npcs = 50, verbose = FALSE)
+# 
+# ## Run UMAP
+# test <- RunUMAP(test,
+#                 umap.method = "umap-learn",
+#                 n.neighbors = 10,
+#                 reduction = "pca", 
+#                 dims = 1:50, 
+#                 seed.use = 1234, 
+#                 min.dist = 0.35, 
+#                 reduction.name = "umap_cxb", 
+#                 reduction.key='umapcxb_')
+# 
+# ## View
+# DimPlot(test, reduction = "umap_cxb", label = TRUE, repel = TRUE, label.size = 5, pt.size = 0.5, group.by = "identity_name_updated") +
+#   coord_fixed() +
+#   theme_void() +
+#   theme(legend.position = "bottom") +
+#   guides(colour=guide_legend(nrow=3,byrow=TRUE, override.aes = list(size=4)))
+```
+
+```{r}
+## read in data from table
+cellxgene_table <- read.table("../data/Smartseq2/cellxgene.txt", header = TRUE, sep = "\t", stringsAsFactors = TRUE)
+rownames(cellxgene_table) <- cellxgene_table$X
+## subset cols of interest
+cellxgene_table <- cellxgene_table[ ,c("umap1", "umap2")]
+## rename cols:
+names(cellxgene_table) <- c("cellxgene_umap1", "cellxgene_umap2")
+## make into matrix so it can be saved into seurat:
+cellxgene_table <- as.matrix(cellxgene_table)
+
+## subset for cells only in final object
+cellxgene_table <- cellxgene_table[rownames(cellxgene_table) %in% colnames(ss2_mutants_final), ]
+
+## make subset seurat with only these cells
+cellxgene_seurat <- subset(ss2_mutants_final, cells = rownames(cellxgene_table))
+
+## store this optimsed UMAP in a custom dim slot
+cellxgene_seurat[["cellxgene"]] <- CreateDimReducObject(embeddings = cellxgene_table, key = "cellxgene_", assay = DefaultAssay(cellxgene_seurat))
+
+## check
+DimPlot(cellxgene_seurat, label = TRUE, repel = FALSE, pt.size = 0.05, dims = c(1,2), reduction = "cellxgene") + coord_fixed()
+```
+make final plot
+
+```{r}
+## make list of genotypes
+list_of_genotypes <- unique(cellxgene_seurat@meta.data$identity_name_updated)
+
+## redorder for better plotting
+#list_of_genotypes <- list_of_genotypes[c(1, 3, 2, 4, 11, 7, 8, 12, 5, 10, 6, 9)]
+
+## make a blank list
+list_plots_cellxgene <- vector(mode = "list", length = length(list_of_genotypes))
+
+## for loop
+for(i in seq_along(list_of_genotypes)){
+    ## make a list of cells to highlight
+  list_of_cells <- rownames(cellxgene_seurat@meta.data[which(cellxgene_seurat@meta.data$identity_name_updated == list_of_genotypes[i]), ])
+  plot <- DimPlot(cellxgene_seurat, label = FALSE, pt.size = 0.1, cells.highlight = list_of_cells, dims = c(1,2), reduction = "cellxgene") + 
+  coord_fixed() + 
+  scale_color_manual(values=c("#E2E2E2", "#31206E")) + 
+  theme_void() + 
+  labs(title = paste(list_of_genotypes[i])) + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "italic"), legend.position = "none")
+  ## add to the list
+  list_plots_cellxgene[[i]] <- plot
+}
+```
+
+add plot for all genotypes coloured
+```{r}
+list_plots_cellxgene[[12]] <- DimPlot(cellxgene_seurat, label = FALSE, pt.size = 0.1, group.by = "identity_name_updated", dims = c(1,2), reduction = "cellxgene") + 
+  coord_fixed() + 
+  theme_void() + 
+  labs(title = "All genotypes") + 
+  theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 15, face = "plain"), legend.position = "bottom", legend.title = element_blank()) +
+  guides(color=guide_legend(ncol=3, override.aes = list(size=3)))
+```
+
+```{r, fig.height = 29.7, fig.width = 21}
+## plot
+composite_cellxgene <- plot_grid(list_plots_cellxgene[[9]], 
+                                      list_plots_cellxgene[[10]], 
+                                      list_plots_cellxgene[[7]], 
+                                      list_plots_cellxgene[[2]], 
+                                      list_plots_cellxgene[[4]], 
+                                      list_plots_cellxgene[[8]], 
+                                      list_plots_cellxgene[[11]], 
+                                      list_plots_cellxgene[[6]], 
+                                      list_plots_cellxgene[[1]], 
+                                      list_plots_cellxgene[[5]], 
+                                      list_plots_cellxgene[[3]] + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 13, face = "plain")),
+                                      list_plots_cellxgene[[12]] + theme(plot.title = element_text(hjust = 0.5, family="Arial", size = 13, face = "plain")),
+                                      nrow = 3)
+
+composite_cellxgene
+```
+
+save
+```{r}
+ggsave("../images_to_export/cellxgene_figure.png", plot = composite_cellxgene, device = "png", path = NULL, scale = 1, width = 21, height = 29.7, units = "cm", dpi = 300, limitsize = TRUE)
+```
+
+Save h5ad
+```{r}
+## save final object
+saveRDS(cellxgene_seurat, file = "../data_to_export/cellxgene_seurat.RDS") ## to read
+
+#library(SeuratDisk)
+#SaveH5Seurat(cellxgene_seurat, filename = "../images_to_export/cellxgene_seurat.h5Seurat")
+#Convert("../images_to_export/cellxgene_seurat.h5Seurat", dest = "h5ad")
+```
+
+
 # Save {.tabset}
 
 save counts and pheno without anopheles and control cells
