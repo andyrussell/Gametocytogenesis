@@ -4,11 +4,13 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
+library(tidyverse)
+theme_set(theme_bw())
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r }
-library(tidyverse)
+
 loadAndCollapse <- function(file) {
   counts <- read.csv(paste0("./barcode_counts/", file), header = T, stringsAsFactors = FALSE)
   counts <- counts[counts$barcode != "no_match", ]
@@ -27,6 +29,7 @@ loadAndCollapse <- function(file) {
 
 metadata <- read_csv("./metadata/SampleAssignments.csv")
 files <- unique(metadata$Run)
+files
 files <- files[!is.na(files)]
 files <- paste0(files, ".csv")
 dfs <- lapply(files, loadAndCollapse)
@@ -37,7 +40,7 @@ abundances <- inner_join(abundances, metadata, by = c("Index", "Run"), how = "le
 
 abundances <- abundances %>% filter(Condition != "DoNotAnalyse")
 
-abundances <- abundances %>% pivot_longer(cols = starts_with("PBANKA"), names_to = "gene", values_to = "count")
+abundances <- abundances %>% pivot_longer(cols = c(starts_with("PBANKA"),`PC_API0037`,`p230p-tag` ), names_to = "gene", values_to = "count")
 
 # Set previously implicit 0 values for barcodes not found.
 abundances <- abundances %>% replace_na(list(count = 0))
@@ -54,6 +57,10 @@ wellrepresentedinpassage <- abundances %>%
   filter(max(proportion) > 0.0001) %>%
   summarise(toinclude = T)
 
+wellrepresentedinpassage
+abundances
+```
+```{r}
 # Filter in only these cases
 abundances<-abundances %>% left_join(wellrepresentedinpassage) %>% filter(toinclude==T)
 
@@ -64,6 +71,10 @@ abundances<-abundances %>% group_by(Pool,Condition,Mouse,Replicate) %>% mutate(p
 
 #We'll use log-2 proportions for most downsread calculations
 abundances<- abundances %>% mutate(logprop=log2(proportion))
+
+abundances <- abundances %>% mutate(Mouse = as.character(case_when(Mouse=='A' ~ 1,Mouse=='B' ~ 2,Mouse=='C' ~ 3,TRUE ~ as.numeric(Mouse))))
+
+
 ```
 
 Diagnostic plot to verify reasonable coverage in each sample, grouped by sequencing run.
@@ -73,4 +84,419 @@ totals<-abundances%>% group_by(Pool,Condition,Mouse,Replicate,Run)%>% summarise(
 ggplot(totals,aes(x=paste(Pool,Condition,Mouse,Replicate),fill=Pool,y=sum))+geom_bar(stat="identity")+facet_wrap(~Run,scales="free",ncol=3) +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,size=5))
 
 
+```
+
+Diagnostic plot of reproducibility of technical replicates:
+
+```{r}
+
+for_scatter <- abundances %>% select(Pool,Condition,Mouse,Replicate,gene,logprop) %>% pivot_wider(names_from="Replicate",values_from="logprop",names_prefix ="replicate")
+
+ggplot(for_scatter,aes(x=replicate1,y=replicate2,color=Pool))+facet_wrap(~paste(Pool,Mouse,Condition))+geom_point(size=0.01)
+```
+
+Plot correlations. (Sorts 2 and 4 represented a sort of low intensity marker genes to investigate their potential and were not used further.) Negsort represents a sort of GFP- and RFP- negative parasites (DNA positive) whilst control represents a sample from the Histodenz gradient.
+```{r,fig.height=30,fig.width=10}
+library(zoo)
+
+variance <- abundances %>%
+  group_by(Pool, Condition, Mouse, gene) %>%
+  summarise(sd = sd(logprop), val1 = logprop[1], val2 = logprop[2], meanlogprop = mean(logprop))
+
+```
+
+```{r}
+cors <- variance %>%
+  group_by(Condition, Mouse, Pool) %>%
+  summarise(cor = cor(val1, val2), n = n())
+
+ggplot(cors, aes(x=Condition,y=cor,color=Mouse))+facet_wrap(~Pool)+geom_point() + theme(axis.text.x = element_text(angle = 90))
+
+
+variance <- variance %>%
+  group_by(Pool, Condition, Mouse) %>%
+  arrange(-meanlogprop) %>%
+  mutate(medsd = rollmean(x = sd, k = 11, fill = "extend"))
+variance <- variance %>% mutate(monotonicmedsd = cummax(medsd))
+
+```
+
+```{r}
+
+ggplot(variance, aes(x=meanlogprop,y=sd,color=Pool))+facet_grid(Mouse+Condition~Pool)+geom_point() + theme(axis.text.x = element_text(angle = 90))+geom_smooth(color="gray") + geom_line(aes(y=monotonicmedsd), color="black")
+
+
+```
+
+For some experiments a negative sorted population was not collected. Instead we use as a negative control the Nycodenz-purified parasite pellet
+```{r}
+variance <- variance %>%
+  ungroup() %>%
+  mutate(Condition = case_when(Pool=="SP3" & Condition=="control" ~ "Control",
+                               Pool!="SP3" & Condition=="Negsort" ~ "Control",
+                               TRUE ~ Condition
+                               )
+           )  %>% filter(Condition %in% c("RFPsort","GFPsort","Control"))
+ggplot(variance, aes(x=meanlogprop,y=sd,color=Pool))+facet_grid(Mouse+Condition~Pool)+geom_point() + theme(axis.text.x = element_text(angle = 90))+geom_smooth(color="gray") + geom_line(aes(y=monotonicmedsd), color="black")
+
+
+noncontrol <- variance %>% filter(Condition != "Control")
+control <- variance %>% filter(Condition == "Control")
+
+comparison <- inner_join(ungroup(control), ungroup(noncontrol), by = c("Mouse", "gene", "Pool") , suffix=c("Control","Other"))
+
+
+```
+
+
+```{r}
+gaussianMeanAndVariance <- function(vals, variances) {
+  df <- data.frame(value = vals, variance = variances)
+  df <- df[complete.cases(df), ]
+
+  vals <- df$value
+  variances <- df$variance
+  if (length(vals) == 1) {
+    var <- variances[1]
+    mean <- vals[1]
+  }
+  else {
+    precs <- 1 / variances
+
+    mean <- sum(vals * precs) / sum(precs)
+    var1 <- (1 / sum(precs)) * (1 / (length(vals) - 1)) * sum((vals - mean)**2 / variances)
+    var2 <- 1 / sum(precs)
+    if (is.na(var1)) {
+      var1 <- 0
+    }
+    var <- max(var1, var2)
+  }
+  return(tibble(mean=mean,variance=var))
+}
+```
+
+
+Calculate the difference in log2 proportions and propagate its uncertainty through
+```{r}
+comparison <- comparison %>% mutate(difference = meanlogpropOther-meanlogpropControl)
+comparison <- comparison %>% mutate(differencesd = sqrt(monotonicmedsdOther^2 + monotonicmedsdControl^2))
+comparison <- comparison %>% mutate(Condition = ConditionOther)
+
+```
+
+
+```{r}
+library(ggrepel)
+
+controls<- c("PBANKA_071830","PBANKA_120780","PBANKA_083110","PBANKA_051060","PBANKA_051820","PBANKA_132610")
+controls
+controlsset<-filter(comparison, gene %in% controls)
+write_csv(controlsset,"tempabc.csv")
+
+#ggplot(comparisonmerge,aes(y=difference,ymin=difference-2*differencesd,ymax=difference+2*differencesd,x=1))+geom_point()+facet_wrap(~Condition+Pool)+ theme(axis.text.x = element_text(angle = 90, hjust = 1))+geom_errorbar()
+
+controlsmerge<- controlsset %>% group_by(Condition,Pool) %>% summarise(gaussianMeanAndVariance(difference, differencesd^2)) %>% mutate(difference=mean, differencesd = sqrt(variance))
+
+comparisonnormalised <- inner_join(comparison, controlsmerge,by=c("Pool","Condition"),suffix=c("","control")) %>% mutate(difference=difference-differencecontrol,differencesd=sqrt(differencesd^2+differencesdcontrol^2))
+
+
+comparisonmerge <- comparisonnormalised %>% group_by(gene,Condition) %>% summarise(gaussianMeanAndVariance(difference, differencesd^2)) %>% mutate(difference=mean,differencesd=sqrt(variance))
+
+
+
+
+comparisonmerge <- comparisonmerge %>% mutate(p = 1 - pnorm(0, mean = difference, sd = differencesd))
+comparisonmerge <- comparisonmerge %>% mutate(diffmax = difference + 2 * differencesd)
+comparisonmerge <- comparisonmerge %>% mutate(diffmin = difference - 2 * differencesd)
+comparisonmerge <- comparisonmerge %>% mutate(power = ifelse(diffmin > -1, "notreduced", ifelse(diffmax < (-1), "reduced", "nopower")))
+GFP <- filter(comparisonmerge, Condition == "GFPsort")
+GFP$gene <- as.character(GFP$gene)
+RFP <- filter(comparisonmerge, Condition == "RFPsort")
+RFP$gene <- as.character(RFP$gene)
+# joint=full_join(GFP,RFP,by=c("gene","Pool"))
+joint <- full_join(GFP, RFP, by = c("gene"), suffix = c(".gfp", ".rfp"))
+joint$minmax <- pmin(joint$diffmax.gfp, joint$diffmax.rfp)
+joint <- mutate(joint,
+  class = case_when(
+    diffmax.gfp < -1 & diffmax.rfp < -1 ~ "lossOfBoth",
+    diffmax.gfp < -1 ~ "lossOfMales",
+    diffmax.rfp < -1 ~ "lossOfFemales",
+    diffmin.rfp > 1 & diffmin.gfp > 1 ~ "gainOfBoth",
+    diffmin.rfp > 1 ~ "gainOfFemales",
+    diffmin.gfp > 1 ~ "gainOfMales",
+    diffmax.gfp > -1 & diffmax.rfp > -1 ~ "No change",
+    TRUE ~ "Unsure"
+  )
+)
+
+both = comparisonmerge %>% group_by(Condition) %>% mutate(the_rank= rank(difference)) %>% mutate(class = case_when(diffmax< -1  & Condition =="GFPsort" ~ "Loss of males",diffmax< -1  & Condition =="RFPsort" ~ "Loss of females", diffmin>-1 ~ "Not reduced", TRUE~ "No power" )) %>%arrange(difference)
+
+pal = c("Loss of both"="#f2932d","Loss of males"="#4e8e36","Loss of females"="#e32127","No power"="#d6d7d6","Not reduced"="#145492","No change"="#888888")
+
+
+lookup = c("GFPsort"="GFP (male) vs. Hoechst only (asexual)","RFPsort"="RFP (female) vs. Hoechst only")
+
+a<-ggplot(both,aes(x=the_rank,ymin=diffmin,ymax=diffmax,color=class))+geom_hline(yintercept=0,linetype=2)+geom_errorbar() +facet_wrap(~lookup[Condition],ncol=1) +scale_color_manual(values = pal)+theme_classic()+labs(y=bquote(log[2]~'FC'),x="Rank",color="", caption="Rank")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),axis.line.x=element_blank())+coord_cartesian(ylim=c(-5,3))+
+  theme(
+   
+    strip.background = element_blank(),
+    strip.placement = "inside",legend.position="top", plot.caption = element_text(hjust = 0.5,size=11)
+  )+guides(fill=guide_legend(nrow=2,byrow=TRUE),shape=guide_legend(nrow=2,byrow=TRUE),color=guide_legend(nrow=2,byrow=TRUE)) + scale_x_continuous(expand=c(0,0)) 
+
+fill_pal = c("Loss of both"="#f2932d","Loss of males"="#4e8e36","Loss of females"="#e32127","No power"=NA,"Not reduced"="#145492","No change"=NA)
+shape_pal = c("Loss of both"=23,"Loss of males"=24,"Loss of females"=25,"No power"=6,"Not reduced"=5,"No change"=23)
+
+
+
+gene_names = c("PBANKA_143750"="AP2-G", "PBANKA_103430"="AP2-G2")
+b<-ggplot(joint %>% mutate(class=case_when(
+    diffmax.gfp < -1 & diffmax.rfp < -1 ~ "Loss of both",
+    diffmax.gfp < -1 ~ "Loss of males",
+    diffmax.rfp < -1 ~ "Loss of females",
+    diffmax.gfp > -1 & diffmax.rfp > -1 ~ "No change",
+    TRUE ~ "Unsure"
+  )),aes(x=difference.gfp,y=difference.rfp, label=gene_names[gene]))+geom_hline(color="gray",yintercept=0)+geom_vline(color="gray",xintercept=0)+geom_point(aes(color=class,fill=class, shape = class ))+theme_classic()+
+  theme(legend.position="top")+labs(fill="",color="",shape="",x=bquote(log[2]~'FC GFP'),y=bquote(log[2]~'FC RFP')) +coord_cartesian(xlim=c(-5,2),ylim=c(-5,2))+scale_color_manual(values=pal)+scale_fill_manual(values=fill_pal)+scale_shape_manual(values=shape_pal)+guides(fill=guide_legend(nrow=2,byrow=TRUE),shape=guide_legend(nrow=2,byrow=TRUE),color=guide_legend(nrow=2,byrow=TRUE))+geom_text_repel(nudge_x = -1, nudge_y=1,min.segment.length = 0,data = joint%>% filter(gene  %in% c("PBANKA_143750", "PBANKA_103430")))
+
+b
+
+library(patchwork)
+
+asex = read_csv("./supporting_data/asexual_screen/asexualscreendata.csv")
+
+bla = comparisonmerge %>% inner_join(asex,by="gene")
+#bla %>% filter(current_version_ID %in% new_genes)
+
+
+#comparisonnormalised %>% filter(gene=="PBANKA_010240")  %>% arrange(difference)
+
+
+#new_genes=c("PBANKA_1447900","PBANKA_0413400","PBANKA_1302700","PBANKA_0102400","PBANKA_0716500","PBANKA_0828000","PBANKA_0902300","PBANKA_1418100","PBANKA_1435200")
+#comparisonmerge$gene %in%(new_genes) 
+
+
+
+genes = c("PBANKA")
+ggsave("plotSubPart.pdf",a+b,width = 18, height=10,units="cm")
+
+table(joint$class)
+asexual <- read_csv("./Archive/otherdata/asexualscreendata.csv", col_names = T)
+together = inner_join(joint,asexual)
+
+colnames(together)
+```
+```{r}
+
+to_write = together %>% dplyr::select(gene, current_version_ID, phenotype,Relative.Growth.Rate, difference.gfp,differencesd.gfp,diffmin.gfp,diffmax.gfp,power.gfp,difference.rfp,differencesd.rfp,diffmin.rfp,diffmax.rfp,power.rfp,class) 
+
+
+to_write$difference.gfp
+
+
+
+to_write = dplyr::rename(to_write,asexual_phenotype=phenotype, asexual_relative_growth_rate=Relative.Growth.Rate, GFP_log2change = difference.gfp,GFP_log2change_sd =differencesd.gfp, GFP_log2change_min = diffmin.gfp,GFP_log2change_max=diffmax.gfp,GFP_result =  power.gfp, RFP_log2change = difference.rfp, RFP_log2change_sd = differencesd.rfp,RFP_log2change_min =  diffmin.rfp,RFP_log2change_max = diffmax.rfp,RFP_result = power.rfp, overall_gametocyte_phenotype = class)
+
+
+result_lookup = c("nopower" =  "No power", reduced = "Reduced", "notreduced" = "Not reduced")
+to_write$GFP_result = result_lookup[to_write$GFP_result ]
+to_write$RFP_result = result_lookup[to_write$RFP_result ]
+
+
+individual_screens = comparisonnormalised %>% select(gene,Condition,Pool,Mouse,difference, differencesd,Condition) %>% dplyr::rename(log2change=difference, log2change_sd=differencesd,Sorted_population=Condition)
+
+oocyst_phenotypes = read_csv("./stanway_oocyst_phenotypes.csv") %>% dplyr::select(`Gene ID`,phenotype) %>% dplyr::rename(current_version_ID=`Gene ID`,`Oocyst phenotype`=phenotype)
+
+to_write = left_join(to_write,oocyst_phenotypes)
+
+to_write
+
+dozi_phenotypes = read_csv("DOZI_regulated_genes.csv")%>% dplyr::rename(current_version_ID=`Gene_ID_PB`)
+
+to_write = left_join(to_write,dozi_phenotypes)
+to_write
+
+
+pool_path = "./superpools_picking_list/"
+files <- dir(pool_path,pattern = "*.csv")
+
+pool_data <- data_frame(filename = files) %>% # create a data frame
+                                         # holding the file names
+  mutate(file_contents = map(filename,          # read files into
+           ~ read_csv(file.path(pool_path, .))) # a new data column
+        )   %>% unnest() %>% select(gene_id, `PbGEM-ID`,pool)
+pool_data<- pool_data %>% separate(pool,into=c("pool"),remove=TRUE,sep=" ") %>% arrange(pool) %>% mutate(pool=as.numeric(as.factor(pool))) %>%dplyr::rename(gene=gene_id)
+
+to_write = left_join(to_write,pool_data)
+to_write
+
+
+
+targeted = comparison %>% filter(Pool=="Targeted") %>% group_by(gene) %>% summarise(n=n())
+
+to_write$included_in_targeted_screen = to_write$gene %in% targeted$gene
+
+single_cell_modules = read_csv("./gene_module_df_sex.csv") %>% dplyr::select(id,module) %>% mutate(id=gsub("-","_",id)) %>% dplyr::rename(current_version_ID=id)%>% dplyr::rename(`scRNAseq module`=`module`)
+
+
+
+to_write = left_join(to_write,single_cell_modules)
+
+
+bulk_clusters = read_csv("./ap2g_cluster_numbers.csv") %>% separate(`Gene_ID`,into=c("current_version_ID"),sep="\\.") %>% dplyr::rename(`AP2G Over-expression Cluster`=`Cluster`)
+to_write = left_join(to_write,bulk_clusters)
+
+
+library(writexl)
+write_xlsx(list("Combined phenoypes"=to_write, "Individual screens" = individual_screens),"TableS1.xlsx")
+
+table(to_write$overall_gametocyte_phenotype)
+
+
+```
+
+
+```{r}
+# Requirements: Bioconductor packages topGO and Rgraphviz for visualisation
+
+library(topGO)
+library(tidyverse)
+select = dplyr::select
+go_data = read_tsv("./supporting_data/PlasmoDBPutativeFunctions.txt")
+asexual = read_csv("./supporting_data/asexual_screen/asexualscreendata.csv")
+
+
+both<- inner_join(asexual, joint)
+
+losses = both %>% filter(grepl("loss",class))
+
+# This is a demo - actually set this variable to this list of gene IDs where you want to test for enrichment
+interesting_gene_ids = losses$current_version_ID
+interesting_gene_ids
+
+
+go_mapping_df = go_data %>%  dplyr::select(c(`Gene ID`,contains("GO") & contains("IDs"))) %>% pivot_longer(-`Gene ID`, names_to="type",values_to="go_id") %>% separate_rows(go_id,sep=";")
+
+# NB we could filter on type here to separate out computed/curated
+# go_mapping_df %>% filter(grepl("Curated",type))
+
+go_mapping_df = go_mapping_df %>% dplyr::select(`Gene ID`,go_id) %>% distinct() %>% filter(go_id !="N/A") %>% group_by(`Gene ID`) %>% summarise(go_id=list(go_id))
+
+mapping = go_mapping_df$go_id
+names(mapping) = go_mapping_df$`Gene ID`
+
+#mapping = mapping[names(mapping) %in% both$current_version_ID]
+
+gene_names = factor(as.integer(go_data$`Gene ID` %in% c(interesting_gene_ids)))
+names(gene_names) = go_data$`Gene ID`
+
+gene_names = gene_names[names(gene_names) %in% both$current_version_ID]
+#If the universe of genes you are interested in is not the whole set then filter the gene_names variable accordingly.
+
+
+# Change the ontology to BP/MF/CC to run on different GO ontologies
+
+GOdata <- new("topGOdata", ontology = "MF", allGenes =gene_names, annot = annFUN.gene2GO, gene2GO = mapping)
+
+
+# You can run any number of types of algorithm and statistic. See topGO documentation:
+
+resultFisher <- runTest(GOdata, algorithm = "classic", statistic = "fisher")
+
+resultKS <- runTest(GOdata, algorithm = "classic", statistic = "ks")
+
+fisherElim <- runTest(GOdata, algorithm = "elim", statistic = "fisher")
+ 
+
+
+allRes <- GenTable(GOdata, classicFisher = resultFisher, classicKS = resultKS, fisherElim=fisherElim, orderBy = "fisherElim", ranksOf = "fisherElim", topNodes = 100)
+
+
+print(allRes)  
+
+
+```
+
+```{r}
+library(tidyverse)
+counts <- read_tsv("./Archive//ap2gtimecourse/counts.txt", col_names = T)
+
+phenodata <- read_tsv("./Archive/ap2gtimecourse/phenodata.txt", col_names = T)
+phenodata$X1 <- gsub("X820", "820", phenodata$X1)
+
+narrow <- counts %>% gather("sample", "count", -X1)
+colnames(narrow) <- c("gene", "X1", "count")
+narrow <- narrow %>% filter(count > 0)
+
+both <- inner_join(phenodata, narrow)
+both <- both %>%
+  group_by(X1) %>%
+  mutate(proportion = count / sum(count))
+
+
+counts2 <- as.matrix(select(counts, -X1))
+rownames(counts2) <- counts$X1
+
+
+timepoints <- unique(phenodata$time)
+i <- 9
+cols <- colnames(counts2)
+library(DESeq2)
+
+performDE <- function(filter) {
+  abc <- tibble()
+
+  filter2 <- filter %>% filter(Strain == "AP2Goe")
+  print(unique(filter$time))
+  if (length(unique(filter2$rapamycin)) > 1) {
+    
+    
+    counttable <- counts2[, base::match(filter2$X1, cols)]
+    dds <- DESeqDataSetFromMatrix(countData = counttable,
+                              colData = filter2,
+                              design= ~  rapamycin)
+    dds <- DESeq(dds)
+    
+
+    res <- results(dds)
+    abc <- as.tibble(res) 
+    abc$id = rownames(results(dds))
+    abc$timepoint <- unique(filter$time)
+  }
+  return(abc)
+}
+
+
+new <- phenodata %>%
+  group_by(time) %>%
+  filter(time != "3h") %>%
+  do(performDE(.))
+
+
+oneversion <- joint
+
+merge <- right_join(oneversion, asexual)
+new$id <- gsub(".1$", "", new$id)
+new$time2 <- as.numeric(gsub("h", "", new$time))
+merge2 <- inner_join(new, merge, by = c("id" = "current_version_ID"))
+filt <- merge2 %>%
+  group_by(timepoint) %>%
+  arrange(pvalue) %>%
+  filter(row_number() < 100) %>%
+  mutate(n = row_number())
+ggplot(filt, aes(y = -n, x = time2, fill = class)) +
+  geom_tile() +
+  geom_line(data = filter(filt, !is.na(class)), aes(group = id, color = class, alpha = 0.5))
+
+
+filt <- merge2 %>%
+  group_by(timepoint) %>%
+  arrange(pvalue) %>%
+  mutate(n = row_number())
+
+ggplot(filt %>% filter(class !="No change", n<100), aes(y = n, x = time2, fill = class,color=class, group=id)) + geom_point(data=filt %>% filter(class =="No change", n<100) ,color="gray",alpha=0.2) + geom_line(data=filt %>% filter(class =="No change", n<100) ,color="gray",alpha=0.2)+
+  geom_point() +geom_line()+theme_bw()+
+  labs(y = "Genes ranked at each timepoint by p-value", x = "Timepoint (hours) after AP2-G induction")
 ```
